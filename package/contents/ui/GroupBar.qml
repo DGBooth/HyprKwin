@@ -26,6 +26,11 @@ Window {
     width: ready ? bar.width : 1
     height: ready ? bar.height : 1
 
+    // Same interface as Border, so the overlay bookkeeping can treat both alike.
+    function hideAll() {
+        hide();
+    }
+
     function sync() {
         if (ready && !overlaysHidden) show();
         else hide();

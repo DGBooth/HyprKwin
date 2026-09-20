@@ -13,8 +13,6 @@ Item {
     id: root
 
     property var driver: null
-    property var borders: []
-    property var groupBars: []
     // Bumped on every decoration update: overlays re-check whether they should
     // be on screen, so one that was closed behind our back comes back.
     property int revision: 0
@@ -156,35 +154,67 @@ Item {
         }
     }
 
-    // Focus borders: one overlay window per border, reused between updates.
-    Instantiator {
-        id: borderPool
-        model: root.borders.length
-        delegate: Border {
-            required property int index
-            readonly property var entry: root.borders[index] || null
-            frame: entry
-            borderWidth: root.style.borderSize || 0
-            revision: root.revision
-            active: !!entry && entry.active
-            useAccentColor: !!root.style.useAccentColor
-            activeColor: root.style.activeBorderColor || "#33ccff"
-            inactiveColor: root.style.inactiveBorderColor || "#595959"
-            overlaysHidden: root.effectActive || root.shuttingDown
+    // One overlay set per window, keyed by window id. Pooling them by index
+    // would make the border slide across the screen when focus moves to
+    // another window; keyed this way a border only ever follows its own
+    // window, and focus changes simply hide one and show another.
+    property var borderObjects: ({})
+    property var groupBarObjects: ({})
+
+    Component { id: borderComponent; Border {} }
+    Component { id: groupBarComponent; GroupBar {} }
+
+    function dropMissing(map, seen) {
+        for (const key in map) {
+            if (seen[key]) continue;
+            map[key].hideAll();
+            map[key].destroy();
+            delete map[key];
         }
     }
 
-    // Tab bars for window groups.
-    Instantiator {
-        id: groupBarPool
-        model: root.groupBars.length
-        delegate: GroupBar {
-            required property int index
-            bar: root.groupBars[index] || null
-            revision: root.revision
-            overlaysHidden: root.effectActive || root.shuttingDown
-            onTabClicked: id => root.driver.selectTab(id)
+    function syncBorders(list, cfg) {
+        style = cfg;
+        revision++;
+        const seen = {};
+        for (const entry of list) {
+            seen[entry.id] = true;
+            let border = borderObjects[entry.id];
+            if (!border) {
+                border = borderComponent.createObject(root, {
+                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+                });
+                borderObjects[entry.id] = border;
+            }
+            border.frame = entry;
+            border.active = entry.active;
+            border.borderWidth = cfg.borderSize || 0;
+            border.useAccentColor = !!cfg.useAccentColor;
+            border.activeColor = cfg.activeBorderColor || "#33ccff";
+            border.inactiveColor = cfg.inactiveBorderColor || "#595959";
+            border.revision = revision;
         }
+        dropMissing(borderObjects, seen);
+    }
+
+    function syncGroupBars(list, cfg) {
+        style = cfg;
+        revision++;
+        const seen = {};
+        for (const bar of list) {
+            seen[bar.id] = true;
+            let groupBar = groupBarObjects[bar.id];
+            if (!groupBar) {
+                groupBar = groupBarComponent.createObject(root, {
+                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+                });
+                groupBar.tabClicked.connect(id => root.driver.selectTab(id));
+                groupBarObjects[bar.id] = groupBar;
+            }
+            groupBar.bar = bar;
+            groupBar.revision = revision;
+        }
+        dropMissing(groupBarObjects, seen);
     }
 
     Component.onCompleted: {
@@ -200,8 +230,8 @@ Item {
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
             ui: {
-                setBorders: (list, cfg) => { root.style = cfg; root.borders = list; root.revision++; },
-                setGroupBars: (list, cfg) => { root.style = cfg; root.groupBars = list; root.revision++; },
+                setBorders: (list, cfg) => root.syncBorders(list, cfg),
+                setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
             },
         });
         driver.start();
@@ -212,14 +242,8 @@ Item {
     // KWin still keeps them until something reaps them, which is why the
     // driver closes leftovers at startup and uninstall.sh sweeps them.
     function hideOverlays() {
-        for (let i = 0; i < borderPool.count; i++) {
-            const border = borderPool.objectAt(i);
-            if (border) border.hideAll();
-        }
-        for (let i = 0; i < groupBarPool.count; i++) {
-            const bar = groupBarPool.objectAt(i);
-            if (bar) bar.hide();
-        }
+        for (const key in borderObjects) borderObjects[key].hideAll();
+        for (const key in groupBarObjects) groupBarObjects[key].hide();
     }
 
     Component.onDestruction: {

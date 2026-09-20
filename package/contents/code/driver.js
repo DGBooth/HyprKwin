@@ -557,6 +557,7 @@ function createDriver(env) {
                     return;
                 }
                 bars.push({
+                    id: g.wins[0],
                     x: g.rect.x, y: g.rect.y, width: g.rect.width, height: g.rect.height,
                     tabs: g.wins.map(function (id, i) {
                         var st = tracked[id];
@@ -620,7 +621,7 @@ function createDriver(env) {
                 var isActive = w === active;
                 if (!isActive && !cfg.showInactiveBorders) return;
                 var r = w.frameGeometry, b = cfg.borderSize;
-                var outer = { x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
+                var outer = { id: st.id, x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
                 if (!usableRect(outer) || r.width < MIN_DECORATED_SIZE || r.height < MIN_DECORATED_SIZE) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
                     return;
@@ -1164,7 +1165,7 @@ function createDriver(env) {
             var out = {
                 special: special.shown, spaces: {}, windows: {}, active: act ? act.id : null,
                 desktops: ws.desktops.map(function (d) { return d.id; }), currentDesktop: ws.currentDesktop.id,
-                groupBars: groupBars.map(function (b) { return { x: b.x, y: b.y, width: b.width, height: b.height, tabs: b.tabs.map(function (t) { return t.id; }) }; }),
+                groupBars: groupBars.map(function (b) { return { id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, tabs: b.tabs.map(function (t) { return t.id; }) }; }),
                 ruleErrors: ruleErrors.slice(),
                 config: cfg,
                 configReloads: reloads,

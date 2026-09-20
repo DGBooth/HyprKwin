@@ -640,6 +640,7 @@ def shutdown_with_overlays_does_not_crash_kwin(sb):
 
 
 def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
+    """x-extent of everything matching a colour, measured from a screenshot."""
     from PIL import Image
     sb.screenshot(path)
     im = Image.open(path).convert("RGB")
@@ -674,6 +675,34 @@ def windows_animate_to_their_new_tile(sb):
     eq(sb.geometry("A"), RIGHT, "A ends in B's tile")
     settled = red_x_range(sb, shots / "settled.png")
     eq(settled[0] > 900, True, "and is drawn there once settled: %r" % (settled,))
+
+
+@test(effect=True, effect_config={"Duration": 3000, "Curve": 4},
+      config={"BorderSize": 8, "UseAccentColor": "false", "ActiveBorderColor": "#00ff00"})
+def focus_changes_do_not_animate_the_border(sb):
+    """A border belongs to its window: moving focus must show it on the new
+    window at once, not slide it across the screen."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    # Opening B resizes A, and that resize is animated: let it finish first.
+    sb.settle(4.0)
+    s = sb.state()
+    eq(s["active"], sb.window("B", s)["id"], "B focused, so the border is on the right")
+    green = red_x_range(sb, shots / "before.png", rgb=(0, 255, 0))
+    eq(green[0] > 900, True, "border starts on B: %r" % (green,))
+    sb.invoke("focusLeft", settle=False)
+    frames = [red_x_range(sb, shots / ("focus%d.png" % i), rgb=(0, 255, 0)) for i in range(4)]
+    # Every frame must show the border wholly on one window or the other. A
+    # border sliding across would span both halves in some frame.
+    for frame in frames:
+        if frame is None:
+            raise AssertionError("border vanished during the focus change: %r" % (frames,))
+        if frame[1] - frame[0] > LEFT[2] + 40:
+            raise AssertionError("border was caught mid-slide between windows: %r" % (frames,))
+    eq(frames[-1][0] < 100, True, "border ends up on A: %r" % (frames,))
+    eq(sb.geometry("A"), LEFT, "no window moved")
 
 
 @test
