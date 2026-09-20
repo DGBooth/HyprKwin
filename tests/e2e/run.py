@@ -218,6 +218,28 @@ def special_workspace(sb):
     eq(sb.geometry("C", s), C3, "C tiled again")
 
 
+@test(config={"BorderSize": 4})
+def scratchpad_hides_what_is_underneath(sb):
+    """Overlays are drawn above ordinary windows, so the tiles below must not
+    show their borders and tab bars through the scratchpad."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("focusLeft")
+    sb.invoke("toggleGroup")
+    s = sb.state()
+    eq(len(s["groupBars"]), 1, "a group bar on the desktop")
+    sb.invoke("focusRight")
+    sb.invoke("moveToSpecial")
+    sb.invoke("toggleSpecial")
+    s = sb.state()
+    eq(s["special"], True, "scratchpad open")
+    eq(s["groupBars"], [], "the group bar below is hidden")
+    eq(len(sb.overlays()), 4, "only the scratchpad window is outlined")
+    sb.invoke("toggleSpecial")
+    s = sb.state()
+    eq(len(s["groupBars"]), 1, "and it comes back afterwards")
+
+
 @test
 def groups(sb):
     three(sb)

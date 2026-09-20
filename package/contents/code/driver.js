@@ -163,7 +163,6 @@ function createDriver(env) {
             borderSize: num(rc("BorderSize", 2), 2),
             borderRadius: num(rc("BorderRadius", 0), 0),
             hideFloatingTitleBars: bool(rc("HideFloatingTitleBars", false), false),
-            useAccentColor: bool(rc("UseAccentColor", true), true),
             activeBorderColor: String(rc("ActiveBorderColor", "#33ccff") || "#33ccff"),
             inactiveBorderColor: String(rc("InactiveBorderColor", "#595959") || "#595959"),
             showInactiveBorders: bool(rc("ShowInactiveBorders", false), false),
@@ -569,6 +568,7 @@ function createDriver(env) {
                 if (st) apply(st, L.windows[id], vs.visible);
             }
             if (!vs.visible) return;
+            if (special.shown && vs.space !== SPECIAL) return;
             L.groups.forEach(function (g) {
                 if (!usableRect(g.rect)) {
                     log("skipping group bar", JSON.stringify(g.rect));
@@ -631,6 +631,9 @@ function createDriver(env) {
             visible.forEach(function (st) {
                 var w = st.w;
                 if (!isTiled(st) || w.fullScreen || isMaximized(w)) return;
+                // The scratchpad floats over everything: its windows are the
+                // only ones worth outlining while it is open.
+                if (special.shown && !st.special) return;
                 // In decoration mode only fill in for windows the decoration
                 // cannot cover, so the two styles never stack.
                 if (decorationMode && isDecorated(w)) return;

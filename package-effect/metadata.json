@@ -14,7 +14,7 @@
         "Id": "hyprkwinanimations",
         "License": "GPL-3.0-or-later",
         "Name": "HyprKwin animations",
-        "Version": "0.1.0",
+        "Version": "0.2.0",
         "Website": "https://github.com/DGBooth/HyprKwin"
     },
     "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
