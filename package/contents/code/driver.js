@@ -193,6 +193,10 @@ function createDriver(env) {
 
     var OVERLAY_TITLE = "HyprKwin overlay";
 
+    function isOverlay(w) {
+        return !!w && w.pid <= 0 && String(w.caption) === OVERLAY_TITLE;
+    }
+
     // Keep our border/tab-bar windows out of the task manager, pager,
     // Alt+Tab and Overview.
     function hideOverlay(w) {
@@ -609,6 +613,43 @@ function createDriver(env) {
     // at login; a border drawn then would be a stray sliver on screen.
     var MIN_DECORATED_SIZE = 32;
 
+    // Menus, combo boxes and tooltips are ordinary windows to KWin, and our
+    // overlays are drawn above them, so a menu spilling past a window's edge
+    // would have the border painted over it.
+    function popupRects() {
+        var out = [];
+        var all = ws.windows || [];
+        for (var i = 0; i < all.length; i++) {
+            var w = all[i];
+            if (!w || w.minimized || w.deleted) continue;
+            if (!(w.popupWindow || w.popupMenu || w.dropdownMenu || w.menu || w.comboBox || w.tooltip)) continue;
+            if (String(w.caption) === OVERLAY_TITLE) continue;
+            out.push(copyRect(w.frameGeometry));
+        }
+        return out;
+    }
+
+    function overlaps(a, b) {
+        return a.x < b.x + b.width && b.x < a.x + a.width &&
+            a.y < b.y + b.height && b.y < a.y + a.height;
+    }
+
+    // True when the rect crosses the band an overlay occupies: the ring
+    // between `outer` and `outer` shrunk by `thickness`. A menu that stays
+    // inside the window never hides its border.
+    function crossesBand(rect, outer, thickness) {
+        if (!overlaps(rect, outer)) return false;
+        var inner = {
+            x: outer.x + thickness, y: outer.y + thickness,
+            width: Math.max(0, outer.width - 2 * thickness),
+            height: Math.max(0, outer.height - 2 * thickness),
+        };
+        var insideInner = rect.x >= inner.x && rect.y >= inner.y &&
+            rect.x + rect.width <= inner.x + inner.width &&
+            rect.y + rect.height <= inner.y + inner.height;
+        return !insideInner;
+    }
+
     // A rect KWin can actually render an overlay for.
     function usableRect(r) {
         return !!r && isFinite(r.x) && isFinite(r.y) && isFinite(r.width) && isFinite(r.height) &&
@@ -620,6 +661,7 @@ function createDriver(env) {
         var borders = [];
         var active = ws.activeWindow;
         var visible = visibleWindows();
+        var popups = popupRects();
         var fullscreenScreens = {};
         visible.forEach(function (st) {
             if (st.w.fullScreen) fullscreenScreens[st.w.output ? st.w.output.name : ""] = true;
@@ -648,10 +690,20 @@ function createDriver(env) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
                     return;
                 }
+                for (var p = 0; p < popups.length; p++) {
+                    if (crossesBand(popups[p], outer, b + Math.max(0, cfg.borderRadius))) {
+                        log("border hidden behind a popup", w.caption);
+                        return;
+                    }
+                }
                 borders.push(outer);
             });
         }
         var bars = groupBars.filter(function (bar) {
+            // A menu must never have a tab bar painted over it.
+            for (var p = 0; p < popups.length; p++) {
+                if (overlaps(popups[p], bar)) return false;
+            }
             return !Object.keys(fullscreenScreens).some(function (name) {
                 var s = screenByName(name);
                 return s && contains(s.geometry, { x: bar.x + 1, y: bar.y + 1 });
@@ -1129,9 +1181,13 @@ function createDriver(env) {
             hideOverlay(w);
             var st = track(w, false);
             if (st) relayout();
+            else if (!isOverlay(w)) scheduleDecorations();  // a menu may cover a border
         });
         ws.windowRemoved.connect(function (w) {
-            if (!stOf(w)) return;
+            if (!stOf(w)) {
+                if (!isOverlay(w)) scheduleDecorations();   // a menu closing frees a border
+                return;
+            }
             untrack(w);
             relayout();
         });
@@ -1202,6 +1258,7 @@ function createDriver(env) {
                 config: cfg,
                 configReloads: reloads,
                 cursor: { x: ws.cursorPos.x, y: ws.cursorPos.y },
+                popups: popupRects(),
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });
             for (var id in tracked) {

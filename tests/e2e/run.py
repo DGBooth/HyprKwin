@@ -10,6 +10,7 @@ import traceback
 
 from pathlib import Path
 
+from fakeinput import BTN_RIGHT
 from sandbox import Sandbox
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -855,6 +856,40 @@ def read_rules_of(sb):
     import subprocess
     return subprocess.run(["kreadconfig6", "--file", "kwinrc", "--group", "Script-hyprkwin",
                            "--key", "WindowRules"], env=sb.env, capture_output=True, text=True).stdout.strip()
+
+
+@test(config={"BorderSize": 4})
+def border_gives_way_to_menus(sb):
+    """Overlays are drawn above ordinary windows, so a menu spilling past a
+    window's edge must not have the border painted across it."""
+    sb.spawn("A")
+    sb.spawn("B", extra=["--menu"])
+    sb.spawn("C")
+    sb.settle(0.5)
+    fi = sb.input()
+    fi.click(1400, 450, BTN_RIGHT)  # inside B; the menu runs on past its bottom edge
+    sb.settle(1.0)
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "B", "right-click activated B")
+    eq(len(s["popups"]), 1, "menu is open")
+    eq(sb.overlays(), [], "border hidden while the menu crosses it")
+    fi.combo("escape")
+    sb.wait_for(lambda s: not s["popups"], "menu closed")
+    sb.settle(0.5)
+    eq(len(sb.overlays()), 4, "border returns once the menu closes")
+
+
+@test(config={"BorderSize": 4})
+def menus_inside_a_window_keep_the_border(sb):
+    """A menu well inside the window never covers the border."""
+    sb.spawn("A")
+    sb.spawn("B", extra=["--menu"])
+    sb.settle(0.5)
+    fi = sb.input()
+    fi.click(1400, 400, BTN_RIGHT)
+    sb.settle(1.0)
+    eq(len(sb.state()["popups"]), 1, "menu is open")
+    eq(len(sb.overlays()), 4, "border still drawn for a menu inside the window")
 
 
 @test
