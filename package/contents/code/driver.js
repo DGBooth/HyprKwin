@@ -163,7 +163,10 @@ function createDriver(env) {
     }
 
     function syncWorkspaces() {
-        if (!perOutput()) return;
+        if (!perOutput()) {
+            releaseAutoPins();
+            return;
+        }
         var cur = ws.currentDesktop;
         var changed = false;
         guarded(function () {
@@ -179,6 +182,7 @@ function createDriver(env) {
                 var here = desktopFor((p && p.screen) || w.output);
                 if (mine === here && mine !== cur) {
                     if (!w.onAllDesktops) { w.onAllDesktops = true; changed = true; }
+                    st.autoPinned = true;
                     continue;
                 }
                 // Hidden, but its own workspace is the one on show elsewhere:
@@ -187,6 +191,7 @@ function createDriver(env) {
                 // Parking the active window would make KWin switch desktop to
                 // follow it; leave it be until it settles.
                 if (target !== mine && w === ws.activeWindow) continue;
+                st.autoPinned = false;
                 if (w.onAllDesktops) { w.onAllDesktops = false; changed = true; }
                 if (w.desktops.length !== 1 || w.desktops[0] !== target) {
                     w.desktops = [target];
@@ -197,6 +202,24 @@ function createDriver(env) {
         // A window only takes a new size once KWin is actually showing it, so
         // lay out again on the next tick.
         if (changed) schedule();
+    }
+
+    // A monitor went away (or the setting was turned off): windows we had
+    // pinned to keep them visible there go back on their own workspace.
+    function releaseAutoPins() {
+        var any = false;
+        guarded(function () {
+            for (var id in tracked) {
+                var st = tracked[id], w = st.w;
+                if (!st.autoPinned) continue;
+                st.autoPinned = false;
+                if (st.special || st.pinned) continue;
+                var d = desktopById(st.desktop);
+                if (w.onAllDesktops) { w.onAllDesktops = false; any = true; }
+                if (d && (w.desktops.length !== 1 || w.desktops[0] !== d)) { w.desktops = [d]; any = true; }
+            }
+        });
+        if (any) schedule();
     }
 
     // The workspace a window joins when it appears, or lands on an output.
@@ -452,6 +475,7 @@ function createDriver(env) {
         };
         tracked[id] = st;
         st.desktop = desktopIdFor(w);
+        st.output = w.output ? w.output.name : null;
         connectWindow(st);
 
         var rule = R.matchRules(rules, { "class": w.resourceClass, title: w.caption });
@@ -543,11 +567,15 @@ function createDriver(env) {
     function onOutputChanged(st) {
         var w = st.w;
         if (syncing || w.move || w.resize || st.special) return;
-        // A window dragged (or sent) to another monitor joins its workspace.
-        if (perOutput() && !st.pinned && w.output) {
+        // A window dragged (or sent) to another monitor joins that monitor's
+        // workspace — but one whose monitor was unplugged keeps its own, so
+        // plugging the monitor back in puts everything where it was.
+        var wasMoved = !st.output || !!screenByName(st.output);
+        if (perOutput() && !st.pinned && w.output && wasMoved) {
             var here = desktopFor(w.output);
             if (here) st.desktop = here.id;
         }
+        st.output = w.output ? w.output.name : null;
         if (!isTiled(st)) { schedule(); return; }
         // Our own placement landing on another output is already reflected in
         // the engine; only react to moves made by someone else.

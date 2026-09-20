@@ -262,6 +262,13 @@ Item { Timer { interval: 100; running: true; onTriggered: {
         g = self.window(title, state)["geometry"]
         return (round(g["x"]), round(g["y"]), round(g["width"]), round(g["height"]))
 
+    def output(self, name, action):
+        """Turn a virtual output off or on, the way plugging a monitor does."""
+        env = dict(self.env)
+        env["WAYLAND_DISPLAY"] = self.socket
+        subprocess.run(["kscreen-doctor", "output.%s.%s" % (name, action)], env=env, timeout=20,
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     def screenshot(self, path):
         env = dict(self.env)
         env["WAYLAND_DISPLAY"] = self.socket

@@ -189,6 +189,10 @@ global. HyprKwin emulates Hyprland's model on top of them:
   `Meta+Ctrl+Shift+arrow` moves a window to a monitor directly, and at the
   edge of a screen `Meta+Shift+arrow` carries a window across too.
 - `Meta+Shift+Alt+arrow` swaps two monitors' workspaces, windows and all.
+- Monitors can come and go mid-session: plug one in (or switch it on) and it
+  takes the next free workspace straight away. Unplug it and its windows move
+  across but keep their workspace, so plugging it back in puts them where
+  they were. No need to log out.
 
 The one seam this leaves: Plasma only has one current desktop, so windows the
 other monitors are showing are marked "on all desktops" to keep them up. They

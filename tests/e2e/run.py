@@ -4,6 +4,7 @@
     python3 tests/e2e/run.py            # all tests
     python3 tests/e2e/run.py swap group # tests whose name contains a word
 """
+import shutil
 import sys
 import time
 import traceback
@@ -894,12 +895,12 @@ def shown_on(sb, s=None):
 
 
 def colour_on(sb, path, half, rgb, tol=40):
-    """Whether a colour appears on the left or right half of the screen."""
+    """Whether a colour appears on half of the screen, or anywhere ("all")."""
     from PIL import Image
     sb.screenshot(path)
     im = Image.open(path).convert("RGB")
     px = im.load()
-    x0, x1 = (0, im.width // 2) if half == "left" else (im.width // 2, im.width)
+    x0, x1 = {"left": (0, im.width // 2), "right": (im.width // 2, im.width)}.get(half, (0, im.width))
     return any(all(abs(px[x, y][i] - rgb[i]) < tol for i in range(3))
                for x in range(x0, x1, 8) for y in range(0, im.height, 16))
 
@@ -1001,6 +1002,43 @@ def a_window_can_be_sent_to_the_other_monitor(sb):
     eq(s["active"], None, "focus did not chase it to the other monitor")
     eq(shown_on(sb, s), {first: 1, second: 2}, "monitors kept their workspaces")
     eq(sb.geometry("A", s)[2], 945, "A and B share the first monitor again")
+
+
+@test(outputs=2)
+def a_monitor_can_come_and_go(sb):
+    """Turning a display off mid-session must not strand its windows or leave
+    another workspace's windows on screen; turning it back on restores it."""
+    if not shutil.which("kscreen-doctor"):
+        return
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.invoke("windowToMonitorRight")      # A on the second monitor, workspace 2
+    sb.spawn("B", color="#0000ff")
+    sb.invoke("moveToDesktopSilent1")      # B back on the first, workspace 1
+    s = sb.state()
+    first, second = sb.window("B", s)["output"], sb.window("A", s)["output"]
+    eq(shown_on(sb, s), {first: 1, second: 2}, "set up")
+
+    sb.output(second, "disable")           # the monitor is switched off
+    sb.wait_for(lambda s: s["shown"] is None, "down to one monitor")
+    sb.settle(1.0)
+    s = sb.state()
+    a = sb.window("A", s)
+    eq(a["output"], first, "A came across to the monitor that is left")
+    eq(a["workspace"], s["desktops"][1], "and kept workspace 2")
+    eq(sb.geometry("A", s), FULL, "A has the screen")
+    eq(sb.window("B", s)["onAllDesktops"], False, "B is no longer held on screen")
+    eq(colour_on(sb, shots / "off.png", "all", (0, 0, 255)), False, "B hidden with workspace 1")
+    eq(colour_on(sb, shots / "off.png", "all", (255, 0, 0)), True, "A on screen")
+
+    sb.output(second, "enable")            # and switched back on
+    sb.wait_for(lambda s: s["shown"] is not None and len(s["shown"]) == 2, "both monitors back")
+    sb.settle(1.5)
+    s = sb.state()
+    eq(shown_on(sb, s), {first: 1, second: 2}, "the second monitor got its workspace back")
+    eq(sb.window("A", s)["output"], second, "A went home")
+    eq(sb.window("B", s)["workspace"], s["desktops"][0], "B still belongs to workspace 1")
 
 
 @test(outputs=2, config={"PerOutputWorkspaces": False})
