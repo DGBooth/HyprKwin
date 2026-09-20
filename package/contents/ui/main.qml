@@ -67,16 +67,28 @@ Item {
         onTriggered: root.effectActive = root.fullscreenEffects.some(id => Workspace.isEffectActive(id))
     }
 
+    // Trailing check so the window under the pointer still wins when the
+    // cursor stops between throttled samples.
     Timer {
         id: focusFollowsMouseTimer
-        interval: 40
+        interval: 16
         onTriggered: root.driver.onCursorMoved()
     }
+
+    property double lastPointerCheck: 0
 
     Connections {
         target: Workspace
         function onCursorPosChanged() {
-            if (root.driver && root.driver.config().focusFollowsMouse) focusFollowsMouseTimer.restart();
+            if (!root.driver || !root.driver.config().focusFollowsMouse) return;
+            // Act on the first motion event over a new window rather than
+            // waiting for the pointer to come to rest.
+            const now = Date.now();
+            if (now - root.lastPointerCheck >= 8) {
+                root.lastPointerCheck = now;
+                root.driver.onCursorMoved();
+            }
+            focusFollowsMouseTimer.restart();
         }
     }
 

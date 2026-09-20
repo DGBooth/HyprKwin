@@ -470,14 +470,15 @@ def focus_follows_mouse(sb):
     sb.spawn("A")
     sb.spawn("B")
     fi = sb.input()
+    # Focus must follow the pointer at once, not after it stops moving.
     fi.move_to(400, 500)
-    sb.settle(0.4)
+    sb.settle(0.1)
     s = sb.state()
-    eq(s["active"], sb.window("A", s)["id"], "hovering A focuses it")
+    eq(s["active"], sb.window("A", s)["id"], "hovering A focuses it immediately")
     fi.move_to(1500, 500)
-    sb.settle(0.4)
+    sb.settle(0.1)
     s = sb.state()
-    eq(s["active"], sb.window("B", s)["id"], "hovering B focuses it")
+    eq(s["active"], sb.window("B", s)["id"], "hovering B focuses it immediately")
 
 
 @test
