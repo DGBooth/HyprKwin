@@ -21,8 +21,10 @@ desktops, activities, window rules, KRunner and System Settings.
   Meta+right-drag (or drag an edge) to resize the split live. Optional
   focus-follows-mouse.
 - **Window rules** in Hyprland syntax (`float, class:^(org\.kde\.kcalc)$`).
-- **Multi-monitor**: directional focus, swap and move across monitors, and
-  moving a workspace to another monitor.
+- **Multi-monitor**: every monitor gets its own workspaces, as in Hyprland —
+  a second display comes up on workspace 2, and switching workspace only
+  changes the monitor you are on. Directional focus, swap and move across
+  monitors, plus swapping two monitors' workspaces.
 - **Animations**: a companion KWin effect slides and stretches windows into
   their new tile, like Hyprland's `animations { windows }`.
 - **Settings page** in System Settings › Window Management › KWin Scripts.
@@ -118,7 +120,8 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | `Meta+Ctrl+Tab` | Former workspace |
 | `Meta+S` | Toggle scratchpad |
 | `Meta+Alt+S` | Move window to / from scratchpad |
-| `Meta+Shift+Alt+Left` / `Right` / `Up` / `Down` | Move workspace to monitor |
+| `Meta+Ctrl+Shift+Left` / `Right` / `Up` / `Down` | Move window to the monitor in that direction |
+| `Meta+Shift+Alt+Left` / `Right` / `Up` / `Down` | Swap this monitor's workspace with that one's |
 | `Ctrl+Alt+Tab` / `Ctrl+Alt+Shift+Tab` | Focus next / previous monitor |
 | `Meta+G` | Toggle window grouping |
 | `Meta+Alt+G` | Move window out of group |
@@ -155,6 +158,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Group tab bar height | `group:groupbar:height` | 22 |
 | Focus follows mouse | `input:follow_mouse = 1` | off |
 | Start each session on workspace 1 | – | on |
+| Every monitor has its own workspaces | one workspace per monitor | on |
 | Create workspaces on demand | – | on |
 | Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
 | Tile dialogs and utility windows | `windowrule = tile, …` per app | off |
@@ -169,6 +173,28 @@ with your Plasma theme. Either can be set to a fixed colour instead.
 Settings apply as soon as you press OK or Apply: Plasma doesn't notify
 scripts about their settings, so HyprKwin notices the change to `kwinrc` and
 asks KWin to reload its configuration.
+
+### Workspaces and monitors
+
+Hyprland gives every monitor its own workspaces; KWin's virtual desktops are
+global. HyprKwin emulates Hyprland's model on top of them:
+
+- A second display comes up showing workspace 2 (a third shows 3, and so on),
+  creating the desktop if it does not exist yet.
+- `Meta+1…0` switches only the monitor you are on. If that workspace is
+  already up on another monitor, focus jumps there instead — a workspace
+  lives on one monitor at a time.
+- So `Meta+Shift+2` sends a window to whichever monitor is showing workspace
+  2: with two displays that is the everyday "put this over there".
+  `Meta+Ctrl+Shift+arrow` moves a window to a monitor directly, and at the
+  edge of a screen `Meta+Shift+arrow` carries a window across too.
+- `Meta+Shift+Alt+arrow` swaps two monitors' workspaces, windows and all.
+
+The one seam this leaves: Plasma only has one current desktop, so windows the
+other monitors are showing are marked "on all desktops" to keep them up. They
+show as pinned in the task manager and the pager puts everything you can see
+on the current desktop. Turn the setting off to go back to plain Plasma
+behaviour, where a workspace spans every monitor.
 
 ### Focus indicator
 
@@ -265,7 +291,11 @@ portal, …) float automatically.
   puts it back where it was. Windows on another activity are treated the same
   way.
 - Moving a window with Plasma (task manager, pager, "Window to Desktop",
-  "Window to Next Screen", dragging) re-tiles it in its new place.
+  "Window to Next Screen", dragging) re-tiles it in its new place, and a
+  window that lands on another monitor joins the workspace that monitor is
+  showing.
+- Switching desktop from Plasma itself (the pager, its own shortcuts) applies
+  to the monitor you are on, leaving the others as they were.
 - Maximize and fullscreen are Plasma's own states; the window keeps its tile
   and returns to it.
 - Plasma's quick tiling (Meta+arrows before the shortcuts are reassigned) and

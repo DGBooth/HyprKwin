@@ -51,6 +51,10 @@ function shortcutList() {
         ["workspaceToMonitorRight", "Move workspace to right monitor", "Meta+Shift+Alt+Right"],
         ["workspaceToMonitorUp", "Move workspace to upper monitor", "Meta+Shift+Alt+Up"],
         ["workspaceToMonitorDown", "Move workspace to lower monitor", "Meta+Shift+Alt+Down"],
+        ["windowToMonitorLeft", "Move window to left monitor", "Meta+Ctrl+Shift+Left"],
+        ["windowToMonitorRight", "Move window to right monitor", "Meta+Ctrl+Shift+Right"],
+        ["windowToMonitorUp", "Move window to upper monitor", "Meta+Ctrl+Shift+Up"],
+        ["windowToMonitorDown", "Move window to lower monitor", "Meta+Ctrl+Shift+Down"],
         ["focusNextMonitor", "Focus next monitor", "Ctrl+Alt+Tab"],
         ["focusPreviousMonitor", "Focus previous monitor", "Ctrl+Alt+Shift+Tab"],
 

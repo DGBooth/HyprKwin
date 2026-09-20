@@ -380,20 +380,14 @@ def multi_monitor(sb):
     sb.invoke("focusLeft")
     s = sb.state()
     eq(s["active"], a["id"], "focus crosses monitors")
-    sb.invoke("workspaceToMonitorRight")
-    s = sb.state()
-    eq(sb.window("A", s)["output"], sb.window("B", s)["output"], "workspace moved to B's monitor")
-    ga, gb = sb.geometry("A", s), sb.geometry("B", s)
-    eq((ga[2], gb[2]), (945, 945), "A and B now share one monitor")
     # Plasma's own "Window to Next Screen" must re-home a tiled window.
-    sb.invoke("Window to Next Screen")
+    sb.invoke("Window to Next Screen")   # A joins B on the second monitor
     s = sb.state()
-    moved = sb.window(sb.window("A", s)["caption"] if s["active"] == sb.window("A", s)["id"] else "B", s)
-    other = sb.window("B" if moved["caption"] == "A" else "A", s)
-    if moved["output"] == other["output"]:
-        raise AssertionError("KWin moved the window but it did not change output: %r" % s["windows"])
-    eq(moved["tiled"], True, "still tiled after KWin moved it")
-    eq((sb.geometry(moved["caption"], s)[2], sb.geometry(other["caption"], s)[2]), (1900, 1900), "both fill their monitors")
+    a, b = sb.window("A", s), sb.window("B", s)
+    eq(a["output"], b["output"], "KWin moved A across: %r" % s["windows"])
+    eq(a["tiled"], True, "still tiled after KWin moved it")
+    eq(a["workspace"], b["workspace"], "A joined the workspace that monitor shows")
+    eq((sb.geometry("A", s)[2], sb.geometry("B", s)[2]), (945, 945), "they share the monitor")
 
 
 @test
@@ -890,6 +884,139 @@ def menus_inside_a_window_keep_the_border(sb):
     sb.settle(1.0)
     eq(len(sb.state()["popups"]), 1, "menu is open")
     eq(len(sb.overlays()), 4, "border still drawn for a menu inside the window")
+
+
+def shown_on(sb, s=None):
+    """What each monitor is showing, as workspace numbers."""
+    s = s or sb.state()
+    order = s["desktops"]
+    return {name: order.index(d) + 1 for name, d in (s["shown"] or {}).items()}
+
+
+def colour_on(sb, path, half, rgb, tol=40):
+    """Whether a colour appears on the left or right half of the screen."""
+    from PIL import Image
+    sb.screenshot(path)
+    im = Image.open(path).convert("RGB")
+    px = im.load()
+    x0, x1 = (0, im.width // 2) if half == "left" else (im.width // 2, im.width)
+    return any(all(abs(px[x, y][i] - rgb[i]) < tol for i in range(3))
+               for x in range(x0, x1, 8) for y in range(0, im.height, 16))
+
+
+@test(outputs=2)
+def a_second_monitor_gets_its_own_workspace(sb):
+    """Hyprland gives each monitor its own workspaces: the second display
+    comes up on workspace 2, and switching workspace here leaves it alone."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    s = sb.state()
+    first = sb.window("A", s)["output"]
+    second = [n for n in s["shown"] if n != first][0]
+    eq(shown_on(sb, s), {first: 1, second: 2}, "the second monitor starts on workspace 2")
+
+    sb.invoke("windowToMonitorRight")      # A across, focus follows
+    s = sb.state()
+    a = sb.window("A", s)
+    eq(a["output"], second, "A moved to the second monitor")
+    eq(s["active"], a["id"], "focus followed A")
+    eq(a["workspace"], s["desktops"][1], "A joined workspace 2")
+    eq(s["currentDesktop"], s["desktops"][1], "Plasma followed the focused monitor")
+
+    sb.invoke("desktop1")                  # workspace 1 lives on the other monitor
+    sb.spawn("B", color="#0000ff")         # so B opens there
+    s = sb.state()
+    b = sb.window("B", s)
+    eq(b["output"], first, "focus jumped to the monitor showing workspace 1")
+    eq(shown_on(sb, s), {first: 1, second: 2}, "nothing moved between monitors")
+    eq(sb.geometry("B", s), FULL, "B has the first monitor to itself")
+    eq(colour_on(sb, shots / "both.png", "right", (255, 0, 0)), True, "A still up on its own monitor")
+    eq(sb.window("A", s)["onAllDesktops"], True, "A is kept visible there")
+
+    sb.invoke("desktop3")                  # this monitor alone moves on
+    s = sb.state()
+    eq(shown_on(sb, s), {first: 3, second: 2}, "only this monitor switched")
+    eq(colour_on(sb, shots / "ws3.png", "left", (0, 0, 255)), False, "B hidden with workspace 1")
+    eq(colour_on(sb, shots / "ws3.png", "right", (255, 0, 0)), True, "A untouched on workspace 2")
+
+
+@test(outputs=2)
+def focus_across_monitors_carries_the_workspace(sb):
+    """Plasma has one current desktop; it follows the monitor you focus."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")      # B to the second monitor (workspace 2)
+    s = sb.state()
+    first, second = sb.window("A", s)["output"], sb.window("B", s)["output"]
+    eq(s["currentDesktop"], s["desktops"][1], "the focused monitor drives Plasma")
+    sb.invoke("focusLeft")                 # back onto A, which is on workspace 1
+    s = sb.state()
+    eq(s["active"], sb.window("A", s)["id"], "A focused")
+    eq(s["currentDesktop"], s["desktops"][0], "current desktop came along")
+    eq(shown_on(sb, s), {first: 1, second: 2}, "nothing moved")
+
+
+@test(outputs=2)
+def workspaces_trade_places_between_monitors(sb):
+    """movecurrentworkspacetomonitor: the two monitors swap workspaces."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")      # B to the second monitor (workspace 2)
+    sb.invoke("focusLeft")                 # A, on workspace 1 of the first
+    s = sb.state()
+    first, second = sb.window("A", s)["output"], sb.window("B", s)["output"]
+    eq(shown_on(sb, s), {first: 1, second: 2}, "set up")
+    sb.invoke("workspaceToMonitorRight")
+    s = sb.state()
+    eq(shown_on(sb, s), {first: 2, second: 1}, "the monitors traded workspaces")
+    eq(sb.window("A", s)["output"], second, "A went with workspace 1")
+    eq(sb.window("B", s)["output"], first, "B came the other way with workspace 2")
+    eq(sb.geometry("A", s), (1930, 10, 1900, 1060), "A fills the second monitor")
+    eq(sb.geometry("B", s), FULL, "B fills the first one")
+
+
+@test(outputs=2)
+def a_window_can_be_sent_to_the_other_monitor(sb):
+    """Workspace 2 lives on the second monitor, so the workspace bindings
+    double as "send this to the other display"."""
+    sb.spawn("A")
+    sb.spawn("B")
+    s = sb.state()
+    first = sb.window("A", s)["output"]
+    second = [n for n in s["shown"] if n != first][0]
+    sb.invoke("moveToDesktop2")            # B follows to workspace 2
+    s = sb.state()
+    b = sb.window("B", s)
+    eq(b["output"], second, "B crossed to the second monitor")
+    eq(b["workspace"], s["desktops"][1], "on workspace 2")
+    eq(s["active"], b["id"], "focus followed it")
+    eq(sb.geometry("A", s), FULL, "A has the first monitor to itself")
+    eq(sb.geometry("B", s), (1930, 10, 1900, 1060), "B fills the second")
+
+    sb.invoke("moveToDesktopSilent1")      # and back, without following
+    s = sb.state()
+    b = sb.window("B", s)
+    eq(b["output"], first, "B returned to the monitor showing workspace 1")
+    eq(s["active"], None, "focus did not chase it to the other monitor")
+    eq(shown_on(sb, s), {first: 1, second: 2}, "monitors kept their workspaces")
+    eq(sb.geometry("A", s)[2], 945, "A and B share the first monitor again")
+
+
+@test(outputs=2, config={"PerOutputWorkspaces": False})
+def workspaces_can_span_both_monitors(sb):
+    """Turned off, a workspace covers every monitor as Plasma's own do."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")      # B across, still on workspace 1
+    s = sb.state()
+    eq(s["shown"], None, "per-monitor workspaces off")
+    eq(sb.window("B", s)["desktops"], [s["desktops"][0]], "B stayed on workspace 1")
+    sb.invoke("desktop2")
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "switched to workspace 2")
+    eq(sb.window("A", s)["onAllDesktops"], False, "nothing is pinned to keep a monitor alive")
+    eq(sb.window("B", s)["onAllDesktops"], False, "both monitors went to workspace 2")
 
 
 @test

@@ -76,12 +76,139 @@ function createDriver(env) {
         return out;
     }
 
+    // Hyprland gives every monitor its own workspaces. KWin's virtual desktops
+    // are global (its currentDesktopForScreen pair is a stub that still
+    // switches every screen), so HyprKwin keeps the workspace each output
+    // shows here: the focused output drives Plasma's current desktop, and
+    // windows visible on the other outputs are put on all desktops so a
+    // switch here leaves them where they are.
+    var shown = {};                 // output name -> desktop id
+    var formerShown = {};           // output name -> the desktop before that
+
+    function perOutput() {
+        return !!cfg.perOutputWorkspaces && screens().length > 1;
+    }
+
+    // The monitor the user is on: where the focused window is, since KWin's
+    // own activeScreen can follow the pointer instead.
+    function focusedScreen() {
+        var act = stOf(ws.activeWindow);
+        if (act && !act.special) {
+            var space = engine.spaceOf(act.id);
+            var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+            if (p && p.screen) return p.screen;
+            if (act.w.output) return act.w.output;
+        }
+        return ws.activeScreen || screens()[0] || null;
+    }
+
     function desktopFor(screen) {
-        if (screen && ws.currentDesktopForScreen) {
-            var d = ws.currentDesktopForScreen(screen);
+        if (screen && perOutput()) {
+            var d = desktopById(shown[screen.name]);
             if (d) return d;
         }
         return ws.currentDesktop;
+    }
+
+    // The first workspace nobody is showing, creating one if we may.
+    function freeDesktop(used) {
+        var ds = ws.desktops;
+        for (var i = 0; i < ds.length; i++) if (!used[ds[i].id]) return ds[i];
+        if (!cfg.autoCreateDesktops) return null;
+        ws.createDesktop(ds.length, "");
+        ds = ws.desktops;
+        var made = ds[ds.length - 1];
+        return (made && !used[made.id]) ? made : null;
+    }
+
+    // Remember what each output shows, forget outputs that went away, and
+    // give a monitor we have not seen before a workspace of its own: a second
+    // display comes up on workspace 2, as it would under Hyprland.
+    function refreshShown() {
+        var cur = ws.currentDesktop;
+        var ss = screens(), live = {}, used = {};
+        // The monitor being used comes first: it keeps its workspace, and
+        // holds whatever workspace Plasma is on.
+        var focused = focusedScreen();
+        var order = ss.slice();
+        if (focused) order = [focused].concat(order.filter(function (s) { return s !== focused; }));
+        ss.forEach(function (s) { live[s.name] = true; });
+        order.forEach(function (s) {
+            var d = desktopById(shown[s.name]);
+            if (d && !used[d.id]) used[d.id] = true;
+            else shown[s.name] = null;
+        });
+        for (var name in shown) if (!live[name]) delete shown[name];
+        order.forEach(function (s) {
+            if (shown[s.name]) return;
+            var d = null;
+            if (s === focused || !cfg.perOutputWorkspaces || ss.length < 2) d = used[cur.id] ? null : cur;
+            if (!d) d = freeDesktop(used) || cur;
+            shown[s.name] = d.id;
+            used[d.id] = true;
+        });
+    }
+
+    // Put every window on the Plasma desktop that makes it visible where
+    // HyprKwin wants it. Windows shown on an output other than the focused
+    // one go on all desktops, so switching workspace here does not disturb
+    // them; the rest sit on their own workspace, which Plasma then hides.
+    // Whether KWin itself would draw a window right now. A client on a hidden
+    // desktop ignores the geometry we send it, so the layout has to know.
+    function kwinVisible(w) {
+        if (w.minimized) return false;
+        if (w.onAllDesktops) return true;
+        for (var i = 0; i < w.desktops.length; i++) if (w.desktops[i] === ws.currentDesktop) return true;
+        return false;
+    }
+
+    function syncWorkspaces() {
+        if (!perOutput()) return;
+        var cur = ws.currentDesktop;
+        var changed = false;
+        guarded(function () {
+            for (var id in tracked) {
+                var st = tracked[id], w = st.w;
+                if (st.special || st.pinned || !w.output) continue;
+                var mine = desktopById(st.desktop) || cur;
+                // Where we have put it, not where KWin has it yet: a window
+                // that is on its way to another monitor still reports the old
+                // one until the client has caught up.
+                var space = engine.spaceOf(id);
+                var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+                var here = desktopFor((p && p.screen) || w.output);
+                if (mine === here && mine !== cur) {
+                    if (!w.onAllDesktops) { w.onAllDesktops = true; changed = true; }
+                    continue;
+                }
+                // Hidden, but its own workspace is the one on show elsewhere:
+                // park it on this output's workspace or Plasma would draw it.
+                var target = (mine !== here && mine === cur) ? here : mine;
+                // Parking the active window would make KWin switch desktop to
+                // follow it; leave it be until it settles.
+                if (target !== mine && w === ws.activeWindow) continue;
+                if (w.onAllDesktops) { w.onAllDesktops = false; changed = true; }
+                if (w.desktops.length !== 1 || w.desktops[0] !== target) {
+                    w.desktops = [target];
+                    changed = true;
+                }
+            }
+        });
+        // A window only takes a new size once KWin is actually showing it, so
+        // lay out again on the next tick.
+        if (changed) schedule();
+    }
+
+    // The workspace a window joins when it appears, or lands on an output.
+    function desktopIdFor(w) {
+        var here = desktopFor(w.output);
+        if (!perOutput() || w.onAllDesktops || !w.desktops || w.desktops.length !== 1) {
+            return here ? here.id : ws.currentDesktop.id;
+        }
+        // Opening "on the current desktop" really means "here", which on a
+        // second monitor is whatever that monitor is showing.
+        var d = w.desktops[0];
+        return (d === ws.currentDesktop && here) ? here.id : d.id;
     }
 
     function spaceFor(desktop, screen) {
@@ -168,6 +295,7 @@ function createDriver(env) {
             showInactiveBorders: bool(rc("ShowInactiveBorders", false), false),
             focusFollowsMouse: bool(rc("FocusFollowsMouse", false), false),
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
+            perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: String(rc("WindowRules", "") || ""),
@@ -229,7 +357,12 @@ function createDriver(env) {
     function spaceOfWindow(st) {
         if (st.special) return SPECIAL;
         var w = st.w;
-        if (!w.output || w.onAllDesktops || !w.desktops || w.desktops.length !== 1) return null;
+        if (!w.output) return null;
+        if (perOutput() && !st.pinned) {
+            var d = desktopById(st.desktop);
+            return d ? spaceFor(d, w.output) : null;
+        }
+        if (w.onAllDesktops || !w.desktops || w.desktops.length !== 1) return null;
         return spaceFor(w.desktops[0], w.output);
     }
 
@@ -318,6 +451,7 @@ function createDriver(env) {
             natural: { width: w.width, height: w.height }, placed: null, floatGeom: null,
         };
         tracked[id] = st;
+        st.desktop = desktopIdFor(w);
         connectWindow(st);
 
         var rule = R.matchRules(rules, { "class": w.resourceClass, title: w.caption });
@@ -325,8 +459,11 @@ function createDriver(env) {
         if (rule.float === false) st.ruleTile = true;
         if (!initial && rule.workspace) {
             var d = ensureDesktop(rule.workspace.index);
-            if (d) guarded(function () { w.desktops = [d]; });
-            if (d && !rule.workspace.silent) ws.currentDesktop = d;
+            if (d) {
+                st.desktop = d.id;
+                guarded(function () { w.desktops = [d]; });
+                if (!rule.workspace.silent) showDesktop(focusedScreen(), d);
+            }
         }
         if (rule.special) {
             st.special = true;
@@ -392,6 +529,7 @@ function createDriver(env) {
             return;
         }
         if (st.pinned && !w.onAllDesktops) st.pinned = false;
+        if (!w.onAllDesktops && w.desktops.length === 1) st.desktop = w.desktops[0].id;
         var space = spaceOfWindow(st);
         if (isTiled(st)) {
             if (!space) untile(st);
@@ -405,6 +543,11 @@ function createDriver(env) {
     function onOutputChanged(st) {
         var w = st.w;
         if (syncing || w.move || w.resize || st.special) return;
+        // A window dragged (or sent) to another monitor joins its workspace.
+        if (perOutput() && !st.pinned && w.output) {
+            var here = desktopFor(w.output);
+            if (here) st.desktop = here.id;
+        }
         if (!isTiled(st)) { schedule(); return; }
         // Our own placement landing on another output is already reflected in
         // the engine; only react to moves made by someone else.
@@ -487,8 +630,11 @@ function createDriver(env) {
         var space = engine.spaceOf(st.id);
         if (!space || space === SPECIAL) return;
         var p = parseSpace(space);
+        if (!p.desktop) return;
+        st.desktop = p.desktop.id;
+        if (perOutput()) return;   // syncWorkspaces() applies it at the next layout
         var w = st.w;
-        if (p.desktop && (w.desktops.length !== 1 || w.desktops[0] !== p.desktop)) {
+        if (w.desktops.length !== 1 || w.desktops[0] !== p.desktop) {
             guarded(function () { w.desktops = [p.desktop]; });
         }
     }
@@ -563,13 +709,15 @@ function createDriver(env) {
 
     function relayout() {
         if (stopped) return;
+        refreshShown();
+        syncWorkspaces();
         engine.setVisibility(visible);
         var bars = [];
         layoutSpaces().forEach(function (vs) {
             var L = engine.layout(vs.space, vs.area);
             for (var id in L.windows) {
                 var st = tracked[id];
-                if (st) apply(st, L.windows[id], vs.visible);
+                if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
             }
             if (!vs.visible) return;
             if (special.shown && vs.space !== SPECIAL) return;
@@ -785,13 +933,36 @@ function createDriver(env) {
     }
 
     function moveToScreen(st, screen) {
-        if (!screen) return;
+        if (!screen || screen === st.w.output) return;
+        var d = desktopFor(screen);
         if (isTiled(st)) {
-            engine.moveToSpace(st.id, spaceFor(desktopFor(screen), screen), {});
+            engine.moveToSpace(st.id, spaceFor(d, screen), {});
             syncDesktop(st);
         } else {
-            ws.sendClientToScreen(st.w, screen);
+            if (d) st.desktop = d.id;
+            guarded(function () { ws.sendClientToScreen(st.w, screen); });
         }
+    }
+
+    // Hyprland's "movewindow mon:<dir>": the window changes monitor and the
+    // focus goes with it.
+    function windowToMonitor(dir) {
+        var st = active();
+        if (!st) return;
+        var to = screenInDirection(st.w.output || focusedScreen(), dir);
+        if (!to) return;
+        moveToScreen(st, to);
+        // Hand the window to KWin on its new workspace before switching to it,
+        // or the desktop change would take the focus off it.
+        relayout();
+        // It was already the active window, so nothing else would bring
+        // Plasma's current desktop over to the monitor it just landed on.
+        if (perOutput()) {
+            var d = desktopFor(to);
+            if (d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
+        }
+        activate(st.w);
+        relayout();
     }
 
     function swapDirection(dir) {
@@ -902,9 +1073,104 @@ function createDriver(env) {
         return ws.desktops[n - 1] || null;
     }
 
+    // Show a workspace on one output. The focused output is the one Plasma's
+    // own current desktop follows, so everything else stays put.
+    function showDesktop(screen, d, focus) {
+        if (!d) return;
+        if (!perOutput() || !screen) {
+            if (d !== ws.currentDesktop) ws.currentDesktop = d;
+            return;
+        }
+        if (shown[screen.name] !== d.id) {
+            formerShown[screen.name] = shown[screen.name];
+            shown[screen.name] = d.id;
+        }
+        if ((focus || screen === focusedScreen()) && d !== ws.currentDesktop) {
+            guarded(function () { ws.currentDesktop = d; });
+        }
+        relayout();
+    }
+
+    // Move the keyboard focus to another monitor, taking Plasma's current
+    // desktop with it.
+    function focusScreen(screen) {
+        if (!screen) return;
+        var d = desktopFor(screen);
+        if (perOutput() && d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
+        var id = engine.lastFocused(spaceFor(d, screen));
+        if (id && tracked[id] && !tracked[id].w.minimized) {
+            activate(tracked[id].w);
+            return;
+        }
+        // Nothing to focus there: nudge KWin's own screen focus across and
+        // take the keyboard off whatever is on the other monitor.
+        if (ws.slotSwitchToNextScreen) {
+            var ss = screens(), guardCount = ss.length;
+            while (guardCount-- > 0 && focusedScreen() !== screen) ws.slotSwitchToNextScreen();
+        }
+        var act = stOf(ws.activeWindow);
+        if (perOutput() && act && desktopById(act.desktop) !== d) {
+            log("nothing to focus on", screen.name);
+            ws.activeWindow = null;
+        }
+    }
+
     function gotoDesktop(n) {
         var d = ensureDesktop(n);
-        if (d) ws.currentDesktop = d;
+        if (!d) return;
+        if (!perOutput()) {
+            ws.currentDesktop = d;
+            return;
+        }
+        var screen = focusedScreen();
+        // Hyprland jumps to the monitor a workspace is already up on rather
+        // than pulling it across.
+        var other = screenShowing(d, screen);
+        if (other !== screen) {
+            focusScreen(other);
+            return;
+        }
+        var already = desktopFor(screen) === d;
+        showDesktop(screen, d);
+        var id = engine.lastFocused(spaceFor(d, screen));
+        if (id && tracked[id] && !tracked[id].w.minimized) activate(tracked[id].w);
+        else if (!already) focusEmptyWorkspace(screen);
+    }
+
+    // Nothing to focus on the workspace we just switched to: make sure focus
+    // does not linger on a window the user can no longer see.
+    function focusEmptyWorkspace(screen) {
+        var w = ws.activeWindow;
+        var st = stOf(w);
+        if (!st || !w.output) return;
+        if (w.output === screen || desktopFor(w.output) !== desktopFor(screen)) {
+            if (ws.activeWindow) ws.activeWindow = null;
+        }
+    }
+
+    function cycleDesktop(delta) {
+        if (!perOutput()) {
+            if (delta > 0) ws.slotSwitchDesktopNext();
+            else ws.slotSwitchDesktopPrevious();
+            return;
+        }
+        var screen = focusedScreen();
+        var ds = ws.desktops, cur = desktopFor(screen);
+        var i = 0;
+        for (var j = 0; j < ds.length; j++) if (ds[j] === cur) i = j;
+        gotoDesktop(((i + delta) % ds.length + ds.length) % ds.length + 1);
+    }
+
+    function goFormerDesktop() {
+        if (!perOutput()) {
+            var d = desktopById(previousDesktop);
+            if (d) ws.currentDesktop = d;
+            return;
+        }
+        var screen = focusedScreen();
+        var prev = desktopById(formerShown[screen.name]) || desktopById(previousDesktop);
+        if (!prev) return;
+        for (var i = 0; i < ws.desktops.length; i++) if (ws.desktops[i] === prev) gotoDesktop(i + 1);
     }
 
     // The screen on which `desktop` is currently shown, if desktops are per screen.
@@ -921,8 +1187,10 @@ function createDriver(env) {
         var d = ensureDesktop(n);
         if (!d) return;
         var w = st.w;
+        var origin = focusedScreen();
         if (st.special) leaveSpecial(st, true);
         if (st.pinned) unpin(st);
+        st.desktop = d.id;
         guarded(function () { w.desktops = [d]; });
         var screen = screenShowing(d, w.output);
         if (isTiled(st)) {
@@ -930,10 +1198,16 @@ function createDriver(env) {
         } else if (shouldTile(st)) {
             tile(st);
         }
-        if (screen !== w.output && !isTiled(st)) ws.sendClientToScreen(w, screen);
+        if (screen !== w.output && !isTiled(st)) guarded(function () { ws.sendClientToScreen(w, screen); });
+        // Lay out first: KWin would otherwise switch desktop by itself when we
+        // activate a window it still thinks is somewhere else.
+        relayout();
         if (follow) {
-            ws.currentDesktop = d;
+            showDesktop(screen, d, true);
             activate(w);
+        } else if (perOutput() && screen !== origin) {
+            // The window left for another monitor; stay on this one.
+            focusScreen(origin);
         }
         relayout();
     }
@@ -1004,30 +1278,49 @@ function createDriver(env) {
     }
 
     function moveWorkspaceToMonitor(dir) {
-        var from = ws.activeScreen;
+        var from = focusedScreen();
         if (!from) return;
         var to = screenInDirection(from, dir);
         if (!to) return;
-        var fromSpace = spaceFor(desktopFor(from), from), toSpace = spaceFor(desktopFor(to), to);
+        var dFrom = desktopFor(from), dTo = desktopFor(to);
+        var fromSpace = spaceFor(dFrom, from), toSpace = spaceFor(dTo, to);
+        var floatingOn = function (screen) {
+            return visibleWindows().filter(function (st) {
+                return !isTiled(st) && !st.pinned && !st.special && st.w.output === screen;
+            });
+        };
+        if (perOutput() && dFrom !== dTo) {
+            // Two workspaces trade monitors, windows and all, the way
+            // Hyprland's movecurrentworkspacetomonitor does.
+            var back = floatingOn(to);
+            var TMP = "swap|" + from.name;
+            engine.moveSpace(fromSpace, TMP);
+            engine.moveSpace(toSpace, fromSpace);
+            engine.moveSpace(TMP, toSpace);
+            shown[from.name] = dTo.id;
+            shown[to.name] = dFrom.id;
+            back.forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, from); }); });
+            floatingOn(from).forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
+            engine.windows(fromSpace).concat(engine.windows(toSpace)).forEach(function (id) {
+                if (tracked[id]) syncDesktop(tracked[id]);
+            });
+            focusScreen(to);
+            relayout();
+            return;
+        }
+        // Both monitors show the same workspace: merge into the other one.
         var moved = engine.windows(fromSpace);
         engine.moveSpace(fromSpace, toSpace);
         moved.forEach(function (id) { if (tracked[id]) syncDesktop(tracked[id]); });
-        // Floating windows of that workspace follow along.
-        visibleWindows().forEach(function (st) {
-            if (!isTiled(st) && !st.pinned && st.w.output === from) ws.sendClientToScreen(st.w, to);
-        });
+        floatingOn(from).forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
         relayout();
     }
 
     function focusMonitor(delta) {
         var ss = screens();
         if (ss.length < 2) return;
-        var idx = ss.indexOf(ws.activeScreen);
-        var target = ss[((idx + delta) % ss.length + ss.length) % ss.length];
-        var id = engine.lastFocused(spaceFor(desktopFor(target), target));
-        if (id && tracked[id]) activate(tracked[id].w);
-        else if (delta > 0) ws.slotSwitchToNextScreen();
-        else ws.slotSwitchToPrevScreen();
+        var idx = ss.indexOf(focusedScreen());
+        focusScreen(ss[((idx + delta) % ss.length + ss.length) % ss.length]);
     }
 
     function groupAction(fn) {
@@ -1071,15 +1364,19 @@ function createDriver(env) {
         resizeRightLarge: function () { resizeActive(cfg.resizeStep * 3, 0); },
         resizeUpLarge: function () { resizeActive(0, -cfg.resizeStep * 3); },
         resizeDownLarge: function () { resizeActive(0, cfg.resizeStep * 3); },
-        nextDesktop: function () { ws.slotSwitchDesktopNext(); },
-        previousDesktop: function () { ws.slotSwitchDesktopPrevious(); },
-        formerDesktop: function () { if (previousDesktop && desktopById(previousDesktop)) ws.currentDesktop = desktopById(previousDesktop); },
+        nextDesktop: function () { cycleDesktop(1); },
+        previousDesktop: function () { cycleDesktop(-1); },
+        formerDesktop: goFormerDesktop,
         toggleSpecial: toggleSpecial,
         moveToSpecial: toggleActiveSpecial,
         workspaceToMonitorLeft: function () { moveWorkspaceToMonitor("left"); },
         workspaceToMonitorRight: function () { moveWorkspaceToMonitor("right"); },
         workspaceToMonitorUp: function () { moveWorkspaceToMonitor("up"); },
         workspaceToMonitorDown: function () { moveWorkspaceToMonitor("down"); },
+        windowToMonitorLeft: function () { windowToMonitor("left"); },
+        windowToMonitorRight: function () { windowToMonitor("right"); },
+        windowToMonitorUp: function () { windowToMonitor("up"); },
+        windowToMonitorDown: function () { windowToMonitor("down"); },
         focusNextMonitor: function () { focusMonitor(1); },
         focusPreviousMonitor: function () { focusMonitor(-1); },
         toggleGroup: function () { groupAction(function (st) { engine.toggleGroup(st.id); }); },
@@ -1170,12 +1467,10 @@ function createDriver(env) {
         // Plasma restores the desktop you left; a tiling session normally
         // wants to start from the first workspace.
         if (cfg.startOnFirstDesktop && ws.desktops.length) {
-            var first = ws.desktops[0];
-            if (ws.setCurrentDesktopForScreen) {
-                screens().forEach(function (screen) { ws.setCurrentDesktopForScreen(first, screen); });
-            }
-            ws.currentDesktop = first;
+            ws.currentDesktop = ws.desktops[0];
         }
+        refreshShown();
+        for (var tid in tracked) tracked[tid].desktop = desktopIdFor(tracked[tid].w);
 
         ws.windowAdded.connect(function (w) {
             hideOverlay(w);
@@ -1196,12 +1491,32 @@ function createDriver(env) {
             if (st) {
                 var before = engine.groupOf(st.id);
                 engine.focused(st.id);
+                // The focused monitor is the one Plasma's current desktop
+                // follows, so focus crossing monitors brings it along.
+                if (perOutput() && w.output && !st.special && !st.pinned) {
+                    // Its own workspace, not the output's: a window that has
+                    // just been moved may not have landed yet.
+                    var d = desktopById(st.desktop) || desktopFor(w.output);
+                    if (d && d !== ws.currentDesktop) {
+                        guarded(function () { ws.currentDesktop = d; });
+                        schedule();
+                    }
+                }
                 if (before && before.wins[before.active] !== st.id) relayout();
             }
             scheduleDecorations();
         });
         ws.currentDesktopChanged.connect(function (prev) {
             if (prev) previousDesktop = prev.id;
+            // Plasma switched desktop by itself (pager, its own shortcuts):
+            // that applies to the monitor the user is on.
+            if (!syncing && perOutput()) {
+                var screen = focusedScreen();
+                if (screen && shown[screen.name] !== ws.currentDesktop.id) {
+                    formerShown[screen.name] = shown[screen.name];
+                    shown[screen.name] = ws.currentDesktop.id;
+                }
+            }
             schedule();
         });
         ws.desktopsChanged.connect(schedule);
@@ -1218,6 +1533,12 @@ function createDriver(env) {
             for (var id in tracked) {
                 var st = tracked[id], w = st.w;
                 setTiledDecoration(st, false);
+                // Undo the all-desktops trick that kept other monitors visible.
+                if (!st.special && !st.pinned && w.onAllDesktops) {
+                    var d = desktopById(st.desktop);
+                    w.onAllDesktops = false;
+                    if (d) w.desktops = [d];
+                }
                 if (st.special) {
                     w.onAllDesktops = false;
                     w.keepAbove = !!st.prevKeepAbove;
@@ -1259,6 +1580,7 @@ function createDriver(env) {
                 configReloads: reloads,
                 cursor: { x: ws.cursorPos.x, y: ws.cursorPos.y },
                 popups: popupRects(),
+                shown: perOutput() ? shown : null,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });
             for (var id in tracked) {
@@ -1268,7 +1590,7 @@ function createDriver(env) {
                     pinned: st.pinned, space: engine.spaceOf(id), geometry: { x: g.x, y: g.y, width: g.width, height: g.height },
                     minimized: st.w.minimized, noBorder: st.w.noBorder, keepAbove: st.w.keepAbove,
                     onAllDesktops: st.w.onAllDesktops, desktops: st.w.desktops.map(function (d) { return d.id; }),
-                    output: st.w.output ? st.w.output.name : null,
+                    output: st.w.output ? st.w.output.name : null, workspace: st.desktop,
                 };
             }
             return out;

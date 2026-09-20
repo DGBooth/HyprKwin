@@ -14,7 +14,7 @@
         "Id": "hyprkwin",
         "License": "GPL-3.0-or-later",
         "Name": "HyprKwin",
-        "Version": "0.2.0",
+        "Version": "0.3.0",
         "Website": "https://github.com/DGBooth/HyprKwin"
     },
     "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
