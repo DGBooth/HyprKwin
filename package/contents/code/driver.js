@@ -601,15 +601,16 @@ function createDriver(env) {
         if (stopped) return;
         var borders = [];
         var active = ws.activeWindow;
+        var visible = visibleWindows();
         var fullscreenScreens = {};
-        visibleWindows().forEach(function (st) {
+        visible.forEach(function (st) {
             if (st.w.fullScreen) fullscreenScreens[st.w.output ? st.w.output.name : ""] = true;
         });
         var decorationMode = cfg.focusIndicator === INDICATOR_DECORATIONS;
         var drawBorders = cfg.borderSize > 0 &&
             (cfg.focusIndicator === INDICATOR_BORDER || (decorationMode && cfg.borderOnUndecorated));
         if (drawBorders) {
-            visibleWindows().forEach(function (st) {
+            visible.forEach(function (st) {
                 var w = st.w;
                 if (!isTiled(st) || w.fullScreen || isMaximized(w)) return;
                 // In decoration mode only fill in for windows the decoration
@@ -621,7 +622,7 @@ function createDriver(env) {
                 var isActive = w === active;
                 if (!isActive && !cfg.showInactiveBorders) return;
                 var r = w.frameGeometry, b = cfg.borderSize;
-                var outer = { id: st.id, x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
+                var outer = { id: "focus-border", x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
                 if (!usableRect(outer) || r.width < MIN_DECORATED_SIZE || r.height < MIN_DECORATED_SIZE) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
                     return;

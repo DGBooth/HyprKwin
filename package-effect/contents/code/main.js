@@ -15,6 +15,13 @@ const OVERLAY_TITLE = "HyprKwin overlay";
 
 class HyprKwinAnimations {
     constructor() {
+        // Set whenever a real window animates. HyprKwin applies window
+        // geometry first and updates its overlays a moment later, so this
+        // tells the two cases apart: a border following its own moving
+        // window, and a border reused for another window when focus changes.
+        // Only the first should animate; the second would slide the border
+        // across the screen.
+        this.lastWindowAnimation = 0;
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
         for (const window of effects.stackingOrder) {
@@ -31,6 +38,7 @@ class HyprKwinAnimations {
         // Ignore jumps across the screen (another desktop or output): sliding
         // the whole width looks like a glitch rather than a transition.
         this.maxDistance = effect.readConfig("MaxDistance", 0);
+        this.overlayGrace = 80;
         const curves = [QEasingCurve.OutCubic, QEasingCurve.OutQuad, QEasingCurve.OutExpo,
                         QEasingCurve.OutBack, QEasingCurve.Linear];
         const index = effect.readConfig("Curve", 0);
@@ -70,6 +78,12 @@ class HyprKwinAnimations {
         if (this.maxDistance > 0) {
             const dx = newGeometry.x - oldGeometry.x, dy = newGeometry.y - oldGeometry.y;
             if (Math.sqrt(dx * dx + dy * dy) > this.maxDistance) return;
+        }
+
+        if (window.caption === OVERLAY_TITLE) {
+            if (Date.now() - this.lastWindowAnimation > this.overlayGrace) return;
+        } else {
+            this.lastWindowAnimation = Date.now();
         }
 
         // Restart cleanly if the window is re-tiled mid-animation.
