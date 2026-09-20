@@ -721,6 +721,56 @@ def windows_snap_without_the_effect(sb):
 
 
 @test
+def starts_on_the_first_workspace(sb):
+    """Plasma restores the workspace you left; a tiling session starts at 1."""
+    sb.spawn("A")
+    sb._qdbus("org.kde.KWin", "/VirtualDesktopManager", "org.kde.KWin.VirtualDesktopManager.createDesktop", "1", "Two")
+    sb.settle()
+    sb.invoke("desktop2")
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "on workspace 2")
+    # Restarting the script stands in for a fresh session.
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", "hyprkwin")
+    sb._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
+    time.sleep(2)
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][0], "back on workspace 1 at startup")
+
+
+@test(config={"StartOnFirstDesktop": "false"})
+def start_workspace_can_be_left_alone(sb):
+    sb.spawn("A")
+    sb._qdbus("org.kde.KWin", "/VirtualDesktopManager", "org.kde.KWin.VirtualDesktopManager.createDesktop", "1", "Two")
+    sb.settle()
+    sb.invoke("desktop2")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", "hyprkwin")
+    sb._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
+    time.sleep(2)
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "stayed where Plasma left it")
+
+
+@test(config={"TileDialogs": "true"})
+def dialogs_can_be_tiled(sb):
+    sb.spawn("A")
+    sb.spawn("P", extra=["--dialog"])
+    sb.wait_for(lambda s: any(w["caption"] == "P dialog" for w in s["windows"].values()), "dialog")
+    sb.settle(0.6)
+    s = sb.state()
+    eq(sb.window("P dialog", s)["tiled"], True, "dialog tiled when asked")
+    eq(len([w for w in s["windows"].values() if w["tiled"]]), 3, "all three tiled")
+
+
+@test(effect=True, effect_config={"OpenCloseEffect": 2})
+def open_close_animation_can_be_chosen(sb):
+    """Picking one of Plasma's open/close effects loads it and retires the rest."""
+    loaded = sb._qdbus("org.kde.KWin", "/Effects", "org.kde.kwin.Effects.loadedEffects")
+    names = loaded.split()
+    eq("fade" in names, True, "fade loaded: %r" % ([n for n in names if n in ("fade", "scale", "glide")],))
+    eq("scale" in names, False, "scale retired")
+
+
+@test
 def plasma_shell(sb):
     """A real plasmashell: panel struts respected, shell surfaces left alone,
     overlays hidden from and during Overview."""

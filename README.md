@@ -66,6 +66,11 @@ starts**, so log out and back in after the first install. Its settings
 | Animate move / resize | `windowsMove` / `windowsIn`+`windowsOut` | both on |
 | Animate borders and tab bars | – | on |
 | Skip jumps longer than | – | no limit |
+| Window open/close | `windowsIn` / `windowsOut` | leave to Plasma |
+
+"Window open/close" picks one of Plasma's own effects (Scale, Fade, Glide) or
+turns them off. KWin treats those as mutually exclusive, so choosing one here
+retires the others; "Leave to Plasma" keeps whatever Desktop Effects says.
 
 Plasma's global animation speed (System Settings › General Behavior) is
 applied on top of the duration, and setting it to "Instant" disables the
@@ -144,10 +149,20 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Preserve split | `dwindle:preserve_split` | on |
 | No gaps when only | `workspace = w[tv1], gapsout:0, gapsin:0` | off |
 | Focused window shown by | title bars / `general:border_size` | coloured border |
-| Border size / colours | `general:border_size`, `col.active_border` | 2 px, Plasma accent |
+| Border size | `general:border_size` | 2 px |
+| Focused / unfocused border colour | `col.active_border`, `col.inactive_border` | follow the colour scheme |
 | Group tab bar height | `group:groupbar:height` | 22 |
 | Focus follows mouse | `input:follow_mouse = 1` | off |
+| Start each session on workspace 1 | – | on |
+| Create workspaces on demand | – | on |
+| Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
+| Tile dialogs and utility windows | `windowrule = tile, …` per app | off |
+| Scratchpad margin | – | 40 px |
 | Window rules | `windowrule = …` | see below |
+
+Border colours follow the colour scheme by default: the accent colour marks
+the focused window and the scheme's dimmed colour the rest, so they change
+with your Plasma theme. Either can be set to a fixed colour instead.
 
 Settings apply as soon as you press OK or Apply: Plasma doesn't notify
 scripts about their settings, so HyprKwin notices the change to `kwinrc` and

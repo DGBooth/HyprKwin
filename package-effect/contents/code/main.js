@@ -13,6 +13,10 @@
 
 const OVERLAY_TITLE = "HyprKwin overlay";
 
+// Plasma's own open/close animations. KWin marks them exclusive, so loading
+// one retires the others; we unload explicitly too in case that changes.
+const OPEN_CLOSE_EFFECTS = ["scale", "fade", "glide"];
+
 class HyprKwinAnimations {
     constructor() {
         // Set whenever a real window animates. HyprKwin applies window
@@ -39,10 +43,22 @@ class HyprKwinAnimations {
         // the whole width looks like a glitch rather than a transition.
         this.maxDistance = effect.readConfig("MaxDistance", 0);
         this.overlayGrace = 80;
+        this.applyOpenCloseEffect(effect.readConfig("OpenCloseEffect", 0));
         const curves = [QEasingCurve.OutCubic, QEasingCurve.OutQuad, QEasingCurve.OutExpo,
                         QEasingCurve.OutBack, QEasingCurve.Linear];
         const index = effect.readConfig("Curve", 0);
         this.curve = curves[index] !== undefined ? curves[index] : QEasingCurve.OutCubic;
+    }
+
+    // 0 leaves Plasma's Desktop Effects settings alone; anything else picks
+    // one of its built-in window open/close animations (or none at all).
+    applyOpenCloseEffect(choice) {
+        if (!choice) return;
+        const wanted = OPEN_CLOSE_EFFECTS[choice - 1];
+        for (const name of OPEN_CLOSE_EFFECTS) {
+            if (name !== wanted && effects.isEffectLoaded(name)) effects.unloadEffect(name);
+        }
+        if (wanted && !effects.isEffectLoaded(wanted)) effects.loadEffect(wanted);
     }
 
     manage(window) {

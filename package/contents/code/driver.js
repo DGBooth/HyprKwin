@@ -139,6 +139,10 @@ function createDriver(env) {
             // Older configs only had a "hide title bars" switch.
             indicator = bool(rc("HideTitleBars", true), true) ? INDICATOR_BORDER : INDICATOR_DECORATIONS;
         }
+        // 0: follow the colour scheme, 1: custom colour. The old boolean is
+        // still honoured so existing configs keep their look.
+        var activeSource = num(rc("ActiveBorderSource", -1), -1);
+        if (activeSource < 0) activeSource = bool(rc("UseAccentColor", true), true) ? 0 : 1;
         cfg = {
             gapsIn: num(rc("GapsIn", 5), 5),
             gapsOut: num(rc("GapsOut", 10), 10),
@@ -151,6 +155,11 @@ function createDriver(env) {
             groupBarGap: 2,
             focusIndicator: indicator,
             borderOnUndecorated: bool(rc("BorderOnUndecorated", true), true),
+            activeBorderSource: activeSource,
+            inactiveBorderSource: num(rc("InactiveBorderSource", 0), 0),
+            startOnFirstDesktop: bool(rc("StartOnFirstDesktop", true), true),
+            tileDialogs: bool(rc("TileDialogs", false), false),
+            dragToRetile: bool(rc("DragToRetile", true), true),
             borderSize: num(rc("BorderSize", 2), 2),
             useAccentColor: bool(rc("UseAccentColor", true), true),
             activeBorderColor: String(rc("ActiveBorderColor", "#33ccff") || "#33ccff"),
@@ -205,6 +214,9 @@ function createDriver(env) {
         if (st.floating || st.pinned) return false;
         if (!w.resizeable || !w.moveable || fixedSize(w)) return false;
         if (st.ruleTile) return true;
+        // Apps mark these in different ways: a Qt "dialog" often arrives as a
+        // transient normal window. Modal ones always float.
+        if (cfg.tileDialogs && !w.modal && !w.skipTaskbar) return true;
         if (!w.normalWindow || w.transient || w.modal || w.skipTaskbar) return false;
         return true;
     }
@@ -439,7 +451,7 @@ function createDriver(env) {
         if (!d || d.st !== st) { schedule(); return; }
         var w = st.w;
         log("drag end", w.caption, d.mode, JSON.stringify(ws.cursorPos));
-        if (d.mode === "move" && isTiled(st)) {
+        if (d.mode === "move" && isTiled(st) && cfg.dragToRetile) {
             var pos = ws.cursorPos;
             var target = tiledWindowAt(pos, st.id);
             log("drop target", target ? tracked[target].w.caption : "none");
@@ -1093,6 +1105,16 @@ function createDriver(env) {
             if (st && isTiled(st)) engine.focused(st.id);
         });
         if (ws.activeWindow && stOf(ws.activeWindow)) engine.focused(idOf(ws.activeWindow));
+
+        // Plasma restores the desktop you left; a tiling session normally
+        // wants to start from the first workspace.
+        if (cfg.startOnFirstDesktop && ws.desktops.length) {
+            var first = ws.desktops[0];
+            if (ws.setCurrentDesktopForScreen) {
+                screens().forEach(function (screen) { ws.setCurrentDesktopForScreen(first, screen); });
+            }
+            ws.currentDesktop = first;
+        }
 
         ws.windowAdded.connect(function (w) {
             hideOverlay(w);

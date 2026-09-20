@@ -8,14 +8,20 @@ Item {
     property var frame: null   // outer rect: window geometry grown by borderWidth
     property int borderWidth: 2
     property bool active: false
-    property bool useAccentColor: true
+    property bool activeFromTheme: true
+    property bool inactiveFromTheme: true
     property color activeColor: "#33ccff"
     property color inactiveColor: "#595959"
     property bool overlaysHidden: false
     property int revision: 0
 
     readonly property bool shown: frame !== null && borderWidth > 0
-    readonly property color borderColor: active ? (useAccentColor ? accent.Kirigami.Theme.highlightColor : activeColor) : inactiveColor
+    // Kirigami's theme only resolves inside a window, hence reading it off a
+    // strip: the accent colour for the focused window, and the scheme's
+    // dimmed text colour for the rest, so both follow the colour scheme.
+    readonly property color borderColor: active
+        ? (activeFromTheme ? accent.Kirigami.Theme.highlightColor : activeColor)
+        : (inactiveFromTheme ? accent.Kirigami.Theme.disabledTextColor : inactiveColor)
     readonly property rect outer: frame ? Qt.rect(frame.x, frame.y, frame.width, frame.height) : Qt.rect(0, 0, 0, 0)
     readonly property int b: borderWidth
 
@@ -26,7 +32,6 @@ Item {
         right.hide();
     }
 
-    // Kirigami's theme only resolves inside a window, so read the accent there.
     BorderStrip {
         id: accent
         shown: border.shown

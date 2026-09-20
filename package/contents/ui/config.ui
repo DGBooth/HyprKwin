@@ -110,39 +110,53 @@
        <item row="2" column="0">
         <widget class="QLabel" name="borderSizeLabel"><property name="text"><string>Border size:</string></property></widget>
        </item>
-       <item row="1" column="1">
+       <item row="2" column="1">
         <widget class="QSpinBox" name="kcfg_BorderSize">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>20</number></property>
          <property name="toolTip"><string>Drawn in the gap around tiled windows; only used with the "Coloured border" option above.</string></property>
         </widget>
        </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="activeSourceLabel"><property name="text"><string>Focused border colour:</string></property></widget>
+       </item>
        <item row="3" column="1">
-        <widget class="QCheckBox" name="kcfg_UseAccentColor">
-         <property name="text"><string>Use the Plasma accent colour for the active border</string></property>
+        <widget class="QComboBox" name="kcfg_ActiveBorderSource">
+         <property name="toolTip"><string>Following the colour scheme means the border changes with your Plasma theme and accent colour.</string></property>
+         <item><property name="text"><string>Accent colour of the colour scheme</string></property></item>
+         <item><property name="text"><string>Custom colour</string></property></item>
         </widget>
        </item>
        <item row="4" column="0">
-        <widget class="QLabel" name="activeColorLabel"><property name="text"><string>Active border:</string></property></widget>
+        <widget class="QLabel" name="activeColorLabel"><property name="text"><string>Custom focused colour:</string></property></widget>
        </item>
        <item row="4" column="1">
         <widget class="KColorButton" name="kcfg_ActiveBorderColor"/>
        </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="inactiveColorLabel"><property name="text"><string>Inactive border:</string></property></widget>
-       </item>
        <item row="5" column="1">
-        <widget class="KColorButton" name="kcfg_InactiveBorderColor"/>
+        <widget class="QCheckBox" name="kcfg_ShowInactiveBorders">
+         <property name="text"><string>Draw borders around unfocused tiled windows too</string></property>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="inactiveSourceLabel"><property name="text"><string>Unfocused border colour:</string></property></widget>
        </item>
        <item row="6" column="1">
-        <widget class="QCheckBox" name="kcfg_ShowInactiveBorders">
-         <property name="text"><string>Draw borders around inactive tiled windows too</string></property>
+        <widget class="QComboBox" name="kcfg_InactiveBorderSource">
+         <item><property name="text"><string>Dimmed colour of the colour scheme</string></property></item>
+         <item><property name="text"><string>Custom colour</string></property></item>
         </widget>
        </item>
        <item row="7" column="0">
-        <widget class="QLabel" name="groupBarLabel"><property name="text"><string>Group tab bar height:</string></property></widget>
+        <widget class="QLabel" name="inactiveColorLabel"><property name="text"><string>Custom unfocused colour:</string></property></widget>
        </item>
        <item row="7" column="1">
+        <widget class="KColorButton" name="kcfg_InactiveBorderColor"/>
+       </item>
+       <item row="8" column="0">
+        <widget class="QLabel" name="groupBarLabel"><property name="text"><string>Group tab bar height:</string></property></widget>
+       </item>
+       <item row="8" column="1">
         <widget class="QSpinBox" name="kcfg_GroupBarHeight">
          <property name="suffix"><string> px</string></property>
          <property name="minimum"><number>12</number></property>
@@ -161,20 +175,38 @@
         </widget>
        </item>
        <item row="1" column="1">
+        <widget class="QCheckBox" name="kcfg_StartOnFirstDesktop">
+         <property name="text"><string>Start each session on workspace 1</string></property>
+         <property name="toolTip"><string>Plasma otherwise restores whichever workspace you logged out from.</string></property>
+        </widget>
+       </item>
+       <item row="2" column="1">
         <widget class="QCheckBox" name="kcfg_AutoCreateDesktops">
          <property name="text"><string>Create virtual desktops on demand when switching to workspace N</string></property>
         </widget>
        </item>
-       <item row="2" column="0">
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="kcfg_DragToRetile">
+         <property name="text"><string>Dropping a dragged window on another one re-tiles it there</string></property>
+         <property name="toolTip"><string>Turn off to have dragged windows snap back to their own tile instead.</string></property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="kcfg_TileDialogs">
+         <property name="text"><string>Tile dialogs and utility windows as well</string></property>
+         <property name="toolTip"><string>Off by default: dialogs usually want to float above the window they belong to. Modal dialogs always float.</string></property>
+        </widget>
+       </item>
+       <item row="5" column="0">
         <widget class="QLabel" name="specialMarginLabel"><property name="text"><string>Scratchpad margin:</string></property></widget>
        </item>
-       <item row="2" column="1">
+       <item row="5" column="1">
         <widget class="QSpinBox" name="kcfg_SpecialMargin">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>500</number></property>
         </widget>
        </item>
-       <item row="3" column="1">
+       <item row="6" column="1">
         <widget class="QCheckBox" name="kcfg_Debug">
          <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
         </widget>

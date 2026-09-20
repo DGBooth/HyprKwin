@@ -201,7 +201,8 @@ Item {
             border.frame = entry;
             border.active = entry.active;
             border.borderWidth = cfg.borderSize || 0;
-            border.useAccentColor = !!cfg.useAccentColor;
+            border.activeFromTheme = cfg.activeBorderSource === 0;
+            border.inactiveFromTheme = cfg.inactiveBorderSource === 0;
             border.activeColor = cfg.activeBorderColor || "#33ccff";
             border.inactiveColor = cfg.inactiveBorderColor || "#595959";
             border.revision = revision;

@@ -18,7 +18,9 @@
         <entry name="FocusIndicator" type="Int"><default>1</default></entry>
         <entry name="BorderOnUndecorated" type="Bool"><default>true</default></entry>
         <entry name="BorderSize" type="Int"><default>2</default></entry>
-        <entry name="UseAccentColor" type="Bool"><default>true</default></entry>
+        <!-- 0: from the colour scheme, 1: custom -->
+        <entry name="ActiveBorderSource" type="Int"><default>0</default></entry>
+        <entry name="InactiveBorderSource" type="Int"><default>0</default></entry>
         <entry name="ActiveBorderColor" type="Color"><default>#33ccff</default></entry>
         <entry name="InactiveBorderColor" type="Color"><default>#595959</default></entry>
         <entry name="ShowInactiveBorders" type="Bool"><default>false</default></entry>
@@ -28,6 +30,9 @@
         <entry name="AutoCreateDesktops" type="Bool"><default>true</default></entry>
         <entry name="SpecialMargin" type="Int"><default>40</default></entry>
         <entry name="WindowRules" type="String"><default></default></entry>
+        <entry name="StartOnFirstDesktop" type="Bool"><default>true</default></entry>
+        <entry name="TileDialogs" type="Bool"><default>false</default></entry>
+        <entry name="DragToRetile" type="Bool"><default>true</default></entry>
         <entry name="Debug" type="Bool"><default>false</default></entry>
     </group>
 </kcfg>
