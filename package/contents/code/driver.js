@@ -161,6 +161,8 @@ function createDriver(env) {
             tileDialogs: bool(rc("TileDialogs", false), false),
             dragToRetile: bool(rc("DragToRetile", true), true),
             borderSize: num(rc("BorderSize", 2), 2),
+            borderRadius: num(rc("BorderRadius", 0), 0),
+            hideFloatingTitleBars: bool(rc("HideFloatingTitleBars", false), false),
             useAccentColor: bool(rc("UseAccentColor", true), true),
             activeBorderColor: String(rc("ActiveBorderColor", "#33ccff") || "#33ccff"),
             inactiveBorderColor: String(rc("InactiveBorderColor", "#595959") || "#595959"),
@@ -246,7 +248,8 @@ function createDriver(env) {
 
     function setTiledDecoration(st, tiled) {
         var w = st.w;
-        if (tiled && cfg.focusIndicator !== INDICATOR_DECORATIONS) {
+        var hide = tiled ? cfg.focusIndicator !== INDICATOR_DECORATIONS : cfg.hideFloatingTitleBars;
+        if (hide) {
             if (st.origNoBorder === undefined) st.origNoBorder = w.noBorder;
             if (!w.noBorder) w.noBorder = true;
         } else if (st.origNoBorder !== undefined) {
@@ -335,7 +338,10 @@ function createDriver(env) {
         }
         if (rule.fullscreen) w.fullScreen = true;
         if (rule.maximize) w.setMaximize(true, true);
-        if (!isTiled(st)) st.floatGeom = copyRect(w.frameGeometry);
+        if (!isTiled(st)) {
+            st.floatGeom = copyRect(w.frameGeometry);
+            setTiledDecoration(st, false);
+        }
         // KWin may activate a window before announcing it.
         if (w.active) engine.focused(id);
         return st;
@@ -1075,7 +1081,7 @@ function createDriver(env) {
         log("configuration reloaded");
         for (var id in tracked) {
             var st = tracked[id];
-            if (isTiled(st)) setTiledDecoration(st, true);
+            setTiledDecoration(st, isTiled(st));
             st.placed = null;
         }
         relayout();
@@ -1198,7 +1204,7 @@ function createDriver(env) {
             for (var id in tracked) {
                 var st = tracked[id], g = st.w.frameGeometry;
                 out.windows[id] = {
-                    caption: String(st.w.caption), tiled: isTiled(st), floating: st.floating, special: st.special,
+                    caption: String(st.w.caption), "class": String(st.w.resourceClass), tiled: isTiled(st), floating: st.floating, special: st.special,
                     pinned: st.pinned, space: engine.spaceOf(id), geometry: { x: g.x, y: g.y, width: g.width, height: g.height },
                     minimized: st.w.minimized, noBorder: st.w.noBorder, keepAbove: st.w.keepAbove,
                     onAllDesktops: st.w.onAllDesktops, desktops: st.w.desktops.map(function (d) { return d.id; }),

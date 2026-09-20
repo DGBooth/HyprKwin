@@ -117,6 +117,22 @@
          <property name="toolTip"><string>Drawn in the gap around tiled windows; only used with the "Coloured border" option above.</string></property>
         </widget>
        </item>
+       <item row="9" column="0">
+        <widget class="QLabel" name="borderRadiusLabel"><property name="text"><string>Corner radius:</string></property></widget>
+       </item>
+       <item row="9" column="1">
+        <widget class="QSpinBox" name="kcfg_BorderRadius">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>40</number></property>
+         <property name="toolTip"><string>decoration:rounding. Rounds the focus border itself; the window's own corners stay square unless your decoration theme rounds them.</string></property>
+        </widget>
+       </item>
+       <item row="10" column="1">
+        <widget class="QCheckBox" name="kcfg_HideFloatingTitleBars">
+         <property name="text"><string>Hide title bars on floating windows too</string></property>
+         <property name="toolTip"><string>Removes the title bar, and with it the minimise/maximise/close buttons, from floating windows as well as tiled ones. Apps that draw their own title bar (Chromium, Electron, GTK) are unaffected.</string></property>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QLabel" name="activeSourceLabel"><property name="text"><string>Focused border colour:</string></property></widget>
        </item>

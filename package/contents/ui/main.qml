@@ -201,6 +201,7 @@ Item {
             border.frame = entry;
             border.active = entry.active;
             border.borderWidth = cfg.borderSize || 0;
+            border.radius = cfg.borderRadius || 0;
             border.activeFromTheme = cfg.activeBorderSource === 0;
             border.inactiveFromTheme = cfg.inactiveBorderSource === 0;
             border.activeColor = cfg.activeBorderColor || "#33ccff";

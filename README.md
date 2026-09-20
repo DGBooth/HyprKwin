@@ -14,9 +14,9 @@ desktops, activities, window rules, KRunner and System Settings.
   `togglegroup` / `moveintogroup` / `changegroupactive`.
 - **Special workspace (scratchpad)**: `togglespecialworkspace` and
   `movetoworkspace special`.
-- **Focus indicator** you choose: a Hyprland-style coloured border in the gap
-  (Plasma accent colour by default) with title bars hidden, or Plasma's own
-  window decorations, or nothing.
+- **Focus indicator** you choose: a Hyprland-style coloured border in the gap,
+  optionally with rounded corners, following your colour scheme — or Plasma's
+  own window decorations, or nothing.
 - **Mouse**: Meta+drag a tiled window onto another to re-tile it there,
   Meta+right-drag (or drag an edge) to resize the split live. Optional
   focus-follows-mouse.
@@ -150,6 +150,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | No gaps when only | `workspace = w[tv1], gapsout:0, gapsin:0` | off |
 | Focused window shown by | title bars / `general:border_size` | coloured border |
 | Border size | `general:border_size` | 2 px |
+| Corner radius | `decoration:rounding` | 0 (square) |
 | Focused / unfocused border colour | `col.active_border`, `col.inactive_border` | follow the colour scheme |
 | Group tab bar height | `group:groupbar:height` | 22 |
 | Focus follows mouse | `input:follow_mouse = 1` | off |
@@ -157,6 +158,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Create workspaces on demand | – | on |
 | Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
 | Tile dialogs and utility windows | `windowrule = tile, …` per app | off |
+| Hide title bars on floating windows too | – | off |
 | Scratchpad margin | – | 40 px |
 | Window rules | `windowrule = …` | see below |
 
@@ -222,7 +224,21 @@ theme.
 
 ### Window rules
 
-One rule per line, in Hyprland's syntax (a leading `windowrule =` is
+To stop an app being tiled, the quickest route is the helper, which lists the
+windows you have open and writes the rule for you — no need to hunt down an
+app's class:
+
+```bash
+tools/hyprkwin-rules.py list        # number every open window
+tools/hyprkwin-rules.py float 3     # never tile that app
+tools/hyprkwin-rules.py tile 3      # always tile it
+tools/hyprkwin-rules.py show        # what is set
+tools/hyprkwin-rules.py remove 2    # drop one
+```
+
+Rules apply immediately to windows opened afterwards. They are the same rules
+the settings page shows under "Window rules", so you can also write them by
+hand. One rule per line, in Hyprland's syntax (a leading `windowrule =` is
 accepted, so lines can be pasted from `hyprland.conf`):
 
 ```
@@ -232,8 +248,10 @@ workspace 3 silent, class:^(discord)$
 fullscreen, class:^(steam_app_.*)$
 ```
 
-Actions: `float`, `tile`, `pseudo`, `fullscreen`, `maximize`, `group`,
-`special`, `pin`, `workspace N [silent]`. Matchers: `class:` (the Wayland
+`float` is the one you want for apps that should keep their own window
+management (virtual machines, games, image editors). Actions: `float`, `tile`,
+`pseudo`, `fullscreen`, `maximize`, `group`, `special`, `pin`,
+`workspace N [silent]`. Matchers: `class:` (the Wayland
 app id / X11 class) and `title:`, both regular expressions. Rules apply to
 newly opened windows. Dialogs, transient windows, fixed-size windows and
 Plasma system windows (polkit prompts, KRunner, Spectacle, the file-chooser

@@ -770,6 +770,71 @@ def open_close_animation_can_be_chosen(sb):
     eq("scale" in names, False, "scale retired")
 
 
+@test(config={"BorderSize": 4, "BorderRadius": 12})
+def border_can_have_rounded_corners(sb):
+    """Rounded corners add four corner windows and shorten the edges so the
+    arcs are not overdrawn."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.settle(0.6)
+    overlays = sb.overlays()
+    eq(len(overlays), 8, "four edges plus four corners: %r" % (overlays,))
+    corners = [g for g in overlays if g.split(" ")[1] == "12x12"]
+    eq(len(corners), 4, "four 12x12 corner windows: %r" % (overlays,))
+    # B is focused: outer rect is its tile grown by the 4px border.
+    edges = [g for g in overlays if g not in corners]
+    for geom in edges:
+        w, h = (int(v) for v in geom.split(" ")[1].split("x"))
+        if min(w, h) != 4:
+            raise AssertionError("edge should be one border thick: %r" % (geom,))
+        if max(w, h) > RIGHT[3]:
+            raise AssertionError("edge should stop short of the corners: %r" % (geom,))
+
+
+@test(config={"HideFloatingTitleBars": "true"})
+def floating_title_bars_can_be_hidden(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("toggleFloating")
+    s = sb.state()
+    b = sb.window("B", s)
+    eq((b["tiled"], b["noBorder"]), (False, True), "floating window keeps no title bar")
+
+
+@test
+def rules_tool_picks_apps_from_open_windows(sb):
+    """tools/hyprkwin-rules.py turns an open window into a float rule."""
+    import subprocess
+    env = dict(sb.env)
+    env["HYPRKWIN_LOG"] = str(sb.log_path)
+    tool = [sys.executable, str(ROOT_DIR / "tools" / "hyprkwin-rules.py")]
+    sb.spawn("A", app_id="hyprkwin.keep")
+    sb.spawn("B", app_id="hyprkwin.floaty")
+    listing = subprocess.run(tool + ["list"], env=env, capture_output=True, text=True)
+    eq("hyprkwin.floaty" in listing.stdout, True, "lists open windows: %r" % (listing.stdout,))
+    index = [i for i, line in enumerate(listing.stdout.splitlines()[1:], 1)
+             if "hyprkwin.floaty" in line][0]
+    added = subprocess.run(tool + ["float", str(index)], env=env, capture_output=True, text=True)
+    eq("Added: float, class:^hyprkwin\\.floaty$" in added.stdout, True, "wrote the rule: %r" % (added.stdout,))
+    # The rule reaches the running script through the config watcher.
+    s = sb.wait_for(lambda s: "floaty" in s["config"]["windowRules"], "rule picked up", timeout=12)
+    eq(s["ruleErrors"], [], "rule parses")
+    sb.spawn("C", app_id="hyprkwin.floaty")
+    s = sb.state()
+    eq(sb.window("C", s)["tiled"], False, "new window of that app floats")
+    eq(sb.window("A", s)["tiled"], True, "other apps still tile")
+    shown = subprocess.run(tool + ["show"], env=env, capture_output=True, text=True)
+    eq("float, class:" in shown.stdout, True, "show lists it: %r" % (shown.stdout,))
+    subprocess.run(tool + ["remove", "1"], env=env, capture_output=True, text=True)
+    eq(read_rules_of(sb), "", "removing leaves no rules")
+
+
+def read_rules_of(sb):
+    import subprocess
+    return subprocess.run(["kreadconfig6", "--file", "kwinrc", "--group", "Script-hyprkwin",
+                           "--key", "WindowRules"], env=sb.env, capture_output=True, text=True).stdout.strip()
+
+
 @test
 def plasma_shell(sb):
     """A real plasmashell: panel struts respected, shell surfaces left alone,
