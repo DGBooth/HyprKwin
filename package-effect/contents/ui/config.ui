@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>HyprKwinAnimationsConfig</class>
+ <widget class="QWidget" name="HyprKwinAnimationsConfig">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>480</width><height>260</height></rect>
+  </property>
+  <layout class="QFormLayout" name="form">
+   <item row="0" column="0">
+    <widget class="QLabel" name="durationLabel"><property name="text"><string>Duration:</string></property></widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QSpinBox" name="kcfg_Duration">
+     <property name="suffix"><string> ms</string></property>
+     <property name="minimum"><number>0</number></property>
+     <property name="maximum"><number>2000</number></property>
+     <property name="singleStep"><number>10</number></property>
+     <property name="toolTip"><string>Hyprland's animations:windows duration, in milliseconds. Plasma's global animation speed is applied on top of this.</string></property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="curveLabel"><property name="text"><string>Curve:</string></property></widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QComboBox" name="kcfg_Curve">
+     <item><property name="text"><string>Ease out (cubic)</string></property></item>
+     <item><property name="text"><string>Ease out (quadratic)</string></property></item>
+     <item><property name="text"><string>Ease out (exponential)</string></property></item>
+     <item><property name="text"><string>Overshoot</string></property></item>
+     <item><property name="text"><string>Linear</string></property></item>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QCheckBox" name="kcfg_AnimateMove">
+     <property name="text"><string>Animate windows moving to a new tile</string></property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QCheckBox" name="kcfg_AnimateResize">
+     <property name="text"><string>Animate windows changing size</string></property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QCheckBox" name="kcfg_AnimateOverlays">
+     <property name="text"><string>Animate HyprKwin's borders and tab bars along with the windows</string></property>
+     <property name="toolTip"><string>Keeps the focus border attached to the window while it moves. Turn off to leave borders snapping instantly.</string></property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="maxDistanceLabel"><property name="text"><string>Skip jumps longer than:</string></property></widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QSpinBox" name="kcfg_MaxDistance">
+     <property name="suffix"><string> px</string></property>
+     <property name="specialValueText"><string>No limit</string></property>
+     <property name="minimum"><number>0</number></property>
+     <property name="maximum"><number>10000</number></property>
+     <property name="toolTip"><string>Windows that jump further than this (another monitor, for example) appear in place instead of sliding across the screen.</string></property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

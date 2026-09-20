@@ -639,6 +639,57 @@ def shutdown_with_overlays_does_not_crash_kwin(sb):
         raise AssertionError("KWin crashed on shutdown (KCrash in the log)")
 
 
+def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
+    from PIL import Image
+    sb.screenshot(path)
+    im = Image.open(path).convert("RGB")
+    px = im.load()
+    xs = [x for x in range(0, im.width, 4) for y in range(0, im.height, 8)
+          if all(abs(px[x, y][i] - rgb[i]) < tol for i in range(3))]
+    return (min(xs), max(xs)) if xs else None
+
+
+@test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
+def windows_animate_to_their_new_tile(sb):
+    """The companion effect slides the rendered window to its new tile.
+    A long linear animation makes the intermediate frames measurable."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.settle(1.0)
+    eq(sb.geometry("A"), LEFT, "A starts on the left")
+    start = red_x_range(sb, shots / "start.png")
+    eq(start[0] < 100, True, "A is on the left before the swap: %r" % (start,))
+    sb.invoke("swapLeft", settle=False)
+    frames = [red_x_range(sb, shots / ("f%d.png" % i)) for i in range(3)]
+    if not all(frames):
+        raise AssertionError("lost track of the window: %r" % (frames,))
+    lefts = [f[0] for f in frames]
+    if not (lefts[0] > start[0] and lefts == sorted(lefts)):
+        raise AssertionError("expected the window to slide right over time, got %r" % (lefts,))
+    if lefts[-1] >= 900:
+        raise AssertionError("animation finished too early to be visible: %r" % (lefts,))
+    sb.settle(4.0)
+    eq(sb.geometry("A"), RIGHT, "A ends in B's tile")
+    settled = red_x_range(sb, shots / "settled.png")
+    eq(settled[0] > 900, True, "and is drawn there once settled: %r" % (settled,))
+
+
+@test
+def windows_snap_without_the_effect(sb):
+    """Without the effect installed nothing animates: the window is drawn in
+    its new tile immediately."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.settle(1.0)
+    sb.invoke("swapLeft", settle=False)
+    first = red_x_range(sb, shots / "snap.png")
+    eq(first[0] > 900, True, "drawn in the new tile straight away: %r" % (first,))
+
+
 @test
 def plasma_shell(sb):
     """A real plasmashell: panel struts respected, shell surfaces left alone,
@@ -675,7 +726,8 @@ def main():
         opts = t.opts
         start = time.time()
         try:
-            sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"))
+            sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
+                              effect=opts.get("effect", False), effect_config=opts.get("effect_config"))
             with sandbox as sb:
                 try:
                     t(sb)

@@ -10,6 +10,7 @@ if [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/hyprkwin/shortcut-changes.json" ];
 fi
 
 kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinEnabled false
+kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinanimationsEnabled false
 if qdbus6 org.kde.KWin /KWin >/dev/null 2>&1; then
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript hyprkwin >/dev/null || true
     qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure
@@ -32,4 +33,5 @@ QML
     rm -rf "$tmp"
 fi
 kpackagetool6 --type=KWin/Script --remove hyprkwin
+kpackagetool6 --type=KWin/Effect --remove hyprkwinanimations 2>/dev/null || true
 echo "HyprKwin removed. Its settings remain in ~/.config/kwinrc under [Script-hyprkwin]."

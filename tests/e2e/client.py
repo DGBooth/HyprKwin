@@ -10,9 +10,9 @@ from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 
 class Canvas(QWidget):
-    def __init__(self, title):
+    def __init__(self, title, color=None):
         super().__init__()
-        self.color = QColor.fromHsvF(random.random(), 0.5, 0.8)
+        self.color = QColor(color) if color else QColor.fromHsvF(random.random(), 0.5, 0.8)
         self.setWindowTitle(title)
 
     def paintEvent(self, _):
@@ -32,12 +32,13 @@ def main():
     ap.add_argument("--size", default="400x300")
     ap.add_argument("--fixed", action="store_true", help="fixed size (min == max)")
     ap.add_argument("--dialog", action="store_true", help="open a transient dialog too")
+    ap.add_argument("--color", help="fill colour, e.g. #ff0000 (default: random)")
     args = ap.parse_args()
 
     QGuiApplication.setDesktopFileName(args.app_id)
     app = QApplication(sys.argv[:1])
     w, h = (int(v) for v in args.size.split("x"))
-    win = Canvas(args.title)
+    win = Canvas(args.title, args.color)
     win.resize(w, h)
     if args.fixed:
         win.setFixedSize(QSize(w, h))

@@ -23,6 +23,8 @@ desktops, activities, window rules, KRunner and System Settings.
 - **Window rules** in Hyprland syntax (`float, class:^(org\.kde\.kcalc)$`).
 - **Multi-monitor**: directional focus, swap and move across monitors, and
   moving a workspace to another monitor.
+- **Animations**: a companion KWin effect slides and stretches windows into
+  their new tile, like Hyprland's `animations { windows }`.
 - **Settings page** in System Settings › Window Management › KWin Scripts.
 
 ## Install
@@ -42,6 +44,33 @@ cached for the lifetime of its process, so reloading the script re-runs the
 activate an update. A first install works straight away. Other tiling scripts
 (Polonium, Krohnkite, Bismuth) must be disabled; the installer warns if one
 is enabled.
+
+### Animations
+
+`tools/install.sh` also installs a companion effect, **HyprKwin animations**,
+which animates windows into their new tile instead of snapping them there.
+A KWin script cannot draw or animate anything itself, so this has to be a
+separate KWin *effect*; it animates the rendered window (like KWin's own
+"Stretch" effect does for maximize), so applications never see the
+intermediate sizes.
+
+Enable it under System Settings › Window Management › Desktop Effects ›
+"HyprKwin animations". **KWin only discovers a newly installed effect when it
+starts**, so log out and back in after the first install. Its settings
+(duration, curve, what to animate) are behind the effect's configure button:
+
+| Setting | Hyprland equivalent | Default |
+|---|---|---|
+| Duration | `animation = windows, 1, 4, …` | 200 ms |
+| Curve | `bezier` | ease out (cubic) |
+| Animate move / resize | `windowsMove` / `windowsIn`+`windowsOut` | both on |
+| Animate borders and tab bars | – | on |
+| Skip jumps longer than | – | no limit |
+
+Plasma's global animation speed (System Settings › General Behavior) is
+applied on top of the duration, and setting it to "Instant" disables the
+animation entirely. Window open and close animations stay Plasma's own
+(Scale, Glide, …, under Desktop Effects).
 
 ### Keybindings and Plasma conflicts
 

@@ -1,0 +1,24 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "122969287+DGBooth@users.noreply.github.com",
+                "Name": "dgbooth"
+            }
+        ],
+        "Category": "Appearance",
+        "Description": "Slides and stretches windows to their new place when HyprKwin retiles them",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-translucency",
+        "Id": "hyprkwinanimations",
+        "License": "GPL-3.0-or-later",
+        "Name": "HyprKwin animations",
+        "Version": "0.1.0",
+        "Website": "https://github.com/DGBooth/HyprKwin"
+    },
+    "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
+    "X-KDE-PluginKeyword": "hyprkwinanimations",
+    "X-KDE-Ordering": 61,
+    "X-Plasma-API": "javascript"
+}

@@ -16,16 +16,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "package"
+EFFECT_PACKAGE = ROOT / "package-effect"
 CLIENT = Path(__file__).resolve().parent / "client.py"
 
 
 class Sandbox:
-    def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None):
+    def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
+                 effect=False, effect_config=None):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
         self.scale = scale
         self.config = dict(config or {})
+        # KWin builds its effect list at startup, so the effect package has to
+        # be installed and enabled before the compositor launches.
+        self.effect = effect
+        self.effect_config = dict(effect_config or {})
         self.socket = "hyprkwin-test-%d" % os.getpid()
         self.proc = None
         self.clients = []
@@ -58,7 +64,12 @@ class Sandbox:
         env.pop("QT_QPA_PLATFORM", None)
         subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(PACKAGE)], env=env,
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        self._write_config(env, "Plugins", {"hyprkwinEnabled": "true"})
+        subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(EFFECT_PACKAGE)], env=env,
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self._write_config(env, "Plugins", {"hyprkwinEnabled": "true",
+                                            "hyprkwinanimationsEnabled": "true" if self.effect else "false"})
+        if self.effect_config:
+            self._write_config(env, "Effect-hyprkwinanimations", self.effect_config)
         # A real decoration theme: KWin decorates script windows too, which
         # once broke the border strips and went unnoticed without one.
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
@@ -125,13 +136,15 @@ class Sandbox:
 
     # -- interaction --------------------------------------------------------------
 
-    def spawn(self, title, app_id="hyprkwin.test", size="400x300", extra=(), wait=True, csd=False):
+    def spawn(self, title, app_id="hyprkwin.test", size="400x300", extra=(), wait=True, csd=False, color=None):
         env = dict(self.env)
         env["WAYLAND_DISPLAY"] = self.socket
         env["QT_QPA_PLATFORM"] = "wayland"
         if csd:
             # Draw its own decorations, like Chromium/Electron/GTK do.
             env["QT_WAYLAND_DECORATION"] = "bradient"
+        if color:
+            extra = (*extra, "--color", color)
         p = subprocess.Popen(["python3", str(CLIENT), "--title", title, "--app-id", app_id, "--size", size, *extra],
                              env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.clients.append(p)

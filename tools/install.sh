@@ -15,8 +15,17 @@ else
     kpackagetool6 --type=KWin/Script --install "$ROOT/package"
 fi
 
+# Animations live in a companion KWin effect: scripts cannot draw or animate
+# anything themselves.
+if kpackagetool6 --type=KWin/Effect --show hyprkwinanimations >/dev/null 2>&1; then
+    kpackagetool6 --type=KWin/Effect --upgrade "$ROOT/package-effect"
+else
+    kpackagetool6 --type=KWin/Effect --install "$ROOT/package-effect"
+fi
+
 if [ "$ENABLE" = 1 ]; then
     kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinEnabled true
+    kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinanimationsEnabled true
 fi
 
 for other in polonium krohnkite bismuth kzones; do
@@ -62,4 +71,6 @@ Next steps:
         tools/hyprkwin-shortcuts.py check
         tools/hyprkwin-shortcuts.py apply
   * Settings: System Settings > Window Management > KWin Scripts > HyprKwin (configure icon)
+  * Animations: System Settings > Window Management > Desktop Effects > "HyprKwin animations"
+    (KWin only discovers a newly installed effect after a restart, so log out and back in)
 EOF
