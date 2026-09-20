@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>HyprKwinConfig</class>
+ <widget class="QWidget" name="HyprKwinConfig">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>560</width><height>520</height></rect>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QTabWidget" name="tabs">
+     <property name="currentIndex"><number>0</number></property>
+     <widget class="QWidget" name="layoutTab">
+      <attribute name="title"><string>Layout</string></attribute>
+      <layout class="QFormLayout" name="layoutForm">
+       <item row="0" column="0">
+        <widget class="QLabel" name="gapsInLabel"><property name="text"><string>Inner gaps (gaps_in):</string></property></widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsIn">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>200</number></property>
+         <property name="toolTip"><string>Space around each window. Two neighbouring windows are twice this apart, like Hyprland.</string></property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="gapsOutLabel"><property name="text"><string>Outer gaps (gaps_out):</string></property></widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOut">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="splitRatioLabel"><property name="text"><string>Default split ratio:</string></property></widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QDoubleSpinBox" name="kcfg_SplitRatio">
+         <property name="minimum"><double>0.1</double></property>
+         <property name="maximum"><double>1.9</double></property>
+         <property name="singleStep"><double>0.05</double></property>
+         <property name="decimals"><number>3</number></property>
+         <property name="toolTip"><string>dwindle:default_split_ratio. 1.0 is an even split; the first (left/top) window gets ratio / 2.</string></property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="multiplierLabel"><property name="text"><string>Split width multiplier:</string></property></widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QDoubleSpinBox" name="kcfg_SplitWidthMultiplier">
+         <property name="minimum"><double>0.1</double></property>
+         <property name="maximum"><double>4.0</double></property>
+         <property name="singleStep"><double>0.1</double></property>
+         <property name="toolTip"><string>dwindle:split_width_multiplier. Values above 1 favour side-by-side splits.</string></property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="forceSplitLabel"><property name="text"><string>New window goes:</string></property></widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QComboBox" name="kcfg_ForceSplit">
+         <property name="toolTip"><string>dwindle:force_split</string></property>
+         <item><property name="text"><string>Towards the mouse cursor</string></property></item>
+         <item><property name="text"><string>Left / top</string></property></item>
+         <item><property name="text"><string>Right / bottom</string></property></item>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QCheckBox" name="kcfg_PreserveSplit">
+         <property name="text"><string>Preserve split direction when tiles change size (preserve_split)</string></property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QCheckBox" name="kcfg_NoGapsWhenOnly">
+         <property name="text"><string>No gaps or border when a window is alone</string></property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="resizeStepLabel"><property name="text"><string>Keyboard resize step:</string></property></widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QSpinBox" name="kcfg_ResizeStep">
+         <property name="suffix"><string> px</string></property>
+         <property name="minimum"><number>5</number></property>
+         <property name="maximum"><number>1000</number></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="appearanceTab">
+      <attribute name="title"><string>Appearance</string></attribute>
+      <layout class="QFormLayout" name="appearanceForm">
+       <item row="0" column="0">
+        <widget class="QLabel" name="focusIndicatorLabel"><property name="text"><string>Focused window shown by:</string></property></widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="kcfg_FocusIndicator">
+         <property name="toolTip"><string>KWin can only turn a window's whole decoration on or off. Letting the decoration do it needs no overlay windows at all; with a frame-only Aurorae theme such as "Active Accent Frame" you get a coloured border and no title bar.</string></property>
+         <item><property name="text"><string>The window decoration (no overlays)</string></property></item>
+         <item><property name="text"><string>Coloured border, title bars hidden</string></property></item>
+         <item><property name="text"><string>Nothing, title bars hidden</string></property></item>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="kcfg_BorderOnUndecorated">
+         <property name="text"><string>With decorations, still draw a border on apps that decorate themselves</string></property>
+         <property name="toolTip"><string>Chromium, Electron and GTK apps draw their own frames on Wayland, so a window decoration theme cannot mark them as focused. This fills the gap for those windows only.</string></property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="borderSizeLabel"><property name="text"><string>Border size:</string></property></widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSpinBox" name="kcfg_BorderSize">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>20</number></property>
+         <property name="toolTip"><string>Drawn in the gap around tiled windows; only used with the "Coloured border" option above.</string></property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="kcfg_UseAccentColor">
+         <property name="text"><string>Use the Plasma accent colour for the active border</string></property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="activeColorLabel"><property name="text"><string>Active border:</string></property></widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="KColorButton" name="kcfg_ActiveBorderColor"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="inactiveColorLabel"><property name="text"><string>Inactive border:</string></property></widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="KColorButton" name="kcfg_InactiveBorderColor"/>
+       </item>
+       <item row="6" column="1">
+        <widget class="QCheckBox" name="kcfg_ShowInactiveBorders">
+         <property name="text"><string>Draw borders around inactive tiled windows too</string></property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="groupBarLabel"><property name="text"><string>Group tab bar height:</string></property></widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QSpinBox" name="kcfg_GroupBarHeight">
+         <property name="suffix"><string> px</string></property>
+         <property name="minimum"><number>12</number></property>
+         <property name="maximum"><number>60</number></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="behaviourTab">
+      <attribute name="title"><string>Behaviour</string></attribute>
+      <layout class="QFormLayout" name="behaviourForm">
+       <item row="0" column="1">
+        <widget class="QCheckBox" name="kcfg_FocusFollowsMouse">
+         <property name="text"><string>Focus follows mouse (like follow_mouse = 1)</string></property>
+         <property name="toolTip"><string>Leave this off if you use Plasma's own "Focus follows mouse" policy.</string></property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="kcfg_AutoCreateDesktops">
+         <property name="text"><string>Create virtual desktops on demand when switching to workspace N</string></property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="specialMarginLabel"><property name="text"><string>Scratchpad margin:</string></property></widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QSpinBox" name="kcfg_SpecialMargin">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>500</number></property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="kcfg_Debug">
+         <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="rulesTab">
+      <attribute name="title"><string>Window rules</string></attribute>
+      <layout class="QVBoxLayout" name="rulesLayout">
+       <item>
+        <widget class="QLabel" name="rulesHelp">
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="text"><string>One Hyprland-style rule per line, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;workspace 3 silent, class:^(discord)$&lt;/tt&gt;. Actions: float, tile, pseudo, fullscreen, maximize, group, special, pin, workspace N [silent]. Matchers: class:, title: (regular expressions). Rules only apply to newly opened windows.</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPlainTextEdit" name="kcfg_WindowRules">
+         <property name="kcfg_property" stdset="0"><string>plainText</string></property>
+         <!-- KConfigDialogManager wants the SIGNAL() macro form: "2" + signature. -->
+         <property name="kcfg_propertyNotify" stdset="0"><string>2textChanged()</string></property>
+         <property name="lineWrapMode"><enum>QPlainTextEdit::NoWrap</enum></property>
+         <property name="placeholderText"><string>tile, class:^(steam)$, title:^Steam$</string></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>KColorButton</class>
+   <extends>QPushButton</extends>
+   <header>kcolorbutton.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,25 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "122969287+DGBooth@users.noreply.github.com",
+                "Name": "dgbooth"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "Hyprland-style dwindle tiling with gaps, groups, a scratchpad and Hyprland keybindings",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-tiling",
+        "Id": "hyprkwin",
+        "License": "GPL-3.0-or-later",
+        "Name": "HyprKwin",
+        "Version": "0.1.0",
+        "Website": "https://github.com/dgbooth/HyprKwin"
+    },
+    "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
+    "X-KDE-PluginKeyword": "hyprkwin",
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-MainScript": "ui/main.qml"
+}
