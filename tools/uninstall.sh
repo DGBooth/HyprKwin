@@ -32,6 +32,27 @@ QML
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "$name" >/dev/null || true
     rm -rf "$tmp"
 fi
+
+# Forget HyprKwin's own shortcuts (Plasma's were restored above). With the
+# script unloaded nothing re-registers them.
+removed=0
+if qdbus6 org.kde.kglobalaccel /kglobalaccel >/dev/null 2>&1; then
+    while IFS= read -r action; do
+        [[ $action == "HyprKwin "* ]] || continue
+        qdbus6 org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.unregister kwin "$action" >/dev/null || true
+        removed=$((removed + 1))
+    done < <(qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.shortcutNames 2>/dev/null || true)
+else
+    # No session running: edit the file kglobalaccel reads at startup.
+    shortcuts="${XDG_CONFIG_HOME:-$HOME/.config}/kglobalshortcutsrc"
+    if [ -f "$shortcuts" ]; then
+        while IFS= read -r action; do
+            kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "$action" --delete
+            removed=$((removed + 1))
+        done < <(sed -n '/^\[kwin\]$/,/^\[/{s/^\(HyprKwin [^=]*\)=.*/\1/p}' "$shortcuts")
+    fi
+fi
+echo "Removed $removed HyprKwin shortcuts."
 kpackagetool6 --type=KWin/Script --remove hyprkwin
 kpackagetool6 --type=KWin/Effect --remove hyprkwinanimations 2>/dev/null || true
 echo "HyprKwin removed. Its settings remain in ~/.config/kwinrc under [Script-hyprkwin]"

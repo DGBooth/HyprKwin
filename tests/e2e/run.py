@@ -559,6 +559,56 @@ def overlays_do_not_leak(sb):
     eq(sb.overlays(), [], "uninstall leaves no overlay windows behind")
 
 
+def hyprkwin_shortcut_lines(sb):
+    path = Path(sb.env["XDG_CONFIG_HOME"]) / "kglobalshortcutsrc"
+    text = path.read_text(errors="replace") if path.exists() else ""
+    return [l for l in text.splitlines() if l.startswith("HyprKwin ")]
+
+
+def until(pred, timeout=8.0):
+    """kglobalaccel writes its file a moment after the fact."""
+    end = time.time() + timeout
+    while time.time() < end:
+        if pred():
+            return True
+        time.sleep(0.2)
+    return pred()
+
+
+@test
+def uninstall_removes_the_shortcuts(sb):
+    """A clean uninstall forgets HyprKwin's shortcuts and leaves Plasma's."""
+    import subprocess
+    names = sb._qdbus("org.kde.kglobalaccel", "/component/kwin", "org.kde.kglobalaccel.Component.shortcutNames").splitlines()
+    eq(sum(n.startswith("HyprKwin ") for n in names) > 80, True, "HyprKwin's shortcuts are registered")
+    eq(until(lambda: len(hyprkwin_shortcut_lines(sb)) > 80), True, "and saved")
+    r = subprocess.run([str(ROOT_DIR / "tools" / "uninstall.sh")], env=sb.env, capture_output=True, text=True)
+    eq(r.returncode, 0, "uninstall.sh succeeded: " + r.stderr[-300:])
+    eq("Removed %d HyprKwin shortcuts." % sum(n.startswith("HyprKwin ") for n in names) in r.stdout, True, r.stdout[-300:])
+    time.sleep(1.5)
+    after = sb._qdbus("org.kde.kglobalaccel", "/component/kwin", "org.kde.kglobalaccel.Component.shortcutNames").splitlines()
+    eq([n for n in after if n.startswith("HyprKwin ")], [], "none left registered")
+    eq("Window Close" in after, True, "Plasma's own KWin shortcuts are untouched")
+    eq(until(lambda: not hyprkwin_shortcut_lines(sb)), True, "none left in kglobalshortcutsrc")
+
+
+@test
+def uninstall_removes_the_shortcuts_without_a_session(sb):
+    """Run from a TTY with Plasma not running, it edits the file instead."""
+    import subprocess
+    eq(until(lambda: len(hyprkwin_shortcut_lines(sb)) > 80), True, "HyprKwin's shortcuts are saved")
+    before = len(hyprkwin_shortcut_lines(sb))
+    env = dict(sb.env)
+    sb.stop()
+    env["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/nonexistent"
+    r = subprocess.run([str(ROOT_DIR / "tools" / "uninstall.sh")], env=env, capture_output=True, text=True)
+    eq(r.returncode, 0, "uninstall.sh succeeded: " + r.stderr[-300:])
+    eq("Removed %d HyprKwin shortcuts." % before in r.stdout, True, r.stdout[-300:])
+    eq(hyprkwin_shortcut_lines(sb), [], "none left in kglobalshortcutsrc")
+    path = Path(env["XDG_CONFIG_HOME"]) / "kglobalshortcutsrc"
+    eq("Window Close=" in path.read_text(), True, "Plasma's own entries are still there")
+
+
 @test
 def overlays_recover_and_ignore_tiny_windows(sb):
     """Overlays must re-assert themselves after being closed behind our back
