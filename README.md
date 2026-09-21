@@ -110,6 +110,12 @@ tools/hyprkwin-shortcuts.py restore   # give them back
 Everything can also be rebound by hand under System Settings › Keyboard ›
 Shortcuts › KWin (all entries start with "HyprKwin:").
 
+Your own shortcuts are safe either way: before changing anything,
+`install.sh` takes a snapshot of every global shortcut
+(`~/.local/share/hyprkwin/shortcuts-before-hyprkwin.json`, plus a copy of
+`kglobalshortcutsrc` next to it), and uninstalling puts them all back. The
+snapshot is never overwritten by a later install or upgrade.
+
 Defaults follow Omarchy's Hyprland bindings (Meta = SUPER). Shifted symbols
 use the character they produce on a US layout, which is how Plasma stores
 them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
@@ -162,17 +168,25 @@ tools/uninstall.sh
 
 This:
 
-- puts back any Plasma shortcuts that `hyprkwin-shortcuts.py apply` moved
-  aside,
 - removes HyprKwin's own shortcuts,
+- puts every global shortcut back exactly as it was before HyprKwin was
+  installed, from the snapshot `install.sh` took: the keys HyprKwin moved
+  aside, and any you reassigned by hand to settle a clash,
 - disables and removes both the script and the animations effect,
 - closes the focus-border windows, which KWin would otherwise leave on
   screen.
 
 Your windows stay where they are and get their title bars back. No logout is
 needed, and Plasma's own quick tiling and tile editor work again straight
-away. It also works from a TTY with Plasma not running, in which case it
-edits the shortcut file directly.
+away.
+
+Putting the snapshot back also undoes shortcut changes you made yourself
+after installing. To keep those, use `tools/uninstall.sh --keep-shortcuts`,
+which only gives back the keys HyprKwin moved.
+
+Run from a TTY with Plasma not running, it still removes HyprKwin and its
+shortcuts, and tells you to run `tools/hyprkwin-shortcuts.py reinstate` once
+you are logged in to put the rest back.
 
 A few things are left in place, in case you reinstall:
 

@@ -4,6 +4,7 @@
     python3 tests/e2e/run.py            # all tests
     python3 tests/e2e/run.py swap group # tests whose name contains a word
 """
+import json
 import shutil
 import sys
 import time
@@ -607,6 +608,93 @@ def uninstall_removes_the_shortcuts_without_a_session(sb):
     eq(hyprkwin_shortcut_lines(sb), [], "none left in kglobalshortcutsrc")
     path = Path(env["XDG_CONFIG_HOME"]) / "kglobalshortcutsrc"
     eq("Window Close=" in path.read_text(), True, "Plasma's own entries are still there")
+
+
+SHORTCUTS_TOOL = ROOT_DIR / "tools" / "hyprkwin-shortcuts.py"
+
+
+def tool(sb, *args, script=SHORTCUTS_TOOL):
+    import subprocess
+    r = subprocess.run([sys.executable if str(script).endswith(".py") else "bash", str(script), *args],
+                       env=sb.env, capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        raise AssertionError("%s %s failed: %s" % (script.name, " ".join(args), (r.stdout + r.stderr)[-400:]))
+    return r.stdout
+
+
+def live_shortcuts(sb):
+    """{(component, action): sorted keys} for every non-HyprKwin shortcut."""
+    import subprocess
+    code = ("import importlib.util, json; s = importlib.util.spec_from_file_location('t', %r); "
+            "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "print(json.dumps(m.Accel().everything()))" % str(SHORTCUTS_TOOL))
+    out = subprocess.run([sys.executable, "-c", code], env=sb.env, capture_output=True, text=True, check=True).stdout
+    return {(i["component"], i["name"]): sorted(i["keys"]) for i in json.loads(out)}
+
+
+def set_shortcut(sb, component, action, keys):
+    import subprocess
+    code = ("import importlib.util; s = importlib.util.spec_from_file_location('t', %r); "
+            "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); a = m.Accel(); "
+            "i = [x for x in a.everything() if x['component'] == %r and x['name'] == %r][0]; a.set_keys(i, %r)"
+            % (str(SHORTCUTS_TOOL), component, action, list(keys)))
+    subprocess.run([sys.executable, "-c", code], env=sb.env, check=True)
+
+
+def backup_file(sb):
+    return Path(sb.env["XDG_DATA_HOME"]) / "hyprkwin" / "shortcuts-before-hyprkwin.json"
+
+
+def differences(before, after):
+    return {k: (before[k], after.get(k)) for k in before if after.get(k, before[k]) != before[k]}
+
+
+@test
+def uninstall_reinstates_every_shortcut(sb):
+    """Whatever happened to the shortcuts after installing (keys moved by
+    'apply', or changed by hand to settle a clash), uninstalling puts every
+    one back as it was."""
+    original = live_shortcuts(sb)
+    out = tool(sb, "backup")
+    eq("Backed up" in out and backup_file(sb).exists(), True, out)
+    eq("Keeping the existing" in tool(sb, "backup"), True, "a second backup never overwrites the first")
+    moved = tool(sb, "apply")
+    eq("freed" in moved, True, "apply moved some of Plasma's keys: " + moved[-300:])
+    set_shortcut(sb, "kwin", "Window Maximize", [])          # a change made by hand
+    eq(len(differences(original, live_shortcuts(sb))) > 1, True, "shortcuts have changed")
+    out = tool(sb, script=ROOT_DIR / "tools" / "uninstall.sh")
+    eq("Reinstated" in out, True, out[-400:])
+    time.sleep(1.0)
+    eq(differences(original, live_shortcuts(sb)), {}, "every shortcut is as it was before")
+    eq(backup_file(sb).exists(), False, "the backup has been used up")
+
+
+@test
+def uninstall_can_keep_later_shortcut_changes(sb):
+    """--keep-shortcuts only undoes what HyprKwin moved."""
+    original = live_shortcuts(sb)
+    tool(sb, "backup")
+    tool(sb, "apply")
+    set_shortcut(sb, "kwin", "Window Maximize", [])
+    tool(sb, "--keep-shortcuts", script=ROOT_DIR / "tools" / "uninstall.sh")
+    time.sleep(1.0)
+    eq(differences(original, live_shortcuts(sb)), {("kwin", "Window Maximize"): (original[("kwin", "Window Maximize")], [])},
+       "only the change made by hand remains")
+
+
+@test
+def backup_is_rebuilt_for_an_existing_install(sb):
+    """Installs from before backups existed had already run 'apply'; the
+    backup undoes the logged moves, so it still holds the original keys."""
+    original = live_shortcuts(sb)
+    tool(sb, "apply")
+    eq(differences(original, live_shortcuts(sb)) != {}, True, "apply changed things")
+    out = tool(sb, "backup")
+    eq("rebuilt" in out, True, out)
+    saved = json.loads(backup_file(sb).read_text())
+    eq(saved["reconstructed"], True, "marked as rebuilt")
+    snap = {(i["component"], i["name"]): sorted(i["keys"]) for i in saved["shortcuts"]}
+    eq(differences(original, snap), {}, "the backup matches the state before apply")
 
 
 @test

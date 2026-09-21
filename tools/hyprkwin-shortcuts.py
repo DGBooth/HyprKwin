@@ -5,10 +5,15 @@ KDE's global shortcut daemon only gives a key to the first action that claims
 it, so HyprKwin's Hyprland-style defaults (Meta+1..0, Meta+Left, Meta+Q, ...)
 stay unassigned while Plasma or another script already uses them.
 
-    hyprkwin-shortcuts.py check     list conflicts (changes nothing)
-    hyprkwin-shortcuts.py apply     move the keys to HyprKwin, remembering
-                                    the previous assignments
-    hyprkwin-shortcuts.py restore   give the keys back to their old owners
+    hyprkwin-shortcuts.py check      list conflicts (changes nothing)
+    hyprkwin-shortcuts.py apply      move the keys to HyprKwin, remembering
+                                     the previous assignments
+    hyprkwin-shortcuts.py restore    give those keys back to their old owners
+
+    hyprkwin-shortcuts.py backup     snapshot every global shortcut as it was
+                                     before HyprKwin (install.sh runs this)
+    hyprkwin-shortcuts.py reinstate  put every shortcut back as in that
+                                     snapshot (uninstall.sh runs this)
 
 Everything goes through the running kglobalaccel over D-Bus, the same way
 System Settings changes shortcuts, so changes apply immediately.
@@ -21,7 +26,11 @@ from pathlib import Path
 
 import dbus
 
-STATE = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "hyprkwin" / "shortcut-changes.json"
+DATA = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "hyprkwin"
+STATE = DATA / "shortcut-changes.json"
+BACKUP = DATA / "shortcuts-before-hyprkwin.json"
+RAW_BACKUP = DATA / "kglobalshortcutsrc.before-hyprkwin"
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 PREFIX = "HyprKwin "
 
 
@@ -62,6 +71,17 @@ class Accel:
 
     def owners(self, key):
         return [self._info(i) for i in self.iface.getGlobalShortcutsByKey(dbus.Int32(key))]
+
+    def everything(self):
+        """Every global shortcut of every application, HyprKwin's excepted."""
+        out = []
+        for path in self.iface.allComponents():
+            comp = dbus.Interface(self.bus.get_object("org.kde.kglobalaccel", path), "org.kde.kglobalaccel.Component")
+            try:
+                out += [self._info(i) for i in comp.allShortcutInfos()]
+            except dbus.DBusException:
+                continue
+        return [i for i in out if not i["name"].startswith(PREFIX)]
 
     def set_keys(self, info, keys):
         action = dbus.Array([info["component"], info["name"], info["componentFriendly"], info["friendly"]], signature="s")
@@ -134,9 +154,71 @@ def cmd_restore(accel):
     return 0
 
 
+def ident(info):
+    return info["component"] + "\x1f" + info["name"]
+
+
+def cmd_backup(accel):
+    """Remember every shortcut as it was before HyprKwin changed anything.
+    An existing snapshot is kept, so upgrades never overwrite the original."""
+    if BACKUP.exists():
+        print("Keeping the existing shortcut backup (%s)." % BACKUP)
+        return 0
+    shortcuts = {ident(i): i for i in accel.everything()}
+    reconstructed = False
+    if STATE.exists():
+        # 'apply' already ran before backups existed: undo its changes on the
+        # snapshot, oldest last, so each action gets the keys it started with.
+        for entry in reversed(json.loads(STATE.read_text())):
+            action = dict(entry["action"], keys=entry["keys"])
+            shortcuts[ident(action)] = action
+        reconstructed = True
+    DATA.mkdir(parents=True, exist_ok=True)
+    BACKUP.write_text(json.dumps({"created": time.time(), "reconstructed": reconstructed,
+                                  "shortcuts": sorted(shortcuts.values(), key=ident)}, indent=1))
+    raw = CONFIG / "kglobalshortcutsrc"
+    if not reconstructed and raw.exists():
+        RAW_BACKUP.write_bytes(raw.read_bytes())
+    print("Backed up %d shortcuts to %s%s." % (len(shortcuts), BACKUP,
+          " (rebuilt from the changes 'apply' had logged)" if reconstructed else ""))
+    return 0
+
+
+def cmd_reinstate(accel):
+    """Put every shortcut back the way the backup has it, taking keys back
+    from anything that has claimed them since."""
+    if not BACKUP.exists():
+        print("No shortcut backup to reinstate.")
+        return 0
+    backup = json.loads(BACKUP.read_text())["shortcuts"]
+    wanted = {ident(b): b for b in backup}
+    live = {ident(i): i for i in accel.everything()}
+    changed = 0
+    for b in backup:
+        cur = live.get(ident(b))
+        if cur is None or sorted(cur["keys"]) == sorted(b["keys"]):
+            continue    # gone (app removed) or already as it was
+        for key in b["keys"]:
+            for other in accel.owners(key):
+                if same(other, b) or key in wanted.get(ident(other), {}).get("keys", []):
+                    continue
+                accel.set_keys(other, [k for k in other["keys"] if k != key])
+                print("freed      %-20s from %s / %s" % (key_name(key), other["componentFriendly"], other["friendly"]))
+        accel.set_keys(cur, b["keys"])
+        print("reinstated %-45s -> %s" % (b["friendly"], keys_str(b["keys"])))
+        changed += 1
+    done = BACKUP.with_name("shortcuts-before-hyprkwin.reinstated-%d.json" % int(time.time()))
+    BACKUP.rename(done)
+    if STATE.exists():
+        STATE.unlink()      # the backup covered everything it recorded
+    print("Reinstated %d shortcut%s from the backup (kept as %s)." % (changed, "" if changed == 1 else "s", done.name))
+    return 0
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "check"
-    fn = {"check": cmd_check, "apply": cmd_apply, "restore": cmd_restore}.get(cmd)
+    fn = {"check": cmd_check, "apply": cmd_apply, "restore": cmd_restore,
+          "backup": cmd_backup, "reinstate": cmd_reinstate}.get(cmd)
     if not fn:
         print(__doc__)
         return 2

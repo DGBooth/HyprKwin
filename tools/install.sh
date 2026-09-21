@@ -9,6 +9,17 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ENABLE=1
 [ "${1:-}" = "--no-enable" ] && ENABLE=0
 
+# Snapshot every global shortcut before HyprKwin changes any, so uninstall.sh
+# can put them all back. An existing snapshot is kept: upgrades never
+# overwrite the original.
+if qdbus6 org.kde.kglobalaccel /kglobalaccel >/dev/null 2>&1; then
+    python3 "$ROOT/tools/hyprkwin-shortcuts.py" backup ||
+        echo "warning: could not back up your shortcuts; run 'tools/hyprkwin-shortcuts.py backup' before 'apply'."
+else
+    echo "note: Plasma is not running, so your shortcuts were not backed up yet."
+    echo "      Once logged in, run 'tools/hyprkwin-shortcuts.py backup' before 'apply'."
+fi
+
 if kpackagetool6 --type=KWin/Script --show hyprkwin >/dev/null 2>&1; then
     kpackagetool6 --type=KWin/Script --upgrade "$ROOT/package"
 else
