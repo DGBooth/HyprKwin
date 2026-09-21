@@ -99,15 +99,33 @@ Deno.test("preserveSplit=false re-derives direction from aspect", () => {
     assertEquals(l.windows.b.y, 1000);
 });
 
-Deno.test("keyboard resize grows the right window leftwards", () => {
+Deno.test("keyboard resize moves the divider, whichever side the window is on", () => {
     const e = eng();
     e.add("a", S); e.focused("a"); e.add("b", S);
     e.layout(S);
-    e.resize("b", 100, 0);
-    const l = e.layout(S);
-    assertEquals(l.windows.b, { x: 860, y: 0, width: 1060, height: 1080 });
-    e.resize("a", -60, 0);
-    assertEquals(e.layout(S).windows.a.width, 800);
+    e.moveDivider("b", 100, 0);          // "+" on the right-hand window: divider goes right
+    let l = e.layout(S);
+    assertEquals(l.windows.a.width, 1060);
+    assertEquals(l.windows.b, { x: 1060, y: 0, width: 860, height: 1080 });
+    e.moveDivider("a", -160, 0);         // "-" on the left-hand one: divider goes left
+    l = e.layout(S);
+    assertEquals(l.windows.a.width, 900);
+    assertEquals(l.windows.b.x, 900);
+});
+
+Deno.test("keyboard resize picks the nearest divider in that axis", () => {
+    const e = eng();
+    e.add("a", S); e.focused("a"); e.add("b", S); e.focused("b"); e.add("c", S);
+    const l0 = e.layout(S);                 // a | (b / c)
+    e.moveDivider("b", 0, 100);             // shift+"+": b/c divider down
+    let l = e.layout(S);
+    assertEquals(l.windows.b.height, l0.windows.b.height + 100);
+    assertEquals(l.windows.c.y, l0.windows.c.y + 100);
+    e.moveDivider("c", 50, 0);              // a | (b / c) divider right
+    l = e.layout(S);
+    assertEquals(l.windows.a.width, l0.windows.a.width + 50);
+    assertEquals(l.windows.b.x, l.windows.c.x);
+    assertEquals(e.moveDivider("a", 0, 100), false, "a has no split above or below it");
 });
 
 Deno.test("interactive resize moves the shared edge", () => {

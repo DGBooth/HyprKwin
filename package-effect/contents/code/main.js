@@ -26,6 +26,10 @@ class HyprKwinAnimations {
         // Only the first should animate; the second would slide the border
         // across the screen.
         this.lastWindowAnimation = 0;
+        // While the user drags an edge, HyprKwin re-tiles the neighbours on
+        // every pointer step; they have to follow the pointer, not chase it.
+        this.userResizing = null;
+        this.userResizeEnded = 0;
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
         for (const window of effects.stackingOrder) {
@@ -67,6 +71,15 @@ class HyprKwinAnimations {
         // would run on top of them.
         window.windowMaximizedStateAboutToChange.connect(() => this.suspend(window));
         window.windowFullScreenChanged.connect(() => this.suspend(window));
+        window.windowStartUserMovedResized.connect(() => {
+            if (window.resize) this.userResizing = window;
+        });
+        window.windowFinishUserMovedResized.connect(() => {
+            if (this.userResizing === window) {
+                this.userResizing = null;
+                this.userResizeEnded = Date.now();
+            }
+        });
     }
 
     suspend(window) {
@@ -83,10 +96,36 @@ class HyprKwinAnimations {
         return window.normalWindow || window.dialog || window.utility;
     }
 
+    // Nudging a split only changes a window's size a little while its far
+    // edges stay put. Stretching and cross-fading the contents for that
+    // reads as the window being redrawn, so these snap, like the client does.
+    isSplitNudge(o, n) {
+        const edgeKeptX = o.x === n.x || o.x + o.width === n.x + n.width;
+        const edgeKeptY = o.y === n.y || o.y + o.height === n.y + n.height;
+        const dw = Math.abs(n.width - o.width) / Math.max(1, o.width);
+        const dh = Math.abs(n.height - o.height) / Math.max(1, o.height);
+        return edgeKeptX && edgeKeptY && dw < 0.4 && dh < 0.4;
+    }
+
+    snap(window) {
+        if (window.hkAnimation) {
+            cancel(window.hkAnimation);
+            delete window.hkAnimation;
+        }
+    }
+
     onFrameGeometryChanged(window, oldGeometry) {
         if (!this.shouldAnimate(window)) return;
-
         const newGeometry = window.geometry;
+        if (this.userResizing || Date.now() - this.userResizeEnded < 150) {
+            this.snap(window);
+            return;
+        }
+        if (window.caption !== OVERLAY_TITLE && this.isSplitNudge(oldGeometry, newGeometry)) {
+            this.snap(window);
+            return;
+        }
+
         const moved = oldGeometry.x !== newGeometry.x || oldGeometry.y !== newGeometry.y;
         const resized = oldGeometry.width !== newGeometry.width || oldGeometry.height !== newGeometry.height;
         if ((!moved && !resized) || (!this.animateMove && !resized) || (!this.animateResize && !moved)) return;

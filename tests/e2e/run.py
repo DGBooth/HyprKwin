@@ -97,10 +97,20 @@ def toggle_split_and_resize(sb):
     eq(sb.geometry("A", s), (10, 10, 1900, 525), "A on top after togglesplit")
     eq(sb.geometry("B", s), (10, 545, 1900, 525), "B below")
     sb.invoke("toggleSplit")
-    sb.invoke("resizeRight")  # grow B (right window) by 100px leftwards
+    # Meta+= moves the divider right, whichever side of it the window is:
+    # with B (the right window) focused, B shrinks.
+    sb.invoke("resizeRight")
     s = sb.state()
+    eq(sb.geometry("A", s), (10, 10, 1045, 1060), "divider moved right: A grew")
+    eq(sb.geometry("B", s), (1065, 10, 845, 1060), "B shrank")
+    sb.invoke("focusLeft")
+    sb.invoke("resizeLeft")   # and Meta+- moves it back left, from A's side too
+    sb.invoke("resizeLeft")
+    s = sb.state()
+    eq(sb.geometry("A", s), (10, 10, 845, 1060), "divider moved left twice")
     eq(sb.geometry("B", s), (865, 10, 1045, 1060), "B grew")
-    eq(sb.geometry("A", s), (10, 10, 845, 1060), "A shrank")
+    sb.invoke("resizeDown")   # A has nothing above or below it
+    eq(sb.geometry("A"), (10, 10, 845, 1060), "no vertical split: nothing moves")
 
 
 @test
@@ -438,7 +448,11 @@ def real_keys(sb):
     eq((sb.geometry("A", s), sb.geometry("B", s)), (RIGHT, LEFT), "Meta+Shift+Right swaps")
     fi.combo("meta+equal")
     sb.settle()
-    eq(sb.geometry("A"), (865, 10, 1045, 1060), "Meta+= grows")
+    eq(sb.geometry("A"), (1065, 10, 845, 1060), "Meta+= moves the divider right (A is right of it)")
+    fi.combo("meta+minus")
+    fi.combo("meta+minus")
+    sb.settle()
+    eq(sb.geometry("A"), (865, 10, 1045, 1060), "Meta+- moves it back left")
     fi.combo("meta+shift+2")
     sb.settle(0.6)
     s = sb.state()
@@ -667,6 +681,51 @@ def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
     xs = [x for x in range(0, im.width, 4) for y in range(0, im.height, 8)
           if all(abs(px[x, y][i] - rgb[i]) < tol for i in range(3))]
     return (min(xs), max(xs)) if xs else None
+
+
+@test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
+def nudging_a_split_does_not_animate(sb):
+    """Stretching and cross-fading a window for a small divider nudge reads
+    as the window being redrawn; nudges snap straight to the new size."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.invoke("focusLeft")
+    sb.settle(3.5)                            # let the opening animations finish
+    sb.invoke("resizeRight", settle=False)
+    time.sleep(0.4)
+    red = red_x_range(sb, shots / "nudge.png")
+    eq(abs(red[1] - 1055) <= 8, True, "A's edge is already at its new place: %r" % (red,))
+    blue = red_x_range(sb, shots / "nudge.png", rgb=(0, 0, 255))
+    eq(abs(blue[0] - 1065) <= 8, True, "and so is B's: %r" % (blue,))
+
+
+@test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
+def dragging_a_split_does_not_animate(sb):
+    """While an edge is dragged, the neighbour must track the pointer rather
+    than chase it through a stream of restarted animations."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.settle(3.5)
+    fi = sb.input()
+    fi.move_to(900, 540)
+    fi.key("meta", True)
+    fi.button(0x111, True)
+    for x in range(900, 1120, 20):
+        fi.move_to(x, 540)
+        time.sleep(0.03)
+    sb.settle(0.5)
+    blue = red_x_range(sb, shots / "drag.png", rgb=(0, 0, 255))
+    s = sb.state()
+    b = sb.geometry("B", s)
+    fi.button(0x111, False)
+    fi.key("meta", False)
+    fi.sync()
+    eq(b[0] > 1100, True, "B moved with the drag: %r" % (b,))
+    eq(abs(blue[0] - b[0]) <= 8, True, "B is drawn where it is, mid-drag: drawn %r, at %r" % (blue, b))
 
 
 @test(effect=True, effect_config={"Duration": 3000, "Curve": 4})

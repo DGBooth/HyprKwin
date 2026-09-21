@@ -306,6 +306,24 @@ function createEngine(userConfig) {
         return true;
     }
 
+    // The closest split in one axis above a window, whichever side it is on.
+    function nearestSplit(leaf, dir) {
+        for (var node = leaf.parent; node; node = node.parent) {
+            if (node.dir === dir) return node;
+        }
+        return null;
+    }
+
+    function shiftSplit(leaf, dir, deltaPx) {
+        var s = nearestSplit(leaf, dir);
+        if (!s || !s.rect) return false;
+        var size = dir === "h" ? s.rect.width : s.rect.height;
+        if (size <= 0) return false;
+        var before = s.ratio;
+        s.ratio = clamp(s.ratio + deltaPx / size, MIN_SHARE, 1 - MIN_SHARE);
+        return s.ratio !== before;
+    }
+
     var api = {
         config: cfg,
 
@@ -459,13 +477,16 @@ function createEngine(userConfig) {
 
         // Keyboard resize, Hyprland resizeactive semantics: positive dx grows
         // the window horizontally, preferring its right edge.
-        resize: function (id, dx, dy) {
+        // Keyboard resize: move the divider next to the window by a number of
+        // pixels, positive being right / down, whichever side of it the window
+        // is on. A window with no split in that axis stays as it is.
+        moveDivider: function (id, dx, dy) {
             var leaf = leafOf[id];
             if (!leaf) return false;
             computeRects(spaceOf[id]);
             var changed = false;
-            if (dx) changed = adjustEdge(leaf, "h", true, dx) || adjustEdge(leaf, "h", false, -dx) || changed;
-            if (dy) changed = adjustEdge(leaf, "v", true, dy) || adjustEdge(leaf, "v", false, -dy) || changed;
+            if (dx) changed = shiftSplit(leaf, "h", dx) || changed;
+            if (dy) changed = shiftSplit(leaf, "v", dy) || changed;
             return changed;
         },
 

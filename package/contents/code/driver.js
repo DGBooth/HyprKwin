@@ -1068,8 +1068,7 @@ function createDriver(env) {
         var st = active();
         if (!st || st.w.fullScreen) return;
         if (isTiled(st)) {
-            engine.resize(st.id, dx, dy);
-            relayout();
+            if (engine.moveDivider(st.id, dx, dy)) relayout();
         } else if (st.w.resizeable) {
             var g = st.w.frameGeometry;
             st.w.frameGeometry = env.rect(g.x - dx / 2, g.y - dy / 2, Math.max(100, g.width + dx), Math.max(100, g.height + dy));

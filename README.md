@@ -70,6 +70,12 @@ starts**, so log out and back in after the first install. Its settings
 | Skip jumps longer than | – | no limit |
 | Window open/close | `windowsIn` / `windowsOut` | leave to Plasma |
 
+Windows animate when they change tile (opening, closing, swapping,
+toggling a split). Moving a split — a keyboard nudge or dragging an edge —
+snaps instead: stretching and cross-fading a window's contents for a few
+pixels only makes it look as if it were being redrawn, and during a drag the
+neighbours have to follow the pointer.
+
 "Window open/close" picks one of Plasma's own effects (Scale, Fade, Glide) or
 turns them off. KWin treats those as mutually exclusive, so choosing one here
 retires the others; "Leave to Plasma" keeps whatever Desktop Effects says.
@@ -110,9 +116,9 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | `Meta+O` | Pop window out (float & pin) |
 | `Meta+Left` / `Right` / `Up` / `Down` | Focus window in direction (crosses monitors) |
 | `Meta+Shift+Left` / `Right` / `Up` / `Down` | Swap window in direction (moves to the next monitor at the edge) |
-| `Meta+-` / `Meta+=` | Shrink / grow window width |
-| `Meta+_` / `Meta++` (Shift) | Shrink / grow window height |
-| `Meta+Alt+…` / `Meta+Ctrl+…` with the above | Resize a little / a lot |
+| `Meta+-` / `Meta+=` | Move the split beside the window left / right |
+| `Meta+_` / `Meta++` (Shift) | Move the split above or below it up / down |
+| `Meta+Alt+…` / `Meta+Ctrl+…` with the above | Move it a little / a lot |
 | `Meta+1…0` | Switch to workspace 1–10 |
 | `Meta+Shift+1…0` (`Meta+!` … `Meta+)`) | Move window to workspace 1–10 and follow |
 | `Meta+Shift+Alt+1…0` | Move window to workspace 1–10 silently |
