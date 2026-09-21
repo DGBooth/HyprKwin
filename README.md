@@ -31,14 +31,38 @@ desktops, activities, window rules, KRunner and System Settings.
 
 ## Install
 
-Requires Plasma 6 (developed against 6.7).
+Requires a Plasma 6 Wayland session (developed and tested on Plasma 6.7; X11
+is untested). The helper scripts also need `python3` with dbus-python
+(`python-dbus` on Arch, `python3-dbus` on Debian, Ubuntu and Fedora) and
+`qdbus6`.
 
-```bash
-tools/install.sh
-```
+1. **Install:**
 
-The script installs the package into `~/.local/share/kwin/scripts/hyprkwin`,
-enables it and (re)loads it in the running KWin.
+   ```bash
+   tools/install.sh
+   ```
+
+   Before changing anything, this backs up every global shortcut you have
+   (to `~/.local/share/hyprkwin/shortcuts-before-hyprkwin.json`, plus a copy
+   of `~/.config/kglobalshortcutsrc` beside it), so that uninstalling can put
+   them all back. It then installs the script and the animations effect into
+   `~/.local/share/kwin/`, enables both and starts the script.
+
+2. **Give HyprKwin its keys.** Plasma already uses several of the
+   Hyprland-style keys (Meta+Left, Meta+1…, Meta+Tab, …), and the first
+   action to claim a key keeps it:
+
+   ```bash
+   tools/hyprkwin-shortcuts.py check   # see what clashes (changes nothing)
+   tools/hyprkwin-shortcuts.py apply   # hand those keys to HyprKwin
+   ```
+
+   See [Keybindings and Plasma conflicts](#keybindings-and-plasma-conflicts).
+
+3. **Log out and back in** once, so KWin picks up the animations effect (it
+   only discovers new effects when it starts).
+
+To remove it again, see [Uninstall](#uninstall).
 
 **Upgrades need a KWin restart.** KWin keeps a script's QML and JavaScript
 cached for the lifetime of its process, so reloading the script re-runs the
@@ -394,7 +418,11 @@ portal, …) float automatically.
 - KWin scripts cannot move the mouse pointer, so there is no
   "cursor follows focus" / `cursor:warp_on_change_workspace`.
 - The layout is dwindle only (no master or scrolling layout).
-- Layout changes aren't animated beyond what Plasma's own effects do.
+- Animations come from a companion KWin effect, which cannot resize an app
+  smoothly; see [Animations](#animations) for how resizes are handled.
+- Every monitor having its own workspaces is emulated on top of Plasma's
+  single current desktop, so windows shown on the other monitors appear
+  "on all desktops" in the task manager and pager.
 - Scripts can't bind mouse wheel shortcuts, so there's no Meta+scroll
   workspace switching.
 - KWin caches script code per process, so upgrading needs a KWin restart
@@ -430,7 +458,8 @@ End-to-end tests start a private `kwin_wayland --virtual` (own D-Bus session
 and config dir, nothing touches your desktop), install the package into it
 and drive it with real key presses and mouse drags through KWin's
 fake-input protocol. One test also runs a real `plasmashell`. They need
-`python3` with PySide6 and dbus-python.
+`python3` with PySide6, dbus-python and Pillow, plus `spectacle` (for
+screenshots) and `kscreen-doctor` (for plugging monitors in and out).
 
 ```bash
 python3 tests/e2e/run.py            # everything
