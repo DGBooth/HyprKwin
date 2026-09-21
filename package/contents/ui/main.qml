@@ -50,6 +50,15 @@ Item {
         onTriggered: root.driver.updateDecorations()
     }
 
+    // Drives the driver's short animations (a divider sliding after a
+    // keyboard resize) one frame at a time, and stops when they are done.
+    Timer {
+        id: tickTimer
+        interval: 16
+        repeat: true
+        onTriggered: if (!root.driver || root.shuttingDown || !root.driver.tick()) stop()
+    }
+
     // Panels can change the work area without any signal reaching scripts.
     Timer {
         id: areaTimer
@@ -243,6 +252,10 @@ Item {
             log: msg => console.warn(msg),
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
+            startTicking: interval => {
+                tickTimer.interval = interval;
+                if (!tickTimer.running) tickTimer.start();
+            },
             ui: {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
@@ -263,6 +276,7 @@ Item {
     Component.onDestruction: {
         shuttingDown = true;
         layoutTimer.stop();
+        tickTimer.stop();
         decorationTimer.stop();
         areaTimer.stop();
         focusFollowsMouseTimer.stop();

@@ -683,6 +683,37 @@ def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
     return (min(xs), max(xs)) if xs else None
 
 
+@test(config={"SlideFrame": 200})
+def keyboard_resize_slides_the_divider(sb):
+    """The divider slides over a few frames, with the windows really resized
+    at each one, and lands exactly where a jump would have put it."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("focusLeft")
+    sb.invoke("resizeRight", settle=False)
+    time.sleep(0.45)
+    mid = sb.geometry("A")[2]
+    eq(945 < mid < 1045, True, "A is part-way there: %r" % mid)
+    sb.settle(1.5)
+    eq(sb.geometry("A"), (10, 10, 1045, 1060), "and lands on the full step")
+    # Presses in quick succession add up, as key repeat would.
+    sb.invoke("resizeRight", settle=False)
+    sb.invoke("resizeRight", settle=False)
+    sb.settle(2.0)
+    eq(sb.geometry("A"), (10, 10, 1245, 1060), "two more steps")
+    eq(sb.geometry("B"), (1265, 10, 645, 1060), "B gave up the space")
+
+
+@test(config={"SlideSplits": False})
+def keyboard_resize_can_jump(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("focusLeft")
+    sb.invoke("resizeRight", settle=False)
+    time.sleep(0.05)
+    eq(sb.geometry("A"), (10, 10, 1045, 1060), "straight to the new size")
+
+
 @test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
 def nudging_a_split_does_not_animate(sb):
     """Stretching and cross-fading a window for a small divider nudge reads

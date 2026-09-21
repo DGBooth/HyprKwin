@@ -320,6 +320,8 @@ function createDriver(env) {
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
+            slideSplits: bool(rc("SlideSplits", true), true),
+            slideFrame: Math.max(4, num(rc("SlideFrame", 16), 16)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: String(rc("WindowRules", "") || ""),
@@ -1064,11 +1066,37 @@ function createDriver(env) {
         relayout();
     }
 
+    // A keyboard resize slides the divider there over a few frames instead
+    // of jumping. The windows really resize at each step, as when an edge is
+    // dragged, so nothing is ever stretched or cross-faded to fake it.
+    var SLIDE_WEIGHTS = [0.28, 0.22, 0.17, 0.13, 0.09, 0.06, 0.05];   // eases out, sums to 1
+    var slides = [];
+
+    function slideDivider(st, dx, dy) {
+        slides.push({ id: st.id, dx: dx, dy: dy, step: 0 });
+        env.startTicking(cfg.slideFrame);
+    }
+
+    // One frame of every running slide; false once there is nothing left.
+    function tick() {
+        if (stopped) return false;
+        var moved = false;
+        slides = slides.filter(function (sl) {
+            if (!tracked[sl.id] || !engine.has(sl.id)) return false;
+            var f = SLIDE_WEIGHTS[sl.step++];
+            if (engine.moveDivider(sl.id, sl.dx * f, sl.dy * f)) moved = true;
+            return sl.step < SLIDE_WEIGHTS.length;
+        });
+        if (moved) relayout();
+        return slides.length > 0;
+    }
+
     function resizeActive(dx, dy) {
         var st = active();
         if (!st || st.w.fullScreen) return;
         if (isTiled(st)) {
-            if (engine.moveDivider(st.id, dx, dy)) relayout();
+            if (cfg.slideSplits && env.startTicking) slideDivider(st, dx, dy);
+            else if (engine.moveDivider(st.id, dx, dy)) relayout();
         } else if (st.w.resizeable) {
             var g = st.w.frameGeometry;
             st.w.frameGeometry = env.rect(g.x - dx / 2, g.y - dy / 2, Math.max(100, g.width + dx), Math.max(100, g.height + dy));
@@ -1623,6 +1651,7 @@ function createDriver(env) {
         start: start,
         stop: stop,
         relayout: relayout,
+        tick: tick,
         updateDecorations: updateDecorations,
         checkAreas: checkAreas,
         reloadConfig: reloadConfig,
