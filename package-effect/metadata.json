@@ -20,5 +20,6 @@
     "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
     "X-KDE-PluginKeyword": "hyprkwinanimations",
     "X-KDE-Ordering": 61,
-    "X-Plasma-API": "javascript"
+    "X-Plasma-API": "javascript",
+    "X-Plasma-API-Minimum-Version": "6.7"
 }

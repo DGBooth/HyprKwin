@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Unit tests (layout engine, window rules)
+        run: deno test --allow-read tests/
+
+      # The end-to-end tests need a real KWin, so they only run locally
+      # (python3 tests/e2e/run.py). These at least catch files that no longer
+      # parse.
+      - name: Scripts parse
+        run: |
+          for f in package/contents/code/*.js package-effect/contents/code/*.js; do
+            deno eval "new Function(Deno.readTextFileSync('$f'))" || { echo "::error file=$f::does not parse"; exit 1; }
+          done
+          for f in tools/*.sh; do bash -n "$f"; done
+          python3 -m py_compile tools/*.py tests/e2e/*.py
+          for f in package/metadata.json package-effect/metadata.json; do python3 -m json.tool "$f" > /dev/null; done
+          python3 -c "import xml.dom.minidom as m; [m.parse(f) for f in ['package/contents/ui/config.ui', 'package/contents/config/main.xml', 'package-effect/contents/ui/config.ui', 'package-effect/contents/config/main.xml']]"
