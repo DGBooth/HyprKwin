@@ -1057,6 +1057,89 @@ def workspaces_can_span_both_monitors(sb):
     eq(sb.window("B", s)["onAllDesktops"], False, "both monitors went to workspace 2")
 
 
+def relaunch_setup(sb, app="Spotify", app_id="hyprkwin.test"):
+    """An app parked on workspace 3 and the user busy in an editor, so KWin's
+    focus stealing prevention will turn the app's activation request down."""
+    flag = sb.base / ("relaunch-" + app)
+    sb.spawn(app, app_id=app_id, extra=["--activate-on", str(flag)])
+    sb.invoke("moveToDesktopSilent3")
+    sb.spawn("Editor")
+    fi = sb.input()
+    fi.click(500, 500)
+    fi.combo("a")
+    time.sleep(0.3)
+    return flag
+
+
+def relaunch(sb, flag):
+    flag.touch()
+    sb.wait_for(lambda s: not flag.exists(), "the app noticed the relaunch")
+    sb.settle(1.0)
+    return sb.state()
+
+
+@test
+def relaunching_an_app_goes_to_its_workspace(sb):
+    """Launching an already-open app again takes you to it, instead of KWin
+    just flagging it (misc:focus_on_activate)."""
+    flag = relaunch_setup(sb)
+    s = relaunch(sb, flag)
+    app = sb.window("Spotify", s)
+    eq(s["currentDesktop"], s["desktops"][2], "switched to workspace 3")
+    eq(s["active"], app["id"], "the app has the focus")
+    eq(app["demandsAttention"], False, "and is no longer flagged")
+    eq(sb.geometry("Spotify", s), FULL, "laid out on its workspace")
+
+
+@test(outputs=2)
+def relaunching_an_app_brings_its_workspace_up_on_its_monitor(sb):
+    flag = relaunch_setup(sb)
+    s = sb.state()
+    first = sb.window("Editor", s)["output"]
+    second = [n for n in s["shown"] if n != first][0]
+    s = relaunch(sb, flag)
+    eq(s["active"], sb.window("Spotify", s)["id"], "the app has the focus")
+    eq(sb.window("Spotify", s)["output"], first, "on the monitor it was on")
+    eq(shown_on(sb, s), {first: 3, second: 2}, "only that monitor switched")
+    eq(s["currentDesktop"], s["desktops"][2], "Plasma followed")
+
+
+@test
+def relaunching_a_minimized_app_restores_it(sb):
+    flag = relaunch_setup(sb)
+    sb.invoke("desktop3")
+    sb.invoke("Window Minimize")
+    sb.invoke("desktop1")
+    fi = sb.input()
+    fi.click(500, 500)
+    fi.combo("a")
+    time.sleep(0.3)
+    s = relaunch(sb, flag)
+    app = sb.window("Spotify", s)
+    eq(app["minimized"], False, "restored")
+    eq(s["active"], app["id"], "focused")
+    eq(s["currentDesktop"], s["desktops"][2], "on its workspace")
+
+
+@test(config={"WindowRules": "focusonactivate off, class:^hyprkwin\\.chat$"})
+def apps_can_opt_out_of_focus_on_activate(sb):
+    """A chat app asking for attention on a new message must not pull you
+    over when a rule says so; it just stays flagged."""
+    flag = relaunch_setup(sb, app="Chat", app_id="hyprkwin.chat")
+    s = relaunch(sb, flag)
+    eq(s["currentDesktop"], s["desktops"][0], "stayed on workspace 1")
+    eq(s["active"], sb.window("Editor", s)["id"], "the editor keeps the focus")
+    eq(sb.window("Chat", s)["demandsAttention"], True, "Plasma's own flag is left for the taskbar")
+
+
+@test(config={"FocusOnActivate": False})
+def focus_on_activate_can_be_turned_off(sb):
+    flag = relaunch_setup(sb)
+    s = relaunch(sb, flag)
+    eq(s["currentDesktop"], s["desktops"][0], "stayed on workspace 1")
+    eq(sb.window("Spotify", s)["demandsAttention"], True, "flagged, as Plasma does")
+
+
 @test
 def plasma_shell(sb):
     """A real plasmashell: panel struts respected, shell surfaces left alone,

@@ -6,12 +6,14 @@
 //   fullscreen, class:^(steam_app_.*)$
 //
 // Supported actions: float, tile, pseudo, fullscreen, maximize, group,
-// special, pin, workspace <n> [silent]. Supported matchers: class, title
+// special, pin, workspace <n> [silent], focusonactivate [on|off].
+// Supported matchers: class, title
 // (initialClass / initialTitle are accepted as aliases). Lines starting with
 // '#' are comments. The first matching rule for each kind of action wins, so
 // user rules placed before the defaults override them.
 
-var RULE_ACTIONS = ["float", "tile", "pseudo", "fullscreen", "maximize", "group", "special", "pin", "workspace"];
+var RULE_ACTIONS = ["float", "tile", "pseudo", "fullscreen", "maximize", "group", "special", "pin", "workspace",
+    "focusonactivate"];
 
 // Plasma system windows that should never be tiled.
 var DEFAULT_RULES = [
@@ -66,7 +68,7 @@ function parseRules(text) {
 
 // Returns the effective rule set for a window:
 // {float: bool|undefined, pseudo, fullscreen, maximize, group, special, pin,
-//  workspace: {index, silent}|undefined}
+//  workspace: {index, silent}|undefined, focusonactivate: bool|undefined}
 function matchRules(rules, win) {
     var out = {};
     var cls = String(win["class"] || "");
@@ -85,6 +87,9 @@ function matchRules(rules, win) {
                 var n = parseInt(r.args[0], 10);
                 if (n > 0) out.workspace = { index: n, silent: r.args[1] === "silent" };
             }
+            break;
+        case "focusonactivate":
+            if (out.focusonactivate === undefined) out.focusonactivate = !/^(off|0|false|no)$/i.test(r.args[0] || "");
             break;
         default:
             if (out[r.action] === undefined) out[r.action] = true;

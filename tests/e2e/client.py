@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--dialog", action="store_true", help="open a transient dialog too")
     ap.add_argument("--color", help="fill colour, e.g. #ff0000 (default: random)")
     ap.add_argument("--menu", action="store_true", help="open a context menu on right-click")
+    ap.add_argument("--activate-on", help="ask to be activated when this file appears (like a relaunched single-instance app)")
     args = ap.parse_args()
 
     QGuiApplication.setDesktopFileName(args.app_id)
@@ -60,6 +61,20 @@ def main():
         d.setWindowTitle(args.title + " dialog")
         d.resize(300, 200)
         d.show()
+    if args.activate_on:
+        import os
+        from PySide6.QtCore import QTimer
+
+        def poll():
+            if os.path.exists(args.activate_on):
+                os.unlink(args.activate_on)
+                # What a single-instance app does when launched a second time.
+                win.show()
+                win.raise_()
+                win.activateWindow()
+        timer = QTimer(win)
+        timer.timeout.connect(poll)
+        timer.start(100)
     sys.exit(app.exec())
 
 

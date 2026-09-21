@@ -32,3 +32,12 @@ Deno.test("default rules float plasma system windows", () => {
     assertEquals(R.matchRules(rules, { class: "org.kde.krunner", title: "" }).float, true);
     assertEquals(R.matchRules(rules, { class: "org.kde.konsole", title: "" }).float, undefined);
 });
+
+Deno.test("focusonactivate takes an optional on/off", () => {
+    const { rules, errors } = R.parseRules("focusonactivate off, class:^(discord)$\nfocusonactivate, class:^(spotify)$\nfocusonactivate 0, title:^Bell$");
+    assertEquals(errors, []);
+    assertEquals(R.matchRules(rules, { class: "discord", title: "" }), { focusonactivate: false });
+    assertEquals(R.matchRules(rules, { class: "spotify", title: "" }), { focusonactivate: true });
+    assertEquals(R.matchRules(rules, { class: "x", title: "Bell" }), { focusonactivate: false });
+    assertEquals(R.matchRules(rules, { class: "x", title: "y" }), {});
+});

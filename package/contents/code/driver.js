@@ -319,6 +319,7 @@ function createDriver(env) {
             focusFollowsMouse: bool(rc("FocusFollowsMouse", false), false),
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
+            focusOnActivate: bool(rc("FocusOnActivate", true), true),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: String(rc("WindowRules", "") || ""),
@@ -525,6 +526,7 @@ function createDriver(env) {
         w.desktopsChanged.connect(function () { onDesktopsChanged(st); });
         w.outputChanged.connect(function () { onOutputChanged(st); });
         w.minimizedChanged.connect(function () { onMinimizedChanged(st); });
+        if (w.demandsAttentionChanged) w.demandsAttentionChanged.connect(function () { onDemandsAttention(st); });
         w.activitiesChanged.connect(schedule);
         w.fullScreenChanged.connect(function () { st.placed = null; schedule(); });
         w.maximizedChanged.connect(function () { st.placed = null; schedule(); });
@@ -583,6 +585,46 @@ function createDriver(env) {
         var space = spaceOfWindow(st);
         if (space && space !== engine.spaceOf(st.id)) engine.moveToSpace(st.id, space, {});
         schedule();
+    }
+
+    // An app asked to be brought forward — typically a single-instance app
+    // launched again — and KWin's focus stealing prevention turned it down,
+    // leaving only the "demands attention" flag. Like Hyprland's
+    // misc:focus_on_activate, go to it instead. Chat apps flag new messages
+    // the same way, so a "focusonactivate off" rule opts an app out.
+    function onDemandsAttention(st) {
+        var w = st.w;
+        if (!w.demandsAttention || drag || w === ws.activeWindow) return;
+        var rule = R.matchRules(rules, { "class": w.resourceClass, title: w.caption });
+        var wanted = rule.focusonactivate !== undefined ? rule.focusonactivate : cfg.focusOnActivate;
+        if (!wanted || !onCurrentActivity(w)) return;
+        log("activation request from", w.caption);
+        focusWindow(st);
+    }
+
+    // Bring a window forward wherever it is, the way Hyprland's focuswindow
+    // does: its workspace comes up on its monitor, the scratchpad opens, and
+    // a minimized window is restored.
+    function focusWindow(st) {
+        var w = st.w;
+        if (st.special) {
+            if (!special.shown) toggleSpecial();
+            activate(w);
+            return;
+        }
+        if (w.minimized) guarded(function () { w.minimized = false; });
+        if (perOutput() && !st.pinned) {
+            var d = desktopById(st.desktop);
+            var space = engine.spaceOf(st.id);
+            var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+            var screen = (p && p.screen) || w.output;
+            // Switch before activating, or KWin would move the desktop itself.
+            if (d && screen) showDesktop(screen, d, true);
+        } else if (!w.onAllDesktops && w.desktops.length && w.desktops.indexOf(ws.currentDesktop) < 0) {
+            ws.currentDesktop = w.desktops[0];
+        }
+        activate(w);
+        relayout();
     }
 
     function onKWinTile(st) {
@@ -1617,6 +1659,7 @@ function createDriver(env) {
                     caption: String(st.w.caption), "class": String(st.w.resourceClass), tiled: isTiled(st), floating: st.floating, special: st.special,
                     pinned: st.pinned, space: engine.spaceOf(id), geometry: { x: g.x, y: g.y, width: g.width, height: g.height },
                     minimized: st.w.minimized, noBorder: st.w.noBorder, keepAbove: st.w.keepAbove,
+                    demandsAttention: !!st.w.demandsAttention,
                     onAllDesktops: st.w.onAllDesktops, desktops: st.w.desktops.map(function (d) { return d.id; }),
                     output: st.w.output ? st.w.output.name : null, workspace: st.desktop,
                 };

@@ -229,6 +229,12 @@
         </widget>
        </item>
        <item row="7" column="1">
+        <widget class="QCheckBox" name="kcfg_FocusOnActivate">
+         <property name="text"><string>Go to a window that asks to be activated (focus_on_activate)</string></property>
+         <property name="toolTip"><string>Launching an app that is already open on another workspace switches to it. Chat apps ask for attention the same way when a message arrives; add a rule such as "focusonactivate off, class:^(discord)$" to stop one pulling you over.</string></property>
+        </widget>
+       </item>
+       <item row="8" column="1">
         <widget class="QCheckBox" name="kcfg_Debug">
          <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
         </widget>
@@ -241,7 +247,7 @@
        <item>
         <widget class="QLabel" name="rulesHelp">
          <property name="wordWrap"><bool>true</bool></property>
-         <property name="text"><string>One Hyprland-style rule per line, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;workspace 3 silent, class:^(discord)$&lt;/tt&gt;. Actions: float, tile, pseudo, fullscreen, maximize, group, special, pin, workspace N [silent]. Matchers: class:, title: (regular expressions). Rules only apply to newly opened windows.</string></property>
+         <property name="text"><string>One Hyprland-style rule per line, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;workspace 3 silent, class:^(discord)$&lt;/tt&gt;. Actions: float, tile, pseudo, fullscreen, maximize, group, special, pin, workspace N [silent], focusonactivate [on|off]. Matchers: class:, title: (regular expressions). Rules only apply to newly opened windows.</string></property>
         </widget>
        </item>
        <item>
