@@ -683,7 +683,7 @@ def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
     return (min(xs), max(xs)) if xs else None
 
 
-@test(config={"SlideFrame": 200})
+@test(config={"SlideSplits": True, "SlideFrame": 200})
 def keyboard_resize_slides_the_divider(sb):
     """The divider slides over a few frames, with the windows really resized
     at each one, and lands exactly where a jump would have put it."""
@@ -704,8 +704,8 @@ def keyboard_resize_slides_the_divider(sb):
     eq(sb.geometry("B"), (1265, 10, 645, 1060), "B gave up the space")
 
 
-@test(config={"SlideSplits": False})
-def keyboard_resize_can_jump(sb):
+@test
+def keyboard_resize_jumps_by_default(sb):
     sb.spawn("A")
     sb.spawn("B")
     sb.invoke("focusLeft")

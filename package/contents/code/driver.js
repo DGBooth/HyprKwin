@@ -320,7 +320,7 @@ function createDriver(env) {
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
-            slideSplits: bool(rc("SlideSplits", true), true),
+            slideSplits: bool(rc("SlideSplits", false), false),
             slideFrame: Math.max(4, num(rc("SlideFrame", 16), 16)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),

@@ -71,13 +71,15 @@ starts**, so log out and back in after the first install. Its settings
 | Window open/close | `windowsIn` / `windowsOut` | leave to Plasma |
 
 Windows animate when they change tile (opening, closing, swapping,
-toggling a split). Moving a split is different: the effect would have to
+toggling a split). Moving a split snaps instead: the effect would have to
 stretch or cross-fade the apps' contents to fake the in-between sizes, which
-looks like the windows being redrawn. Instead, a keyboard resize slides the
-divider over about a tenth of a second and the apps really resize at each
-step — the same as dragging an edge, where the neighbours simply follow the
-pointer. (HyprKwin's own "Slide the split when resizing from the keyboard"
-setting turns the slide off.)
+looks like the windows being redrawn, and while an edge is dragged the
+neighbours simply follow the pointer.
+
+HyprKwin's "Slide the split when resizing from the keyboard" setting (off by
+default) slides the divider over about a tenth of a second, with the apps
+really resizing at each step. That is smooth with native apps, but Chromium
+and Electron apps cannot redraw that fast and flicker.
 
 "Window open/close" picks one of Plasma's own effects (Scale, Fade, Glide) or
 turns them off. KWin treats those as mutually exclusive, so choosing one here
@@ -169,7 +171,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Start each session on workspace 1 | – | on |
 | Every monitor has its own workspaces | one workspace per monitor | on |
 | Go to a window that asks to be activated | `misc:focus_on_activate` | on |
-| Slide the split when resizing from the keyboard | `animation = windows` (for resizes) | on |
+| Slide the split when resizing from the keyboard | `animation = windows` (for resizes) | off |
 | Create workspaces on demand | – | on |
 | Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
 | Tile dialogs and utility windows | `windowrule = tile, …` per app | off |

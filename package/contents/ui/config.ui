@@ -88,7 +88,7 @@
        <item row="8" column="1">
         <widget class="QCheckBox" name="kcfg_SlideSplits">
          <property name="text"><string>Slide the split when resizing from the keyboard</string></property>
-         <property name="toolTip"><string>Moves the divider over about a tenth of a second, resizing the windows for real at each step the way dragging an edge does. Off: it jumps.</string></property>
+         <property name="toolTip"><string>Moves the divider over about a tenth of a second, resizing the windows for real at each step the way dragging an edge does. Smooth with native apps, but Chromium and Electron apps (Brave, Chrome, Discord, …) cannot redraw that fast and flicker. Off: it jumps.</string></property>
         </widget>
        </item>
       </layout>
