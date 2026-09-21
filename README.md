@@ -4,12 +4,18 @@ Hyprland-style dwindle tiling for KDE Plasma 6, implemented as a KWin script.
 You keep all of Plasma: panels, widgets, the task manager, Overview, virtual
 desktops, activities, window rules, KRunner and System Settings.
 
+![Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7](docs/screenshot.png)
+
+*Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7
+(Breeze Dark), with the rounded focus border and the stock Plasma panel.*
+
 - **Dwindle layout** with Hyprland's semantics: splits along the longer side,
   `gaps_in` / `gaps_out`, `default_split_ratio` (same units as Hyprland),
   `preserve_split`, `force_split`, `split_width_multiplier`, `togglesplit`,
   pseudotiling.
-- **Workspaces = Plasma virtual desktops** (created on demand), including
-  per-output desktops. Pager, Overview and the desktop switcher keep working.
+- **Workspaces = Plasma virtual desktops** (created on demand), and every
+  monitor gets its own, as in Hyprland. Pager, Overview and the desktop
+  switcher keep working.
 - **Groups (tabbed windows)** with a clickable tab bar, like Hyprland's
   `togglegroup` / `moveintogroup` / `changegroupactive`.
 - **Special workspace (scratchpad)**: `togglespecialworkspace` and
@@ -465,6 +471,10 @@ screenshots) and `kscreen-doctor` (for plugging monitors in and out).
 python3 tests/e2e/run.py            # everything
 python3 tests/e2e/run.py groups     # tests whose name contains "groups"
 ```
+
+The screenshot at the top is staged in the same nested KWin, with real apps
+and a real Plasma panel, so it can be retaken when the UI changes:
+`python3 tools/readme-screenshot.py` (needs Alacritty, Gwenview and fastfetch).
 
 Debug logging: enable "Debug logging" in the settings, then
 `journalctl --user -f | grep HyprKwin`.
