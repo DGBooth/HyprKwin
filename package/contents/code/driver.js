@@ -65,6 +65,11 @@ function createDriver(env) {
             Math.abs(a.width - b.width) <= tol && Math.abs(a.height - b.height) <= tol;
     }
 
+    function encloses(outer, inner) {
+        return inner.x >= outer.x && inner.y >= outer.y &&
+            inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
+    }
+
     function contains(r, p) {
         return p.x >= r.x && p.x < r.x + r.width && p.y >= r.y && p.y < r.y + r.height;
     }
@@ -320,8 +325,11 @@ function createDriver(env) {
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
-            slideSplits: bool(rc("SlideSplits", false), false),
-            slideFrame: Math.max(4, num(rc("SlideFrame", 16), 16)),
+            slideDivider: bool(rc("SlideDivider", true), true),
+            // How long a shrinking window keeps its old size while the
+            // animations effect slides the divider over it (the effect's
+            // slide takes 180ms).
+            slideHold: Math.max(0, num(rc("SlideHold", 220), 220)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: String(rc("WindowRules", "") || ""),
@@ -648,6 +656,11 @@ function createDriver(env) {
     }
 
     function onGeometryChanged(st) {
+        if (slideGrowers && slideGrowers[st.id]) slideGrowers = null;
+        if (releasing && releasing[st.id]) {
+            delete releasing[st.id];
+            if (!Object.keys(releasing).length) playQueued();
+        }
         scheduleDecorations();
         if (syncing || drag) return;
         var w = st.w;
@@ -757,9 +770,19 @@ function createDriver(env) {
         // Only push geometry when our target changes, so windows that refuse
         // a size (minimum size hints) don't cause a resize loop.
         if (st.placed && sameRect(st.placed, r)) return;
+        // Mid-slide, a window that loses area keeps its old size until the
+        // divider has slid over it; see slideDivider().
+        if (shown && (holdShrinks || st.hold) && !encloses(r, w.frameGeometry)) {
+            st.hold = copyRect(r);
+            return;
+        }
+        st.hold = null;
         st.placed = r;
         if (!shown) st.placedHidden = true;
-        if (!sameRect(w.frameGeometry, r)) w.frameGeometry = env.rect(r.x, r.y, r.width, r.height);
+        if (!sameRect(w.frameGeometry, r)) {
+            if (holdShrinks && slideGrowers) slideGrowers[st.id] = true;
+            w.frameGeometry = env.rect(r.x, r.y, r.width, r.height);
+        }
     }
 
     var groupBars = [];
@@ -878,6 +901,7 @@ function createDriver(env) {
 
     function updateDecorations() {
         if (stopped) return;
+        if (slideGrowers) return;   // see slideGrowers
         var borders = [];
         var active = ws.activeWindow;
         var visible = visibleWindows();
@@ -904,7 +928,9 @@ function createDriver(env) {
                 if (g && g.wins[g.active] !== st.id) return;
                 var isActive = w === active;
                 if (!isActive && !cfg.showInactiveBorders) return;
-                var r = w.frameGeometry, b = cfg.borderSize;
+                // A window held back mid-slide is drawn where it is going;
+                // the effect slides its border there with the divider.
+                var r = st.hold || w.frameGeometry, b = cfg.borderSize;
                 var outer = { id: "focus-border", x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
                 if (!usableRect(outer) || r.width < MIN_DECORATED_SIZE || r.height < MIN_DECORATED_SIZE) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
@@ -1066,36 +1092,87 @@ function createDriver(env) {
         relayout();
     }
 
-    // A keyboard resize slides the divider there over a few frames instead
-    // of jumping. The windows really resize at each step, as when an edge is
-    // dragged, so nothing is ever stretched or cross-faded to fake it.
-    var SLIDE_WEIGHTS = [0.28, 0.22, 0.17, 0.13, 0.09, 0.06, 0.05];   // eases out, sums to 1
-    var slides = [];
+    // A keyboard resize slides the divider instead of jumping, without
+    // making the apps redraw more than once: a window that grows gets its new
+    // size at once, and one that shrinks keeps its old size a moment longer.
+    // The animations effect meanwhile uncovers the first and covers the
+    // second as the edge travels, so neither is ever scaled. Presses made
+    // during a slide are added up and played as the next one.
+    // "slide": holding the shrinking windows while the divider slides;
+    // "release": they have been let go, and the next slide waits until they
+    // have actually taken their new size (so it finds them where they are).
+    var slidePhase = "idle";
+    var holdShrinks = false;
+    var slideQueue = null;
+    var releasing = null;
+    // Windows that grew in the current slide and have yet to take their new
+    // size. Borders wait for them: the effect only knows a slide is under
+    // way once one of them has, and a border moved before that would jump.
+    var slideGrowers = null;
 
     function slideDivider(st, dx, dy) {
-        slides.push({ id: st.id, dx: dx, dy: dy, step: 0 });
-        env.startTicking(cfg.slideFrame);
+        if (slidePhase !== "idle") {
+            if (slideQueue && slideQueue.id === st.id) {
+                slideQueue.dx += dx;
+                slideQueue.dy += dy;
+            } else {
+                slideQueue = { id: st.id, dx: dx, dy: dy };
+            }
+            return;
+        }
+        if (!engine.moveDivider(st.id, dx, dy)) return;
+        holdShrinks = cfg.slideHold > 0;
+        slideGrowers = {};
+        relayout();
+        holdShrinks = false;
+        if (!Object.keys(slideGrowers).length) slideGrowers = null;
+        var any = false;
+        for (var id in tracked) if (tracked[id].hold) any = true;
+        if (!any) return;
+        slidePhase = "slide";
+        env.later(cfg.slideHold);
     }
 
-    // One frame of every running slide; false once there is nothing left.
-    function tick() {
-        if (stopped) return false;
-        var moved = false;
-        slides = slides.filter(function (sl) {
-            if (!tracked[sl.id] || !engine.has(sl.id)) return false;
-            var f = SLIDE_WEIGHTS[sl.step++];
-            if (engine.moveDivider(sl.id, sl.dx * f, sl.dy * f)) moved = true;
-            return sl.step < SLIDE_WEIGHTS.length;
-        });
-        if (moved) relayout();
-        return slides.length > 0;
+    function later() {
+        if (stopped) return;
+        if (slidePhase === "slide") endSlide();
+        else if (slidePhase === "release") playQueued();
+    }
+
+    // The divider has slid over the held windows: let them shrink.
+    function endSlide() {
+        slideGrowers = null;
+        var held = {}, any = false;
+        for (var id in tracked) {
+            if (tracked[id].hold) {
+                held[id] = true;
+                any = true;
+                tracked[id].hold = null;
+            }
+        }
+        relayout();
+        if (slideQueue && any) {
+            slidePhase = "release";
+            releasing = held;
+            env.later(150);   // in case one never answers
+        } else {
+            playQueued();
+        }
+    }
+
+    function playQueued() {
+        slidePhase = "idle";
+        releasing = null;
+        var q = slideQueue;
+        slideQueue = null;
+        if (q && tracked[q.id] && (q.dx || q.dy)) slideDivider(tracked[q.id], q.dx, q.dy);
     }
 
     function resizeActive(dx, dy) {
         var st = active();
         if (!st || st.w.fullScreen) return;
         if (isTiled(st)) {
-            if (cfg.slideSplits && env.startTicking) slideDivider(st, dx, dy);
+            if (cfg.slideDivider && env.later) slideDivider(st, dx, dy);
             else if (engine.moveDivider(st.id, dx, dy)) relayout();
         } else if (st.w.resizeable) {
             var g = st.w.frameGeometry;
@@ -1651,7 +1728,7 @@ function createDriver(env) {
         start: start,
         stop: stop,
         relayout: relayout,
-        tick: tick,
+        later: later,
         updateDecorations: updateDecorations,
         checkAreas: checkAreas,
         reloadConfig: reloadConfig,

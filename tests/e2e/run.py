@@ -683,41 +683,134 @@ def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
     return (min(xs), max(xs)) if xs else None
 
 
-@test(config={"SlideSplits": True, "SlideFrame": 200})
-def keyboard_resize_slides_the_divider(sb):
-    """The divider slides over a few frames, with the windows really resized
-    at each one, and lands exactly where a jump would have put it."""
+@test(config={"SlideHold": 1500})
+def keyboard_resize_holds_the_shrinking_window(sb):
+    """Each app resizes once: the one that grows straight away, the one that
+    shrinks after the divider has slid over it."""
     sb.spawn("A")
     sb.spawn("B")
     sb.invoke("focusLeft")
     sb.invoke("resizeRight", settle=False)
-    time.sleep(0.45)
-    mid = sb.geometry("A")[2]
-    eq(945 < mid < 1045, True, "A is part-way there: %r" % mid)
-    sb.settle(1.5)
-    eq(sb.geometry("A"), (10, 10, 1045, 1060), "and lands on the full step")
-    # Presses in quick succession add up, as key repeat would.
+    time.sleep(0.4)
+    s = sb.state()
+    eq(sb.geometry("A", s), (10, 10, 1045, 1060), "A grew at once")
+    eq(sb.geometry("B", s), RIGHT, "B is held at its old size")
+    sb.settle(1.6)
+    eq(sb.geometry("B"), (1065, 10, 845, 1060), "then B shrinks, once")
+    # Presses during a slide add up and play as the next one; a press back
+    # the other way cancels out.
     sb.invoke("resizeRight", settle=False)
     sb.invoke("resizeRight", settle=False)
-    sb.settle(2.0)
-    eq(sb.geometry("A"), (10, 10, 1245, 1060), "two more steps")
+    sb.invoke("resizeLeft", settle=False)
+    sb.invoke("resizeRight", settle=False)
+    sb.settle(5.0)
+    eq(sb.geometry("A"), (10, 10, 1245, 1060), "three more steps right, one back")
     eq(sb.geometry("B"), (1265, 10, 645, 1060), "B gave up the space")
 
 
-@test
-def keyboard_resize_jumps_by_default(sb):
+@test(config={"SlideDivider": False})
+def keyboard_resize_can_jump(sb):
     sb.spawn("A")
     sb.spawn("B")
     sb.invoke("focusLeft")
     sb.invoke("resizeRight", settle=False)
-    time.sleep(0.05)
-    eq(sb.geometry("A"), (10, 10, 1045, 1060), "straight to the new size")
+    time.sleep(0.1)
+    s = sb.state()
+    eq((sb.geometry("A", s), sb.geometry("B", s)), ((10, 10, 1045, 1060), (1065, 10, 845, 1060)), "both at once")
+
+
+def extents(sb, path, *colours, tol=40, column=None):
+    """Range of each colour along the middle row (or down a column) of ONE
+    screenshot, so edges that are moving are all measured at the same instant."""
+    from PIL import Image
+    sb.screenshot(path)
+    im = Image.open(path).convert("RGB")
+    px = im.load()
+    if column is None:
+        line = [(x, im.height // 2) for x in range(im.width)]
+    else:
+        line = [(column, y) for y in range(im.height)]
+    out = []
+    for rgb in colours:
+        hits = [p[0] if column is None else p[1] for p in line
+                if all(abs(px[p][i] - rgb[i]) < tol for i in range(3))]
+        out.append((min(hits), max(hits)) if hits else None)
+    return out
+
+
+SLOW_SLIDE = dict(effect=True, effect_config={"SlideDuration": 2400}, config={"SlideHold": 3000})
+
+
+@test(**SLOW_SLIDE)
+def divider_slides_over_the_windows(sb):
+    """Mid-slide the growing window is being uncovered at its final size, the
+    shrinking one covered at its old size, with the gap between them kept."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.invoke("focusLeft")
+    sb.settle(3.0)
+    sb.invoke("resizeRightLarge", settle=False)   # 300px
+    time.sleep(0.5)
+    red, blue = extents(sb, shots / "right-mid.png", (255, 0, 0), (0, 0, 255))
+    eq(955 + 20 < red[1] < 1255 - 20, True, "A's visible edge is part-way: %r" % (red,))
+    eq(abs(blue[0] - (red[1] + 11)) <= 6, True, "B's visible edge keeps the gap: %r / %r" % (red, blue))
+    eq(blue[1] >= 1900, True, "B still reaches its right edge: %r" % (blue,))
+    sb.settle(3.5)
+    red, blue = extents(sb, shots / "right-end.png", (255, 0, 0), (0, 0, 255))
+    eq((abs(red[1] - 1254) <= 2, abs(blue[0] - 1265) <= 2), (True, True), "landed: %r / %r" % (red, blue))
+
+    # And back the other way from the right-hand window: B grows leftwards.
+    sb.invoke("focusRight")
+    sb.invoke("resizeLeftLarge", settle=False)
+    time.sleep(0.5)
+    red, blue = extents(sb, shots / "left-mid.png", (255, 0, 0), (0, 0, 255))
+    eq(955 + 20 < red[1] < 1255 - 20, True, "A's visible edge is part-way back: %r" % (red,))
+    eq(abs(blue[0] - (red[1] + 11)) <= 6, True, "gap kept: %r / %r" % (red, blue))
+    sb.settle(3.5)
+    red, blue = extents(sb, shots / "left-end.png", (255, 0, 0), (0, 0, 255))
+    eq((abs(red[1] - 954) <= 2, abs(blue[0] - 965) <= 2), (True, True), "back where it started: %r / %r" % (red, blue))
+
+
+@test(**SLOW_SLIDE)
+def divider_slides_vertically_too(sb):
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#00ff00")
+    sb.spawn("C", color="#0000ff")               # A | (B / C)
+    sb.invoke("focusUp")                          # B
+    sb.settle(3.0)
+    sb.invoke("resizeDownLarge", settle=False)    # B/C divider down by 300
+    time.sleep(0.5)
+    green, blue = extents(sb, sb.base / "vertical-mid.png", (0, 255, 0), (0, 0, 255), column=1400)
+    eq(535 + 20 < green[1] < 835 - 20, True, "B's visible bottom edge is part-way: %r" % (green,))
+    eq(abs(blue[0] - (green[1] + 11)) <= 6, True, "C's visible top keeps the gap: %r / %r" % (green, blue))
+    sb.settle(3.5)
+    s = sb.state()
+    eq((sb.geometry("B", s), sb.geometry("C", s)), ((965, 10, 945, 825), (965, 845, 945, 225)), "landed")
+
+
+@test(effect=True, effect_config={"SlideDuration": 2400},
+      config={"SlideHold": 3000, "BorderSize": 6, "ActiveBorderSource": 1, "ActiveBorderColor": "#00ff00"})
+def the_border_slides_with_the_divider(sb):
+    """The focused window here is the one being held back: its border must
+    follow the edge the user sees, not the size the app still has."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")                  # focused
+    sb.settle(3.0)
+    sb.invoke("resizeRightLarge", settle=False)     # B shrinks: held and covered
+    time.sleep(0.5)
+    blue, green = extents(sb, shots / "border-mid.png", (0, 0, 255), (0, 255, 0))
+    eq(965 + 20 < blue[0] < 1265 - 20, True, "B's visible edge is part-way: %r" % (blue,))
+    eq(abs(green[0] - (blue[0] - 6)) <= 8, True, "the border's left side is at that edge: border %r, B %r" % (green, blue))
 
 
 @test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
-def nudging_a_split_does_not_animate(sb):
-    """Stretching and cross-fading a window for a small divider nudge reads
-    as the window being redrawn; nudges snap straight to the new size."""
+def nudging_a_split_is_quick_and_unstretched(sb):
+    """A divider nudge never goes through the stretch-and-cross-fade used for
+    re-tiling, however long that is set to: it is over in a fifth of a second."""
     shots = sb.base / "shots"
     shots.mkdir(exist_ok=True)
     sb.spawn("A", color="#ff0000")

@@ -13,5 +13,8 @@
         <entry name="MaxDistance" type="Int"><default>0</default></entry>
         <!-- 0: leave Plasma's setting alone, 1: scale, 2: fade, 3: glide, 4: none -->
         <entry name="OpenCloseEffect" type="Int"><default>0</default></entry>
+        <!-- How long a keyboard divider slide takes. Not in the UI: HyprKwin
+             holds the shrinking window back for 220ms, so this must be shorter. -->
+        <entry name="SlideDuration" type="Int"><default>180</default></entry>
     </group>
 </kcfg>

@@ -50,13 +50,11 @@ Item {
         onTriggered: root.driver.updateDecorations()
     }
 
-    // Drives the driver's short animations (a divider sliding after a
-    // keyboard resize) one frame at a time, and stops when they are done.
+    // One-shot callback for the driver (the end of a divider slide).
     Timer {
-        id: tickTimer
-        interval: 16
-        repeat: true
-        onTriggered: if (!root.driver || root.shuttingDown || !root.driver.tick()) stop()
+        id: laterTimer
+        repeat: false
+        onTriggered: if (root.driver && !root.shuttingDown) root.driver.later()
     }
 
     // Panels can change the work area without any signal reaching scripts.
@@ -252,9 +250,9 @@ Item {
             log: msg => console.warn(msg),
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
-            startTicking: interval => {
-                tickTimer.interval = interval;
-                if (!tickTimer.running) tickTimer.start();
+            later: ms => {
+                laterTimer.interval = ms;
+                laterTimer.restart();
             },
             ui: {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
@@ -276,7 +274,7 @@ Item {
     Component.onDestruction: {
         shuttingDown = true;
         layoutTimer.stop();
-        tickTimer.stop();
+        laterTimer.stop();
         decorationTimer.stop();
         areaTimer.stop();
         focusFollowsMouseTimer.stop();
