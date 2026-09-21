@@ -154,6 +154,38 @@ Window Management › Window Behavior › Window Actions).
 Alt+Tab, Meta+W (Overview), Meta+D and all other Plasma shortcuts that don't
 clash stay as they are.
 
+## Uninstall
+
+```bash
+tools/uninstall.sh
+```
+
+This:
+
+- puts back any Plasma shortcuts that `hyprkwin-shortcuts.py apply` moved
+  aside,
+- disables and removes both the script and the animations effect,
+- closes the focus-border windows, which KWin would otherwise leave on
+  screen.
+
+Your windows stay where they are and get their title bars back. No logout is
+needed, and Plasma's own quick tiling and tile editor work again straight
+away.
+
+A few things are left in place, in case you reinstall:
+
+- **Settings**: the `[Script-hyprkwin]` group in `~/.config/kwinrc`, plus
+  `[Effect-hyprkwinanimations]` if you changed any animation settings. Delete
+  those groups to forget them.
+- **Shortcut entries**: HyprKwin's lines in `~/.config/kglobalshortcutsrc`
+  (they start with `HyprKwin`). Nothing triggers them once the script is
+  gone.
+- **Virtual desktops** that HyprKwin created on demand. Remove any you don't
+  want under System Settings › Window Management › Virtual Desktops.
+- **Other tiling scripts** you disabled for HyprKwin (Polonium, Krohnkite, …)
+  stay disabled; turn them back on under System Settings › Window
+  Management › KWin Scripts.
+
 ## Configuration
 
 System Settings › Window Management › KWin Scripts › HyprKwin › configure.
