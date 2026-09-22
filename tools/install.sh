@@ -34,6 +34,10 @@ else
     kpackagetool6 --type=KWin/Effect --install "$ROOT/package-effect"
 fi
 
+# Window rules kept as text by older versions move into the settings page's
+# list, so they can be seen and edited there.
+python3 "$ROOT/tools/hyprkwin-rules.py" migrate || true
+
 if [ "$ENABLE" = 1 ]; then
     kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinEnabled true
     kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinanimationsEnabled true

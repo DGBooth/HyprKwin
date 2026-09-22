@@ -119,6 +119,9 @@ class Sandbox:
 
     def _write_config(self, env, group, values, file="kwinrc"):
         for k, v in values.items():
+            if isinstance(v, (list, tuple)):
+                # KConfig's list form, as a settings page saves a StringList.
+                v = ",".join(str(x).replace("\\", "\\\\").replace(",", "\\,") for x in v)
             subprocess.run(["kwriteconfig6", "--file", file, "--group", group, "--key", k, str(v)],
                            env=env, check=True)
 

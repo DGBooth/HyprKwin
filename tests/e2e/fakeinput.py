@@ -15,6 +15,7 @@ import time
 KEYS = {
     "meta": 125, "shift": 42, "ctrl": 29, "alt": 56, "tab": 15, "left": 105, "right": 106, "up": 103, "down": 108,
     "minus": 12, "equal": 13, "grave": 41, "escape": 1, "return": 28, "space": 57,
+    "comma": 51, "dot": 52, "semicolon": 39, "backslash": 43,
 }
 KEYS.update({str(i): 1 + i for i in range(1, 10)})
 KEYS["0"] = 11
@@ -113,6 +114,26 @@ class FakeInput:
         for n in reversed(names):
             self.key(n, False)
         self.sync()
+
+    # Characters on a US layout: key name, and whether Shift is held.
+    TYPED = dict({c: (c, False) for c in "abcdefghijklmnopqrstuvwxyz0123456789"},
+                 **{c.upper(): (c, True) for c in "abcdefghijklmnopqrstuvwxyz"},
+                 **{" ": ("space", False), ",": ("comma", False), ".": ("dot", False), ":": ("semicolon", True),
+                    "^": ("6", True), "$": ("4", True), "(": ("9", True), ")": ("0", True),
+                    "|": ("backslash", True), "\\": ("backslash", False), "-": ("minus", False), "%": ("5", True)})
+
+    def type_text(self, text, delay=0.02):
+        """Type text with real key presses (US layout)."""
+        for ch in text:
+            name, shift = self.TYPED[ch]
+            if shift:
+                self.key("shift", True)
+            self.key(name, True)
+            self.key(name, False)
+            if shift:
+                self.key("shift", False)
+            self.sync()
+            time.sleep(delay)
 
     def move_to(self, x, y):
         self._send(self.fake, POINTER_MOTION_ABSOLUTE, _fixed(x) + _fixed(y))

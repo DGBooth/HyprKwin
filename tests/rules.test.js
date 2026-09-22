@@ -41,3 +41,48 @@ Deno.test("focusonactivate takes an optional on/off", () => {
     assertEquals(R.matchRules(rules, { class: "x", title: "Bell" }), { focusonactivate: false });
     assertEquals(R.matchRules(rules, { class: "x", title: "y" }), {});
 });
+
+Deno.test("geometry, monitor, opacity and noborder rules", () => {
+    const { rules, errors } = R.parseRules([
+        "float, class:^(pavucontrol)$",
+        "size 800 600, class:^(pavucontrol)$",
+        "center, class:^(pavucontrol)$",
+        "move 10% 40, class:^(mpv)$",
+        "size 50% 45%, class:^(mpv)$",
+        "monitor DP-2, class:^(discord)$",
+        "monitor 1, class:^(spotify)$",
+        "opacity 0.9 0.7, class:^(Alacritty)$",
+        "opacity 0.8 override, class:^(kitty)$",
+        "noborder, class:^(steam)$",
+    ].join("\n"));
+    assertEquals(errors, []);
+    assertEquals(R.matchRules(rules, { class: "pavucontrol", title: "" }), {
+        float: true, size: { width: { value: 800, percent: false }, height: { value: 600, percent: false } }, center: true,
+    });
+    assertEquals(R.matchRules(rules, { class: "mpv", title: "" }), {
+        move: { x: { value: 10, percent: true }, y: { value: 40, percent: false } },
+        size: { width: { value: 50, percent: true }, height: { value: 45, percent: true } },
+    });
+    assertEquals(R.matchRules(rules, { class: "discord", title: "" }).monitor, "DP-2");
+    assertEquals(R.matchRules(rules, { class: "spotify", title: "" }).monitor, "1");
+    assertEquals(R.matchRules(rules, { class: "Alacritty", title: "" }).opacity, { active: 0.9, inactive: 0.7 });
+    assertEquals(R.matchRules(rules, { class: "kitty", title: "" }).opacity, { active: 0.8, inactive: 0.8 });
+    assertEquals(R.matchRules(rules, { class: "steam", title: "" }), { noborder: true });
+});
+
+Deno.test("floating: rules wait until the window is known to float", () => {
+    const { rules, errors } = R.parseRules("size 700 500, floating:1, class:^(foot)$\nopacity 0.5, floating:0, class:^(foot)$");
+    assertEquals(errors, []);
+    assertEquals(R.matchRules(rules, { class: "foot", title: "" }), {}, "still deciding: neither applies");
+    assertEquals(Object.keys(R.matchRules(rules, { class: "foot", title: "", floating: true })), ["size"]);
+    assertEquals(Object.keys(R.matchRules(rules, { class: "foot", title: "", floating: false })), ["opacity"]);
+});
+
+Deno.test("bad arguments are reported, not guessed", () => {
+    const { rules, errors } = R.parseRules([
+        "size 800, class:x", "size big 600, class:x", "move 10, class:x",
+        "monitor, class:x", "opacity 1.5, class:x", "opacity, class:x", "float, floating:maybe, class:x",
+    ].join("\n"));
+    assertEquals(rules.length, 0);
+    assertEquals(errors.length, 7);
+});

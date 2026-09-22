@@ -287,6 +287,35 @@ function createDriver(env) {
     // 2: hide title bars, no focus indicator
     var INDICATOR_DECORATIONS = 0, INDICATOR_BORDER = 1;
 
+    // The settings page keeps rules as a list, one per row; configs from
+    // before it did kept them as newline-separated text. Both are read.
+    function ruleText(list, legacy) {
+        var items = [];
+        if (list && typeof list === "object" && list.length !== undefined) {
+            for (var i = 0; i < list.length; i++) items.push(String(list[i]));
+        } else if (list) {
+            items = splitConfigList(String(list));
+        }
+        var text = items.join("\n");
+        legacy = String(legacy || "");
+        if (legacy) text = text ? text + "\n" + legacy : legacy;
+        return text;
+    }
+
+    // KConfig's list form (items separated by commas, "\," for a comma in an
+    // item), for when a list comes back as a single string.
+    function splitConfigList(text) {
+        var out = [], cur = "";
+        for (var i = 0; i < text.length; i++) {
+            var c = text.charAt(i);
+            if (c === "\\" && i + 1 < text.length) { cur += text.charAt(++i); continue; }
+            if (c === ",") { out.push(cur); cur = ""; continue; }
+            cur += c;
+        }
+        out.push(cur);
+        return out.filter(function (x) { return x.trim() !== ""; });
+    }
+
     function loadConfig() {
         var rc = env.readConfig;
         var indicator = num(rc("FocusIndicator", -1), -1);
@@ -332,7 +361,7 @@ function createDriver(env) {
             slideHold: Math.max(0, num(rc("SlideHold", 220), 220)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
             resizeStep: num(rc("ResizeStep", 100), 100),
-            windowRules: String(rc("WindowRules", "") || ""),
+            windowRules: ruleText(rc("WindowRuleList", ""), rc("WindowRules", "")),
             debug: bool(rc("Debug", false), false),
         };
         engine.setConfig(cfg);
@@ -418,7 +447,7 @@ function createDriver(env) {
 
     function setTiledDecoration(st, tiled) {
         var w = st.w;
-        var hide = tiled ? cfg.focusIndicator !== INDICATOR_DECORATIONS : cfg.hideFloatingTitleBars;
+        var hide = st.ruleNoBorder || (tiled ? cfg.focusIndicator !== INDICATOR_DECORATIONS : cfg.hideFloatingTitleBars);
         if (hide) {
             if (st.origNoBorder === undefined) st.origNoBorder = w.noBorder;
             if (!w.noBorder) w.noBorder = true;
@@ -517,9 +546,74 @@ function createDriver(env) {
             st.floatGeom = copyRect(w.frameGeometry);
             setTiledDecoration(st, false);
         }
+        // Now that it is known whether the window floats, the rules about
+        // where it goes and how it looks (floating: rules included).
+        applyWindowRules(st, R.matchRules(rules, { "class": w.resourceClass, title: w.caption, floating: !isTiled(st) }),
+                         !initial && !rule.workspace);
         // KWin may activate a window before announcing it.
         if (w.active) engine.focused(id);
         return st;
+    }
+
+    // Hyprland's size / move / center / monitor / opacity / noborder rules.
+    // Where a window goes is only decided when it opens; how it looks also
+    // applies to windows that were already open when HyprKwin started.
+    function applyWindowRules(st, rule, opening) {
+        var w = st.w;
+        if (rule.noborder) {
+            st.ruleNoBorder = true;
+            setTiledDecoration(st, isTiled(st));
+        }
+        if (rule.opacity) {
+            st.ruleOpacity = rule.opacity;
+            applyOpacity(st);
+        }
+        if (!opening || st.special) return;
+        var screen = rule.monitor ? screenForRule(rule.monitor) : null;
+        if (screen && screen !== w.output) moveToScreen(st, screen);
+        if (!isTiled(st) && (rule.size || rule.move || rule.center)) placeFloating(st, rule, screen || w.output);
+    }
+
+    // "1" is the second monitor, as in Hyprland; anything else is a name.
+    function screenForRule(which) {
+        var ss = screens();
+        if (/^\d+$/.test(which)) return ss[parseInt(which, 10)] || null;
+        for (var i = 0; i < ss.length; i++) if (ss[i].name.toLowerCase() === which.toLowerCase()) return ss[i];
+        log("no monitor", which, "for a window rule");
+        return null;
+    }
+
+    function placeFloating(st, rule, screen) {
+        var w = st.w;
+        var area = workArea(screen, desktopFor(screen));
+        var g = w.frameGeometry;
+        var len = function (l, total) { return l.percent ? total * l.value / 100 : l.value; };
+        var width = rule.size ? len(rule.size.width, area.width) : g.width;
+        var height = rule.size ? len(rule.size.height, area.height) : g.height;
+        var x, y;
+        if (rule.move) {
+            x = area.x + len(rule.move.x, area.width);
+            y = area.y + len(rule.move.y, area.height);
+        } else if (rule.center) {
+            x = area.x + (area.width - width) / 2;
+            y = area.y + (area.height - height) / 2;
+        } else {
+            // Keep Plasma's placement, but never let the new size run off
+            // the monitor.
+            x = Math.max(area.x, Math.min(g.x, area.x + area.width - width));
+            y = Math.max(area.y, Math.min(g.y, area.y + area.height - height));
+        }
+        var r = { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+        guarded(function () { w.frameGeometry = env.rect(r.x, r.y, r.width, r.height); });
+        st.floatGeom = r;
+    }
+
+    function applyOpacity(st) {
+        if (!st.ruleOpacity) return;
+        var w = st.w;
+        var want = w === ws.activeWindow ? st.ruleOpacity.active : st.ruleOpacity.inactive;
+        if (st.origOpacity === undefined) st.origOpacity = w.opacity;
+        if (Math.abs(w.opacity - want) > 0.001) guarded(function () { w.opacity = want; });
     }
 
     function untrack(w) {
@@ -916,6 +1010,7 @@ function createDriver(env) {
         if (drawBorders) {
             visible.forEach(function (st) {
                 var w = st.w;
+                if (st.ruleNoBorder) return;
                 if (!isTiled(st) || w.fullScreen || isMaximized(w)) return;
                 // The scratchpad floats over everything: its windows are the
                 // only ones worth outlining while it is open.
@@ -1661,6 +1756,7 @@ function createDriver(env) {
             relayout();
         });
         ws.windowActivated.connect(function (w) {
+            for (var oid in tracked) if (tracked[oid].ruleOpacity) applyOpacity(tracked[oid]);
             var st = stOf(w);
             if (st) {
                 var before = engine.groupOf(st.id);
@@ -1706,7 +1802,9 @@ function createDriver(env) {
         guarded(function () {
             for (var id in tracked) {
                 var st = tracked[id], w = st.w;
+                st.ruleNoBorder = false;
                 setTiledDecoration(st, false);
+                if (st.origOpacity !== undefined) w.opacity = st.origOpacity;
                 // Undo the all-desktops trick that kept other monitors visible.
                 if (!st.special && !st.pinned && w.onAllDesktops) {
                     var d = desktopById(st.desktop);
@@ -1764,7 +1862,7 @@ function createDriver(env) {
                     caption: String(st.w.caption), "class": String(st.w.resourceClass), tiled: isTiled(st), floating: st.floating, special: st.special,
                     pinned: st.pinned, space: engine.spaceOf(id), geometry: { x: g.x, y: g.y, width: g.width, height: g.height },
                     minimized: st.w.minimized, noBorder: st.w.noBorder, keepAbove: st.w.keepAbove,
-                    demandsAttention: !!st.w.demandsAttention,
+                    demandsAttention: !!st.w.demandsAttention, opacity: st.w.opacity,
                     onAllDesktops: st.w.onAllDesktops, desktops: st.w.desktops.map(function (d) { return d.id; }),
                     output: st.w.output ? st.w.output.name : null, workspace: st.desktop,
                 };

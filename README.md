@@ -256,7 +256,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Tile dialogs and utility windows | `windowrule = tile, …` per app | off |
 | Hide title bars on floating windows too | – | off |
 | Scratchpad margin | – | 40 px |
-| Window rules | `windowrule = …` | see below |
+| Window rules | `windowrule = …` | see [Window rules](#window-rules) |
 
 Border colours follow the colour scheme by default: the accent colour marks
 the focused window and the scheme's dimmed colour the rest, so they change
@@ -362,9 +362,49 @@ theme.
 
 ### Window rules
 
-To stop an app being tiled, the quickest route is the helper, which lists the
-windows you have open and writes the rule for you — no need to hunt down an
-app's class:
+Window rules live in HyprKwin's settings: System Settings › Window
+Management › KWin Scripts › HyprKwin (configure) › **Window rules**. They form
+a list you can add to, edit, remove from and reorder, with a reference of
+every action and matcher beside it. Press Apply and they take effect for
+windows opened from then on.
+
+Rules use Hyprland's syntax (a leading `windowrule =` is accepted, so lines
+can be pasted from `hyprland.conf`): an action, then what to match.
+
+```
+float, class:^(org\.kde\.kcalc)$
+size 800 600, floating:1, class:^(org\.pulseaudio\.pavucontrol)$
+center, floating:1, class:^(org\.pulseaudio\.pavucontrol)$
+workspace 3 silent, class:^(discord)$
+monitor 1, class:^(spotify)$
+opacity 0.95 0.85, class:^(Alacritty)$
+tile, class:^(steam)$, title:^Steam$
+```
+
+| Action | Does |
+|---|---|
+| `float` / `tile` | never / always tile the window |
+| `pseudo`, `fullscreen`, `maximize`, `pin`, `group` | open it that way |
+| `special` | send it to the scratchpad |
+| `workspace N [silent]` | open it on workspace N (and stay where you are with `silent`) |
+| `size W H`, `move X Y`, `center` | place a floating window; pixels or a percentage of the monitor |
+| `monitor N` or `monitor DP-2` | open it on that monitor (counting from 0, as in Hyprland) |
+| `opacity A [I]` | opacity while focused (and while not) |
+| `noborder` | no border and no title bar |
+| `focusonactivate [on\|off]` | whether it may pull you to it when it asks for attention |
+
+Match on `class:` (the Wayland app id or X11 class) and `title:`, both
+regular expressions, and on `floating:1` or `floating:0`. The first rule that
+matches wins, for each kind of action. `float` is the one you want for apps
+that manage their own windows (virtual machines, games, image editors).
+Dialogs, transient windows, fixed-size windows and Plasma's own system
+windows (polkit prompts, KRunner, Spectacle, the file-chooser portal, …)
+float anyway.
+
+**Finding an app's class:** in System Settings › Window Management › Window
+Rules, add a rule and use *Detect Window Properties*, then click the window.
+From a terminal, the helper lists your open windows and writes the rule for
+you. It edits the same list the settings page shows:
 
 ```bash
 tools/hyprkwin-rules.py list        # number every open window
@@ -373,28 +413,6 @@ tools/hyprkwin-rules.py tile 3      # always tile it
 tools/hyprkwin-rules.py show        # what is set
 tools/hyprkwin-rules.py remove 2    # drop one
 ```
-
-Rules apply immediately to windows opened afterwards. They are the same rules
-the settings page shows under "Window rules", so you can also write them by
-hand. One rule per line, in Hyprland's syntax (a leading `windowrule =` is
-accepted, so lines can be pasted from `hyprland.conf`):
-
-```
-tile, class:^(steam)$, title:^Steam$
-float, class:^(org\.kde\.kcalc)$
-workspace 3 silent, class:^(discord)$
-fullscreen, class:^(steam_app_.*)$
-```
-
-`float` is the one you want for apps that should keep their own window
-management (virtual machines, games, image editors). Actions: `float`, `tile`,
-`pseudo`, `fullscreen`, `maximize`, `group`, `special`, `pin`,
-`workspace N [silent]`, `focusonactivate [on|off]`. Matchers: `class:` (the
-Wayland app id / X11 class) and `title:`, both regular expressions. Rules apply
-to newly opened windows, except `focusonactivate`, which is checked each time
-an app asks for the focus. Dialogs, transient windows, fixed-size windows and
-Plasma system windows (polkit prompts, KRunner, Spectacle, the file-chooser
-portal, …) float automatically.
 
 ## How it fits into Plasma
 

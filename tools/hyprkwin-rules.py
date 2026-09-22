@@ -13,9 +13,10 @@ open and writes the rule for you.
     hyprkwin-rules.py show              print the current rules
     hyprkwin-rules.py remove 2          drop rule number 2
 
-Rules take effect at once and apply to windows opened afterwards. They live in
-~/.config/kwinrc under [Script-hyprkwin], and the settings page has the same
-list under "Window rules".
+Rules take effect at once and apply to windows opened afterwards. They are
+the same list the settings page shows under System Settings > Window
+Management > KWin Scripts > HyprKwin > Window rules, where they can also be
+added, edited and reordered.
 """
 import argparse
 import json
@@ -26,21 +27,51 @@ import sys
 import time
 
 GROUP = "Script-hyprkwin"
-KEY = "WindowRules"
+KEY = "WindowRuleList"      # the settings page's list, one rule per item
+LEGACY_KEY = "WindowRules"  # older configs: newline-separated text
 
 
 def run(*args, **kw):
     return subprocess.run(args, capture_output=True, text=True, **kw)
 
 
+def split_list(text):
+    """KConfig's list form: items separated by commas, "\\," for a comma."""
+    items, cur, i = [], "", 0
+    while i < len(text):
+        c = text[i]
+        if c == "\\" and i + 1 < len(text):
+            cur += text[i + 1]
+            i += 2
+            continue
+        if c == ",":
+            items.append(cur)
+            cur = ""
+        else:
+            cur += c
+        i += 1
+    items.append(cur)
+    return [x for x in items if x.strip()]
+
+
+def join_list(items):
+    return ",".join(x.replace("\\", "\\\\").replace(",", "\\,") for x in items)
+
+
+def read_key(key):
+    return run("kreadconfig6", "--file", "kwinrc", "--group", GROUP, "--key", key).stdout.rstrip("\n")
+
+
 def read_rules():
-    out = run("kreadconfig6", "--file", "kwinrc", "--group", GROUP, "--key", KEY).stdout
-    text = out.rstrip("\n").replace("\\n", "\n")
-    return [line for line in text.split("\n") if line.strip()]
+    legacy = read_key(LEGACY_KEY).replace("\\n", "\n")
+    return split_list(read_key(KEY)) + [line for line in legacy.split("\n") if line.strip()]
 
 
 def write_rules(rules):
-    run("kwriteconfig6", "--file", "kwinrc", "--group", GROUP, "--key", KEY, "\n".join(rules))
+    # Everything goes into the list the settings page edits; the older text
+    # form is folded into it.
+    run("kwriteconfig6", "--file", "kwinrc", "--group", GROUP, "--key", KEY, join_list(rules))
+    run("kwriteconfig6", "--file", "kwinrc", "--group", GROUP, "--key", LEGACY_KEY, "--delete")
     run("qdbus6", "org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
 
 
@@ -134,7 +165,7 @@ def cmd_remove(args):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["list", "float", "tile", "show", "remove"])
+    ap.add_argument("command", choices=["list", "float", "tile", "show", "remove", "migrate"])
     ap.add_argument("pattern", nargs="?", default="")
     ap.add_argument("--title", action="store_true", help="match the window title instead of the app class")
     args = ap.parse_args()
@@ -146,6 +177,12 @@ def main():
         return cmd_show(args)
     if args.command == "remove":
         return cmd_remove(args)
+    if args.command == "migrate":
+        # install.sh: move rules kept as text into the settings page's list.
+        if read_key(LEGACY_KEY).strip():
+            write_rules(read_rules())
+            print("Moved your window rules into the settings page's list.")
+        return 0
     return cmd_rule(args, args.command)
 
 

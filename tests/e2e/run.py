@@ -161,6 +161,72 @@ def window_rules(sb):
     eq(s["ruleErrors"], [], "no rule errors")
 
 
+@test(config={"WindowRules": "\n".join([
+    "float, title:^Sized$", "size 800 600, title:^Sized$", "center, title:^Sized$",
+    "float, title:^Moved$", "move 100 50, title:^Moved$", "size 25% 50%, title:^Moved$",
+    "size 700 500, floating:1, title:^Maybe$",
+])})
+def window_rules_place_floating_windows(sb):
+    """size / move / center, in pixels or percentages of the monitor, as in
+    Hyprland. A floating: rule waits until it is known whether the window floats."""
+    sb.spawn("A")
+    sb.spawn("Sized")
+    s = sb.state()
+    eq(sb.window("Sized", s)["tiled"], False, "Sized floats")
+    eq(sb.geometry("Sized", s), (560, 240, 800, 600), "800x600, centred")
+    sb.spawn("Moved")
+    eq(sb.geometry("Moved"), (100, 50, 480, 540), "25% x 50% of 1920x1080, at 100,50")
+    sb.spawn("Maybe")
+    s = sb.state()
+    eq(sb.window("Maybe", s)["tiled"], True, "Maybe tiles")
+    eq(sb.geometry("Maybe", s)[2:] != (700, 500), True, "so its floating: size rule does not apply")
+    sb.invoke("toggleFloating")               # Sized is floating: back to its rule-given place
+    eq(sb.state()["ruleErrors"], [], "no rule errors")
+
+
+@test(config={"WindowRuleList": [
+    "float, title:^Floater$", "size 640 480, floating:1, title:^Floater$", "center, title:^Floater$",
+], "WindowRules": "workspace 2 silent, title:^Old$"})
+def window_rules_from_the_settings_list(sb):
+    """Rules saved by the settings page's list editor apply, and rules in the
+    older text form still do."""
+    sb.spawn("A")
+    sb.spawn("Floater")
+    s = sb.state()
+    eq(sb.window("Floater", s)["tiled"], False, "list rule: floats")
+    eq(sb.geometry("Floater", s), (640, 300, 640, 480), "list rules: 640x480, centred")
+    sb.spawn("Old")
+    s = sb.state()
+    eq(sb.window("Old", s)["desktops"], [s["desktops"][1]], "text rule still applies")
+    eq(s["ruleErrors"], [], "no rule errors")
+
+
+@test(outputs=2, config={"BorderSize": 4, "WindowRules": "\n".join([
+    "monitor 1, title:^Right$", "opacity 0.9 0.6, title:^Dim$", "noborder, title:^Plain$",
+])})
+def window_rules_monitor_opacity_noborder(sb):
+    sb.spawn("A")
+    first = sb.window("A")["output"]
+    sb.spawn("Right")
+    s = sb.state()
+    right = sb.window("Right", s)
+    eq(right["output"] != first, True, "Right opened on the second monitor: %r" % right)
+    eq(right["tiled"], True, "and is tiled there")
+    eq(right["workspace"], s["shown"][right["output"]], "on the workspace that monitor shows")
+    sb.invoke("focusLeft")
+    sb.spawn("Dim")
+    eq(abs(sb.window("Dim")["opacity"] - 0.9) < 0.01, True, "focused: active opacity")
+    sb.invoke("focusLeft")
+    s = sb.state()
+    eq(s["active"] != sb.window("Dim", s)["id"], True, "focus moved away")
+    eq(abs(sb.window("Dim", s)["opacity"] - 0.6) < 0.01, True, "unfocused: inactive opacity")
+    sb.spawn("Plain")
+    sb.settle(0.5)
+    s = sb.state()
+    eq(s["active"], sb.window("Plain", s)["id"], "Plain is focused")
+    eq(sb.overlays(), [], "but gets no border")
+
+
 @test
 def workspaces(sb):
     three(sb)
@@ -1168,10 +1234,44 @@ def rules_tool_picks_apps_from_open_windows(sb):
     eq(read_rules_of(sb), "", "removing leaves no rules")
 
 
-def read_rules_of(sb):
+@test
+def rules_added_in_the_settings_page_apply(sb):
+    """The settings page is the place to manage rules: a rule typed into its
+    list and saved with OK reaches the running script, and the next window
+    obeys it. Driven through the real page with real key presses and clicks."""
+    import subprocess
+    if not shutil.which("kcmshell6"):
+        return
+    env = dict(sb.env)
+    env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland")
+    page = subprocess.Popen(["kcmshell6", "kwin/effects/configs/kcm_kwin4_genericscripted", "--args", "hyprkwin KWin/Script"],
+                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    sb.clients.append(page)
+    sb.wait_for(lambda s: any("kcmshell" in w["caption"] for w in s["windows"].values()), "settings page", timeout=20)
+    sb.settle(2.0)
+    fi = sb.input()
+    # The page is the only window, so HyprKwin tiles it to fill the screen.
+    fi.click(315, 31)                       # the "Window rules" tab
+    sb.settle(1.0)
+    fi.click(900, 193)                      # the input line above the list
+    fi.type_text("float, title:^Floater$")
+    fi.click(1836, 233)                     # Add
+    sb.settle(0.5)
+    fi.click(1681, 1047)                    # OK
+    page.wait(timeout=10)
+    eq(read_rules_of(sb), r"float\, title:^Floater$", "saved as the page's list (items split by unescaped commas)")
+    sb.wait_for(lambda s: "Floater" in s["config"]["windowRules"], "rule picked up", timeout=12)
+    sb.spawn("A")
+    sb.spawn("Floater")
+    s = sb.state()
+    eq(sb.window("Floater", s)["tiled"], False, "the new rule applies")
+    eq(sb.window("A", s)["tiled"], True, "other windows still tile")
+
+
+def read_rules_of(sb, key="WindowRuleList"):
     import subprocess
     return subprocess.run(["kreadconfig6", "--file", "kwinrc", "--group", "Script-hyprkwin",
-                           "--key", "WindowRules"], env=sb.env, capture_output=True, text=True).stdout.strip()
+                           "--key", key], env=sb.env, capture_output=True, text=True).stdout.strip()
 
 
 @test(config={"BorderSize": 4})
