@@ -22,11 +22,14 @@ CLIENT = Path(__file__).resolve().parent / "client.py"
 
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
-                 effect=False, effect_config=None):
+                 effect=False, effect_config=None, xwayland=False):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
         self.scale = scale
+        # X11 apps (Albert runs as one) need KWin's Xwayland.
+        self.xwayland = xwayland
+        self.x_display = None
         self.config = dict(config or {})
         # KWin builds its effect list at startup, so the effect package has to
         # be installed and enabled before the compositor launches.
@@ -75,10 +78,21 @@ class Sandbox:
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
         self._write_config(env, "Script-hyprkwin", self.config)
         busfile = self.base / "bus"
+        displayfile = self.base / "x-display"
+        if displayfile.exists():
+            displayfile.unlink()
+        # With Xwayland, KWin runs the trailing command once it is up, with
+        # DISPLAY set to the X server it started.
+        xwayland = ""
+        if self.xwayland:
+            helper = self.base / "report-display.sh"
+            helper.write_text('#!/bin/sh\necho "$DISPLAY" > "%s"\n' % displayfile)
+            helper.chmod(0o755)
+            xwayland = " --xwayland %s" % helper
         cmd = ("echo $DBUS_SESSION_BUS_ADDRESS > %s; exec kwin_wayland --virtual --no-lockscreen "
-               "--socket %s --width %d --height %d --output-count %d%s" %
+               "--socket %s --width %d --height %d --output-count %d%s%s" %
                (busfile, self.socket, self.width, self.height, self.outputs,
-                (" --scale %s" % self.scale) if self.scale else ""))
+                (" --scale %s" % self.scale) if self.scale else "", xwayland))
         self.proc = subprocess.Popen(["dbus-run-session", "--", "bash", "-c", cmd], env=env,
                                      stdout=open(self.log_path, "w"), stderr=subprocess.STDOUT,
                                      start_new_session=True)
@@ -95,6 +109,14 @@ class Sandbox:
             time.sleep(0.1)
         else:
             raise RuntimeError("HyprKwin did not load; see %s" % self.log_path)
+        if self.xwayland:
+            for _ in range(100):
+                if displayfile.exists() and displayfile.read_text().strip():
+                    self.x_display = displayfile.read_text().strip()
+                    break
+                time.sleep(0.1)
+            else:
+                raise RuntimeError("Xwayland did not start; see %s" % self.log_path)
         time.sleep(0.3)
 
     def stop(self):
@@ -139,10 +161,15 @@ class Sandbox:
 
     # -- interaction --------------------------------------------------------------
 
-    def spawn(self, title, app_id="hyprkwin.test", size="400x300", extra=(), wait=True, csd=False, color=None):
+    def spawn(self, title, app_id="hyprkwin.test", size="400x300", extra=(), wait=True, csd=False, color=None,
+              x11=False):
         env = dict(self.env)
         env["WAYLAND_DISPLAY"] = self.socket
         env["QT_QPA_PLATFORM"] = "wayland"
+        if x11:
+            # Through Xwayland, the way Albert and other X11 apps run.
+            env["QT_QPA_PLATFORM"] = "xcb"
+            env["DISPLAY"] = self.x_display
         if csd:
             # Draw its own decorations, like Chromium/Electron/GTK do.
             env["QT_WAYLAND_DECORATION"] = "bradient"

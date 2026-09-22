@@ -1343,6 +1343,23 @@ def floating_windows_without_title_bars_get_the_border(sb):
     ]), "a border around F")
 
 
+@test(xwayland=True, config={"BorderSize": 4})
+def launchers_do_not_get_a_border(sb):
+    """A launcher like Albert (an X11 app: a frameless utility window kept
+    above) draws its own look inside a larger transparent window, so a border
+    would outline the invisible part."""
+    sb.spawn("A")
+    sb.spawn("Launcher", extra=["--tool"], size="800x230", x11=True)
+    g = sb.window("Launcher")["geometry"]
+    sb.input().click(g["x"] + g["width"] // 2, g["y"] + g["height"] // 2)   # start typing in it
+    sb.settle(0.6)
+    s = sb.state()
+    launcher = sb.window("Launcher", s)
+    eq(launcher["tiled"], False, "the launcher floats")
+    eq(s["active"], launcher["id"], "and has the focus")
+    eq(sb.overlays(), [], "but gets no border")
+
+
 @test(config={"BorderSize": 4, "WindowRules": "float, title:^F$\nmove 900 300, title:^F$\nsize 200 200, title:^F$"})
 def the_border_hides_under_a_window_above(sb):
     """A window kept above a tile's edge must not get the tile's border
@@ -1686,7 +1703,8 @@ def main():
         start = time.time()
         try:
             sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
-                              effect=opts.get("effect", False), effect_config=opts.get("effect_config"))
+                              effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
+                              xwayland=opts.get("xwayland", False))
             with sandbox as sb:
                 try:
                     t(sb)

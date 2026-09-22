@@ -46,6 +46,7 @@ def main():
     ap.add_argument("--color", help="fill colour, e.g. #ff0000 (default: random)")
     ap.add_argument("--menu", action="store_true", help="open a context menu on right-click")
     ap.add_argument("--activate-on", help="ask to be activated when this file appears (like a relaunched single-instance app)")
+    ap.add_argument("--tool", action="store_true", help="a frameless tool window, the way launchers such as Albert open")
     args = ap.parse_args()
 
     QGuiApplication.setDesktopFileName(args.app_id)
@@ -55,6 +56,8 @@ def main():
     win.resize(w, h)
     if args.fixed:
         win.setFixedSize(QSize(w, h))
+    if args.tool:
+        win.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
     win.show()
     if args.dialog:
         d = QDialog(win)

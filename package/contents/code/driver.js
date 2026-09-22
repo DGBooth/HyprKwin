@@ -1068,8 +1068,14 @@ function createDriver(env) {
                 if (w.fullScreen || isMaximized(w)) return;
                 // A floating window's own title bar already shows focus; one
                 // without (hidden, or an app drawing its own) gets a border,
-                // as every window does in Hyprland.
-                if (!isTiled(st) && isDecorated(w)) return;
+                // as every window does in Hyprland. Launchers and tool
+                // palettes (Albert, for one) are left alone: they draw their
+                // own look, often inside a larger transparent window, so a
+                // border would outline the invisible part.
+                if (!isTiled(st)) {
+                    if (isDecorated(w)) return;
+                    if (w.utility || w.skipTaskbar || !(w.normalWindow || w.dialog)) return;
+                }
                 // The scratchpad floats over everything: its windows are the
                 // only ones worth outlining while it is open.
                 if (special.shown && !st.special) return;
