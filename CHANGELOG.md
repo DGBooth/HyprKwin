@@ -4,7 +4,6 @@
 
 - **The border gradient can turn**, as Hyprland's `borderangle` animation
   does. Off by default: it redraws the border continuously.
-
 - **Scrolling layout**, as in niri and hyprscrolling: a strip of columns, with
   the focus scrolling it and the resize keys setting the focused column's
   width. Left and right follow the strip rather than the screen.
