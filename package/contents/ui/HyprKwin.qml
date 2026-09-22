@@ -181,6 +181,9 @@ Item {
     property var groupBarObjects: ({})
 
     Component { id: borderComponent; Border {} }
+    // Declared rather than created on demand: KWin only registers an internal
+    // window that existed before it was first shown.
+    Osd { id: osd; overlaysHidden: root.effectActive || root.shuttingDown }
     Component { id: groupBarComponent; GroupBar {} }
 
     function dropMissing(map, seen) {
@@ -222,6 +225,15 @@ Item {
         dropMissing(borderObjects, seen);
     }
 
+
+    // A short message when the layout changes, on the monitor in use.
+    function showOsd(text, area, duration) {
+        if (shuttingDown) return;
+        osd.area = area;
+        osd.duration = duration || 1200;
+        osd.showMessage(text);
+    }
+
     function syncGroupBars(list, cfg) {
         style = cfg;
         revision++;
@@ -261,6 +273,7 @@ Item {
             ui: {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
+                showOsd: (text, area, duration) => root.showOsd(text, area, duration),
             },
         });
         driver.start();
@@ -271,6 +284,7 @@ Item {
     // KWin still keeps them until something reaps them, which is why the
     // driver closes leftovers at startup and uninstall.sh sweeps them.
     function hideOverlays() {
+        osd.hide();
         for (const key in borderObjects) borderObjects[key].hideAll();
         for (const key in groupBarObjects) groupBarObjects[key].hide();
     }

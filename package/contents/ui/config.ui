@@ -148,6 +148,12 @@
          <property name="toolTip"><string>The share of the screen each column takes in the scrolling layout. Only whole columns are shown; the rest wait off-screen, and the resize keys widen or narrow the focused column.</string></property>
         </widget>
        </item>
+       <item row="15" column="1">
+        <widget class="QCheckBox" name="kcfg_LayoutOsd">
+         <property name="text"><string>Show a message when the layout or split changes</string></property>
+         <property name="toolTip"><string>A short on-screen message naming the new layout, or which way a window just split, on the monitor you are using.</string></property>
+        </widget>
+       </item>
        <item row="13" column="1">
         <widget class="QCheckBox" name="kcfg_MasterNewIsMaster">
          <property name="text"><string>New windows become the master</string></property>

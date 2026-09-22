@@ -153,6 +153,48 @@ def layouts_can_be_switched_per_workspace(sb):
     eq(sb.geometry("D", s), FULL, "the new workspace is still dwindle")
 
 
+def osd_boxes(sb):
+    """Overlay windows that look like the on-screen message, not a border."""
+    out = []
+    for geom in sb.overlays():
+        pos, size = geom.split(" ")
+        x, y = (int(v) for v in pos.split(","))
+        w, h = (int(v) for v in size.split("x"))
+        if y > 600 and 20 < h < 200 and w > 80:
+            out.append((x, y, w, h))
+    return out
+
+
+@test(config={"OsdDuration": 4000})
+def changing_layout_shows_a_message(sb):
+    """Like Plasma's own on-screen display: a short message naming the new
+    layout, which fades after a moment."""
+    sb.spawn("A")
+    sb.spawn("B")
+    # Meta+J, which changes how the next window splits, says so too.
+    sb.invoke("toggleSplit", settle=False)
+    time.sleep(0.4)
+    eq(len(osd_boxes(sb)), 1, "the split message shows: %r" % (sb.overlays(),))
+    time.sleep(4.5)
+    eq(osd_boxes(sb), [], "and it goes away")
+    sb.invoke("cycleLayout", settle=False)
+    time.sleep(0.4)
+    boxes = osd_boxes(sb)
+    eq(len(boxes), 1, "the layout message shows: %r" % (sb.overlays(),))
+    x, y, w, h = boxes[0]
+    eq(abs((x + w / 2) - 960) < 60, True, "centred across the screen: %r" % (boxes,))
+    eq(y > 700, True, "near the bottom: %r" % (boxes,))
+
+
+@test(config={"LayoutOsd": "false"})
+def the_message_can_be_turned_off(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("cycleLayout", settle=False)
+    time.sleep(0.4)
+    eq(osd_boxes(sb), [], "no message: %r" % (sb.overlays(),))
+
+
 @test(config={"DefaultLayout": 1, "MasterFactor": "0.5"})
 def master_layout_can_be_rearranged(sb):
     """Hyprland's layoutmsg: swap with master, more masters, move the master

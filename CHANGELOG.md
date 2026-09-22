@@ -12,6 +12,11 @@
   KWin draws nothing, so a strip never spills onto the screen next door —
   which a sandbox spike confirmed it otherwise would, since KWin will place a
   window anywhere you ask, including on the neighbouring monitor.
+- **A message on screen when the layout changes**, and when `Meta+J` changes
+  the split direction: a short caption near the bottom of the monitor you are
+  using, like Plasma's own on-screen display. Plasma's OSD service only takes
+  fixed kinds of message, so HyprKwin draws its own. There is a setting to
+  turn it off.
 - Fixed: a keyboard resize could throw when a window took its new size during
   the same layout pass.
 

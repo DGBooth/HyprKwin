@@ -381,6 +381,9 @@ function createDriver(env) {
             masterNewIsMaster: bool(rc("MasterNewIsMaster", false), false),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
+            layoutOsd: bool(rc("LayoutOsd", true), true),
+            // How long that message stays up; not in the settings page.
+            osdDuration: Math.max(200, num(rc("OsdDuration", 1200), 1200)),
             slideDivider: bool(rc("SlideDivider", true), true),
             // How long a shrinking window keeps its old size while the
             // animations effect slides the divider over it (the effect's
@@ -1404,17 +1407,32 @@ function createDriver(env) {
         return screen ? spaceFor(desktopFor(screen), screen) : null;
     }
 
+    var LAYOUT_LABELS = { dwindle: "Dwindle", master: "Master", monocle: "Monocle", scrolling: "Scrolling" };
+
+    // A short message on the monitor in use, the way Plasma announces a
+    // volume change. Plasma's own OSD service only takes fixed kinds of
+    // message, so HyprKwin draws its own.
+    function announce(text) {
+        if (!cfg.layoutOsd || !env.ui.showOsd) return;
+        var screen = focusedScreen();
+        if (!screen) return;
+        env.ui.showOsd(text, workArea(screen, desktopFor(screen)), cfg.osdDuration);
+    }
+
     function setLayout(mode) {
         var space = currentSpace();
         if (!space || !engine.setLayout(space, mode)) return;
         log("layout", space, "->", mode);
+        announce(LAYOUT_LABELS[mode] || mode);
         relayout();
     }
 
     function cycleLayout(delta) {
         var space = currentSpace();
         if (!space) return;
-        log("layout", space, "->", engine.cycleLayout(space, delta));
+        var mode = engine.cycleLayout(space, delta);
+        log("layout", space, "->", mode);
+        announce(LAYOUT_LABELS[mode] || mode);
         relayout();
     }
 
@@ -1766,7 +1784,14 @@ function createDriver(env) {
 
     var actions = {
         close: function () { var st = active(); if (st) st.w.closeWindow(); else if (ws.activeWindow) ws.activeWindow.closeWindow(); },
-        toggleSplit: function () { var st = active(); if (st && engine.toggleSplit(st.id)) relayout(); },
+        toggleSplit: function () {
+            var st = active();
+            if (!st) return;
+            var dir = engine.toggleSplit(st.id);
+            if (!dir) return;
+            announce(dir === "h" ? "Split: side by side" : "Split: stacked");
+            relayout();
+        },
         swapSplit: function () { var st = active(); if (st && engine.swapSplit(st.id)) relayout(); },
         toggleFloating: toggleFloating,
         pseudo: togglePseudo,

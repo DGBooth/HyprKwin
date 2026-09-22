@@ -159,7 +159,7 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 |---|---|
 | `Meta+Q` | Close window |
 | `Meta+J` | Toggle window split (dwindle) |
-| `Meta+Shift+J` | Next layout (dwindle, master, monocle) |
+| `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling) |
 | `Meta+M` / `Meta+Shift+M` | Swap window with the master / focus the master |
 | `Meta+>` / `Meta+<` | One more / one fewer master window |
 | `Meta+Alt+M` | Move the master area round |
@@ -358,6 +358,10 @@ dwindle split.
 
 The layout of a workspace lasts as long as the session; the setting decides
 what a workspace starts with.
+
+Changing the layout, or the split direction on `Meta+J`, puts a short message
+on screen naming what it changed to, in the manner of Plasma's own on-screen
+display. Turn it off with "Show a message when the layout or split changes".
 
 ### Focus indicator
 

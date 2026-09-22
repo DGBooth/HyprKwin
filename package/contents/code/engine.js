@@ -617,7 +617,7 @@ function createEngine(userConfig) {
             var p = leaf.parent;
             p.dir = p.dir === "h" ? "v" : "h";
             p.locked = true;
-            return true;
+            return p.dir;    // the new direction, and truthy as it always was
         },
 
         // Swap the two children of the window's parent split (Hyprland swapsplit).
