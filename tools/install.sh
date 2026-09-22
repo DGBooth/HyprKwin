@@ -65,14 +65,16 @@ sed -i "s/^const BUILD = \"source\";/const BUILD = \"$BUILD_ID\";/" "$EFFECT_INS
 # The script logs its build when it starts; the journal, or HYPRKWIN_LOG when
 # KWin logs somewhere else (the test sandbox).
 running_this_build() {
-    for _ in $(seq 1 20); do
+    # The script logs its build as it starts, but the journal can lag a little.
+    for _ in $(seq 1 40); do
         if [ -n "${HYPRKWIN_LOG:-}" ]; then
-            grep -q "HYPRKWIN_BUILD $BUILD_ID" "$HYPRKWIN_LOG" 2>/dev/null && return 0
+            latest=$(grep -o "HYPRKWIN_BUILD [0-9a-z]*" "$HYPRKWIN_LOG" 2>/dev/null | tail -1)
         elif command -v journalctl >/dev/null 2>&1; then
-            journalctl --user -b --since "60 seconds ago" 2>/dev/null | grep -q "HYPRKWIN_BUILD $BUILD_ID" && return 0
+            latest=$(journalctl --user -b --since "2 minutes ago" 2>/dev/null | grep -o "HYPRKWIN_BUILD [0-9a-z]*" | tail -1)
         else
             return 0
         fi
+        [ "$latest" = "HYPRKWIN_BUILD $BUILD_ID" ] && return 0
         sleep 0.25
     done
     return 1
