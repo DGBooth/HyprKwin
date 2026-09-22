@@ -287,6 +287,18 @@ function createDriver(env) {
     // 2: hide title bars, no focus indicator
     var INDICATOR_DECORATIONS = 0, INDICATOR_BORDER = 1;
 
+    // The settings page's colour buttons save KConfig's "r,g,b[,a]" form;
+    // QML wants "#aarrggbb". Hex and colour names pass through.
+    function colour(value, fallback) {
+        var v = String(value || "").trim();
+        var m = /^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(\d{1,3}))?$/.exec(v);
+        if (m) {
+            var hex = function (n) { n = Math.max(0, Math.min(255, parseInt(n, 10))); return (n < 16 ? "0" : "") + n.toString(16); };
+            return "#" + hex(m[4] === undefined ? 255 : m[4]) + hex(m[1]) + hex(m[2]) + hex(m[3]);
+        }
+        return v || fallback;
+    }
+
     // The settings page keeps rules as a list, one per row; configs from
     // before it did kept them as newline-separated text. Both are read.
     function ruleText(list, legacy) {
@@ -347,8 +359,12 @@ function createDriver(env) {
             borderSize: num(rc("BorderSize", 2), 2),
             borderRadius: num(rc("BorderRadius", 0), 0),
             hideFloatingTitleBars: bool(rc("HideFloatingTitleBars", false), false),
-            activeBorderColor: String(rc("ActiveBorderColor", "#33ccff") || "#33ccff"),
-            inactiveBorderColor: String(rc("InactiveBorderColor", "#595959") || "#595959"),
+            activeBorderColor: colour(rc("ActiveBorderColor", "#33ccff"), "#33ccff"),
+            inactiveBorderColor: colour(rc("InactiveBorderColor", "#595959"), "#595959"),
+            activeBorderColor2: colour(rc("ActiveBorderColor2", "#00ff99"), "#00ff99"),
+            borderGradientAngle: num(rc("BorderGradientAngle", 45), 45),
+            activeOpacity: Math.max(0.1, Math.min(1, num(rc("ActiveOpacity", "1.0"), 1.0))),
+            inactiveOpacity: Math.max(0.1, Math.min(1, num(rc("InactiveOpacity", "1.0"), 1.0))),
             showInactiveBorders: bool(rc("ShowInactiveBorders", false), false),
             focusFollowsMouse: bool(rc("FocusFollowsMouse", false), false),
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
@@ -564,10 +580,8 @@ function createDriver(env) {
             st.ruleNoBorder = true;
             setTiledDecoration(st, isTiled(st));
         }
-        if (rule.opacity) {
-            st.ruleOpacity = rule.opacity;
-            applyOpacity(st);
-        }
+        if (rule.opacity) st.ruleOpacity = rule.opacity;
+        applyOpacity(st);
         if (!opening || st.special) return;
         var screen = rule.monitor ? screenForRule(rule.monitor) : null;
         if (screen && screen !== w.output) moveToScreen(st, screen);
@@ -608,12 +622,36 @@ function createDriver(env) {
         st.floatGeom = r;
     }
 
-    function applyOpacity(st) {
-        if (!st.ruleOpacity) return;
+    // decoration:active_opacity / inactive_opacity, which an opacity rule
+    // overrides. Fullscreen windows stay opaque, as Hyprland's
+    // fullscreen_opacity does by default. At 1.0 HyprKwin leaves a window's
+    // opacity alone entirely, so Plasma's own opacity rules still work.
+    function wantedOpacity(st) {
         var w = st.w;
-        var want = w === ws.activeWindow ? st.ruleOpacity.active : st.ruleOpacity.inactive;
+        if (w.fullScreen) return null;
+        var focused = w === ws.activeWindow;
+        if (st.ruleOpacity) return focused ? st.ruleOpacity.active : st.ruleOpacity.inactive;
+        var v = focused ? cfg.activeOpacity : cfg.inactiveOpacity;
+        return v < 0.999 ? v : null;
+    }
+
+    function applyOpacity(st) {
+        var w = st.w;
+        var want = wantedOpacity(st);
+        if (want === null) {
+            if (st.origOpacity !== undefined) {
+                var back = st.origOpacity;
+                st.origOpacity = undefined;
+                if (Math.abs(w.opacity - back) > 0.001) guarded(function () { w.opacity = back; });
+            }
+            return;
+        }
         if (st.origOpacity === undefined) st.origOpacity = w.opacity;
         if (Math.abs(w.opacity - want) > 0.001) guarded(function () { w.opacity = want; });
+    }
+
+    function applyAllOpacity() {
+        for (var id in tracked) applyOpacity(tracked[id]);
     }
 
     function untrack(w) {
@@ -632,7 +670,7 @@ function createDriver(env) {
         w.minimizedChanged.connect(function () { onMinimizedChanged(st); });
         if (w.demandsAttentionChanged) w.demandsAttentionChanged.connect(function () { onDemandsAttention(st); });
         w.activitiesChanged.connect(schedule);
-        w.fullScreenChanged.connect(function () { st.placed = null; schedule(); });
+        w.fullScreenChanged.connect(function () { st.placed = null; applyOpacity(st); schedule(); });
         w.maximizedChanged.connect(function () { st.placed = null; schedule(); });
         // Plasma's quick tiling / tile editor would fight our layout: take
         // tiled windows back from KWin's tiles and re-apply our geometry.
@@ -987,6 +1025,22 @@ function createDriver(env) {
         return !insideInner;
     }
 
+    // Whether a window stacked above `w` crosses the ring its border occupies.
+    function coveredAbove(w, outer, thickness) {
+        var order = ws.stackingOrder || [];
+        var i = 0;
+        while (i < order.length && order[i] !== w) i++;
+        for (var j = i + 1; j < order.length; j++) {
+            var o = order[j];
+            if (!o || o.deleted || o.minimized || String(o.caption) === OVERLAY_TITLE) continue;
+            if (o.desktopWindow || o.dock || o.popupWindow) continue;
+            if (!(o.normalWindow || o.dialog || o.utility || o.notification || o.criticalNotification)) continue;
+            if (!kwinVisible(o) || !onCurrentActivity(o)) continue;
+            if (crossesBand(copyRect(o.frameGeometry), outer, thickness)) return true;
+        }
+        return false;
+    }
+
     // A rect KWin can actually render an overlay for.
     function usableRect(r) {
         return !!r && isFinite(r.x) && isFinite(r.y) && isFinite(r.width) && isFinite(r.height) &&
@@ -1011,7 +1065,11 @@ function createDriver(env) {
             visible.forEach(function (st) {
                 var w = st.w;
                 if (st.ruleNoBorder) return;
-                if (!isTiled(st) || w.fullScreen || isMaximized(w)) return;
+                if (w.fullScreen || isMaximized(w)) return;
+                // A floating window's own title bar already shows focus; one
+                // without (hidden, or an app drawing its own) gets a border,
+                // as every window does in Hyprland.
+                if (!isTiled(st) && isDecorated(w)) return;
                 // The scratchpad floats over everything: its windows are the
                 // only ones worth outlining while it is open.
                 if (special.shown && !st.special) return;
@@ -1031,11 +1089,18 @@ function createDriver(env) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
                     return;
                 }
+                var band = b + Math.max(0, cfg.borderRadius);
                 for (var p = 0; p < popups.length; p++) {
-                    if (crossesBand(popups[p], outer, b + Math.max(0, cfg.borderRadius))) {
+                    if (crossesBand(popups[p], outer, band)) {
                         log("border hidden behind a popup", w.caption);
                         return;
                     }
+                }
+                // Overlays are drawn above everything, so a window stacked
+                // over this one must not have the border painted across it.
+                if (coveredAbove(w, outer, band)) {
+                    log("border hidden behind a window above", w.caption);
+                    return;
                 }
                 borders.push(outer);
             });
@@ -1705,6 +1770,7 @@ function createDriver(env) {
             setTiledDecoration(st, isTiled(st));
             st.placed = null;
         }
+        applyAllOpacity();
         relayout();
     }
 
@@ -1756,7 +1822,7 @@ function createDriver(env) {
             relayout();
         });
         ws.windowActivated.connect(function (w) {
-            for (var oid in tracked) if (tracked[oid].ruleOpacity) applyOpacity(tracked[oid]);
+            applyAllOpacity();
             var st = stOf(w);
             if (st) {
                 var before = engine.groupOf(st.id);
@@ -1790,6 +1856,7 @@ function createDriver(env) {
             schedule();
         });
         ws.desktopsChanged.connect(schedule);
+        if (ws.stackingOrderChanged) ws.stackingOrderChanged.connect(scheduleDecorations);
         ws.screensChanged.connect(schedule);
         ws.currentActivityChanged.connect(schedule);
         ws.virtualScreenGeometryChanged.connect(schedule);

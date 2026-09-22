@@ -2,18 +2,23 @@
 // for script windows, so borders are four strips that only cover the gap
 // around a window and never its contents.
 import QtQuick
+import QtQuick.Shapes
 import QtQuick.Window
 
 Window {
     id: strip
 
     property rect area: Qt.rect(0, 0, 0, 0)
-    // With a radius this strip becomes one rounded corner: the window clips a
-    // rounded rectangle down to the quadrant that belongs to this corner.
+    // Every strip draws the whole ring, positioned so that only its own piece
+    // of it falls inside the window. That keeps corners exact and lets one
+    // gradient run around the entire border.
+    property size ring: Qt.size(0, 0)       // the border's outer size
+    property point offset: Qt.point(0, 0)   // where this strip sits in it
     property int radius: 0
-    property point arc: Qt.point(0, 0)
     property int thickness: 2
     property color stripColor: "#33ccff"
+    property color stripColor2: stripColor  // the far end of the gradient
+    property real angle: 45                 // 0 = left to right, 90 = top to bottom
     property bool shown: false
     property bool overlaysHidden: false
     property int revision: 0
@@ -21,7 +26,7 @@ Window {
     onRevisionChanged: sync()
 
     title: "HyprKwin overlay"
-    color: radius > 0 ? "transparent" : stripColor
+    color: "transparent"
     flags: Qt.X11BypassWindowManagerHint | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus | Qt.WindowTransparentForInput
     x: isFinite(area.x) ? area.x : 0
     y: isFinite(area.y) ? area.y : 0
@@ -47,16 +52,42 @@ Window {
     // goes away, so make sure they disappear with us.
     Component.onDestruction: hide()
 
-    Rectangle {
-        visible: strip.radius > 0
-        x: strip.arc.x
-        y: strip.arc.y
-        width: strip.radius * 2
-        height: strip.radius * 2
-        radius: strip.radius
-        color: "transparent"
-        border.width: strip.thickness
-        border.color: strip.stripColor
-        antialiasing: true
+    Shape {
+        id: ringShape
+        x: -strip.offset.x
+        y: -strip.offset.y
+        width: strip.ring.width
+        height: strip.ring.height
+        preferredRendererType: Shape.CurveRenderer
+
+        // The gradient line crosses the whole ring at the given angle, so its
+        // two colours land on opposite corners, as Hyprland draws it.
+        readonly property real rad: strip.angle * Math.PI / 180
+        readonly property real reach: Math.abs(width / 2 * Math.cos(rad)) + Math.abs(height / 2 * Math.sin(rad))
+
+        ShapePath {
+            strokeColor: "transparent"
+            strokeWidth: -1
+            fillRule: ShapePath.OddEvenFill
+            fillGradient: LinearGradient {
+                x1: strip.ring.width / 2 - Math.cos(ringShape.rad) * ringShape.reach
+                y1: strip.ring.height / 2 - Math.sin(ringShape.rad) * ringShape.reach
+                x2: strip.ring.width / 2 + Math.cos(ringShape.rad) * ringShape.reach
+                y2: strip.ring.height / 2 + Math.sin(ringShape.rad) * ringShape.reach
+                GradientStop { position: 0; color: strip.stripColor }
+                GradientStop { position: 1; color: strip.stripColor2 }
+            }
+            PathRectangle {
+                x: 0; y: 0
+                width: strip.ring.width; height: strip.ring.height
+                radius: strip.radius
+            }
+            PathRectangle {
+                x: strip.thickness; y: strip.thickness
+                width: Math.max(0, strip.ring.width - 2 * strip.thickness)
+                height: Math.max(0, strip.ring.height - 2 * strip.thickness)
+                radius: Math.max(0, strip.radius - strip.thickness)
+            }
+        }
     }
 }

@@ -210,6 +210,9 @@ Item {
             border.borderWidth = cfg.borderSize || 0;
             border.radius = cfg.borderRadius || 0;
             border.activeFromTheme = cfg.activeBorderSource === 0;
+            border.activeGradient = cfg.activeBorderSource === 2;
+            border.activeColor2 = cfg.activeBorderColor2 || "#00ff99";
+            border.gradientAngle = cfg.borderGradientAngle || 0;
             border.inactiveFromTheme = cfg.inactiveBorderSource === 0;
             border.activeColor = cfg.activeBorderColor || "#33ccff";
             border.inactiveColor = cfg.inactiveBorderColor || "#595959";

@@ -1274,6 +1274,94 @@ def read_rules_of(sb, key="WindowRuleList"):
                            "--key", key], env=sb.env, capture_output=True, text=True).stdout.strip()
 
 
+def pixel(sb, path, x, y):
+    from PIL import Image
+    return Image.open(path).convert("RGB").getpixel((x, y))
+
+
+def near(rgb, want, tol=60):
+    return all(abs(rgb[i] - want[i]) <= tol for i in range(3))
+
+
+@test(config={"BorderSize": 8, "ActiveBorderSource": 2, "BorderGradientAngle": 0,
+              # KConfig's form, which the settings page's colour buttons save.
+              "ActiveBorderColor": "255,0,0", "ActiveBorderColor2": "0,0,255"})
+def border_can_be_a_gradient(sb):
+    """col.active_border with two colours: the ring runs from one to the other
+    across the whole border, here left to right."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ffffff")
+    sb.settle(0.8)
+    path = shots / "gradient.png"
+    sb.screenshot(path)
+    left, mid, right = pixel(sb, path, 20, 5), pixel(sb, path, 960, 5), pixel(sb, path, 1900, 5)
+    eq(near(left, (240, 0, 15)), True, "red at the left end of the top edge: %r" % (left,))
+    eq(near(right, (15, 0, 240)), True, "blue at the right end: %r" % (right,))
+    eq(near(mid, (128, 0, 128)), True, "halfway between in the middle: %r" % (mid,))
+    side = pixel(sb, path, 5, 540)
+    eq(near(side, (250, 0, 5)), True, "the left edge is the start colour all the way down: %r" % (side,))
+    # A single custom colour saved the same way.
+    sb.configure(ActiveBorderSource=1, ActiveBorderColor="0,255,0")
+    sb.settle(0.8)
+    sb.screenshot(path)
+    eq(near(pixel(sb, path, 960, 5), (0, 255, 0)), True, "custom colour in the settings page's format")
+
+
+@test(config={"ActiveOpacity": "0.95", "InactiveOpacity": "0.7"})
+def unfocused_windows_can_be_see_through(sb):
+    """decoration:active_opacity / inactive_opacity; fullscreen stays opaque."""
+    sb.spawn("A")
+    sb.spawn("B")
+    s = sb.state()
+    eq((round(sb.window("A", s)["opacity"], 2), round(sb.window("B", s)["opacity"], 2)), (0.7, 0.95), "B focused")
+    sb.invoke("focusLeft")
+    s = sb.state()
+    eq((round(sb.window("A", s)["opacity"], 2), round(sb.window("B", s)["opacity"], 2)), (0.95, 0.7), "A focused")
+    sb.invoke("fullscreen")
+    eq(round(sb.window("A")["opacity"], 2), 1.0, "fullscreen is opaque")
+    sb.invoke("fullscreen")
+    sb.configure(ActiveOpacity="1.0", InactiveOpacity="1.0")
+    s = sb.state()
+    eq((round(sb.window("A", s)["opacity"], 2), round(sb.window("B", s)["opacity"], 2)), (1.0, 1.0), "back to untouched")
+
+
+@test(config={"BorderSize": 4, "HideFloatingTitleBars": "true", "WindowRules": "float, title:^F$"})
+def floating_windows_without_title_bars_get_the_border(sb):
+    sb.spawn("A")
+    sb.spawn("F")
+    sb.settle(0.5)
+    s = sb.state()
+    f = sb.window("F", s)
+    eq((f["tiled"], f["noBorder"], s["active"] == f["id"]), (False, True, True), "F floats, focused, no title bar")
+    g = f["geometry"]
+    eq(sorted(sb.overlays()), sorted([
+        "%d,%d %dx4" % (g["x"] - 4, g["y"] - 4, g["width"] + 8),
+        "%d,%d %dx4" % (g["x"] - 4, g["y"] + g["height"], g["width"] + 8),
+        "%d,%d 4x%d" % (g["x"] - 4, g["y"], g["height"]),
+        "%d,%d 4x%d" % (g["x"] + g["width"], g["y"], g["height"]),
+    ]), "a border around F")
+
+
+@test(config={"BorderSize": 4, "WindowRules": "float, title:^F$\nmove 900 300, title:^F$\nsize 200 200, title:^F$"})
+def the_border_hides_under_a_window_above(sb):
+    """A window kept above a tile's edge must not get the tile's border
+    painted across it."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("F")                            # floats over B's left edge
+    sb.invoke("Window Above Other Windows")  # and stays above
+    sb.input().click(1500, 600)              # focus B
+    sb.settle(0.6)
+    s = sb.state()
+    eq(s["active"], sb.window("B", s)["id"], "B focused")
+    eq(sb.overlays(), [], "B's border would cross F: hidden")
+    sb.clients[-1].kill()
+    sb.wait_for(lambda s: all(w["caption"] != "F" for w in s["windows"].values()), "F closed")
+    sb.settle(0.6)
+    eq(len(sb.overlays()), 4, "border back once nothing covers it")
+
+
 @test(config={"BorderSize": 4})
 def border_gives_way_to_menus(sb):
     """Overlays are drawn above ordinary windows, so a menu spilling past a

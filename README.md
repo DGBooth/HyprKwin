@@ -245,6 +245,8 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Border size | `general:border_size` | 2 px |
 | Corner radius | `decoration:rounding` | 0 (square) |
 | Focused / unfocused border colour | `col.active_border`, `col.inactive_border` | follow the colour scheme |
+| Focused border as a gradient (two colours and an angle) | `col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg` | off |
+| Focused / unfocused window opacity | `decoration:active_opacity`, `inactive_opacity` | 1.0 (untouched) |
 | Group tab bar height | `group:groupbar:height` | 22 |
 | Focus follows mouse | `input:follow_mouse = 1` | off |
 | Start each session on workspace 1 | – | on |
@@ -260,7 +262,9 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 
 Border colours follow the colour scheme by default: the accent colour marks
 the focused window and the scheme's dimmed colour the rest, so they change
-with your Plasma theme. Either can be set to a fixed colour instead.
+with your Plasma theme. Either can be set to a fixed colour instead, and the
+focused one to a gradient between two colours at any angle, the way
+Hyprland's `col.active_border` takes two colours and `45deg`.
 
 Settings apply as soon as you press OK or Apply: Plasma doesn't notify
 scripts about their settings, so HyprKwin notices the change to `kwinrc` and
@@ -317,9 +321,12 @@ styles are exclusive, and you pick one in the settings:
 - **Coloured border** (default) — title bars are hidden for every tiled window
   and a border is drawn in the gap, like Hyprland's `col.active_border`. This
   looks the same for every app, which is its main advantage: it does not care
-  whether an app uses server- or client-side decorations. It costs four thin
+  whether an app uses server- or client-side decorations. It costs a few thin
   overlay windows per border, since KWin scripts have no other way to draw on
-  screen.
+  screen. Floating windows get the border too when they have no title bar
+  (hidden with "Hide title bars on floating windows too", or an app that
+  draws its own), and a border steps aside wherever a menu or a window stacked
+  above would otherwise have it painted across it.
 - **The window decoration** — HyprKwin leaves decorations alone and the
   decoration marks the focused window, creating no overlay windows at all.
   With a normal theme that means a title bar on every tile; a *frame-only*

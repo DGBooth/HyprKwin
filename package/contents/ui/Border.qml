@@ -12,6 +12,10 @@ Item {
     property bool inactiveFromTheme: true
     property color activeColor: "#33ccff"
     property color inactiveColor: "#595959"
+    // col.active_border as a gradient: activeColor to activeColor2.
+    property bool activeGradient: false
+    property color activeColor2: "#00ff99"
+    property real gradientAngle: 45
     property bool overlaysHidden: false
     property int revision: 0
     property int radius: 0
@@ -23,6 +27,7 @@ Item {
     readonly property color borderColor: active
         ? (activeFromTheme ? accent.Kirigami.Theme.highlightColor : activeColor)
         : (inactiveFromTheme ? accent.Kirigami.Theme.disabledTextColor : inactiveColor)
+    readonly property color borderColor2: active && activeGradient ? activeColor2 : borderColor
     readonly property rect outer: frame ? Qt.rect(frame.x, frame.y, frame.width, frame.height) : Qt.rect(0, 0, 0, 0)
     readonly property int b: borderWidth
     // Corners can never take more than half the window.
@@ -44,8 +49,12 @@ Item {
         shown: border.shown
         revision: border.revision
         overlaysHidden: border.overlaysHidden
-        color: border.borderColor
         stripColor: border.borderColor
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
+        radius: border.r
         thickness: border.b
         area: Qt.rect(border.outer.x + border.r, border.outer.y, border.outer.width - 2 * border.r, border.b)
     }
@@ -54,8 +63,12 @@ Item {
         shown: border.shown
         revision: border.revision
         overlaysHidden: border.overlaysHidden
-        color: border.borderColor
         stripColor: border.borderColor
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
+        radius: border.r
         thickness: border.b
         area: Qt.rect(border.outer.x + border.r, border.outer.y + border.outer.height - border.b, border.outer.width - 2 * border.r, border.b)
     }
@@ -64,8 +77,12 @@ Item {
         shown: border.shown
         revision: border.revision
         overlaysHidden: border.overlaysHidden
-        color: border.borderColor
         stripColor: border.borderColor
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
+        radius: border.r
         thickness: border.b
         area: Qt.rect(border.outer.x, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
     }
@@ -74,22 +91,29 @@ Item {
         shown: border.shown
         revision: border.revision
         overlaysHidden: border.overlaysHidden
-        color: border.borderColor
         stripColor: border.borderColor
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
+        radius: border.r
         thickness: border.b
         area: Qt.rect(border.outer.x + border.outer.width - border.b, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
     }
 
-    // One window per corner, each clipping the quadrant of a rounded rect.
+    // One window per corner, for the rounded part of the ring.
     BorderStrip {
         id: topLeft
         shown: border.shown && border.r > 0
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
-        thickness: border.b
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
-        arc: Qt.point(0, 0)
+        thickness: border.b
         area: Qt.rect(border.outer.x, border.outer.y, border.r, border.r)
     }
     BorderStrip {
@@ -98,9 +122,12 @@ Item {
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
-        thickness: border.b
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
-        arc: Qt.point(-border.r, 0)
+        thickness: border.b
         area: Qt.rect(border.outer.x + border.outer.width - border.r, border.outer.y, border.r, border.r)
     }
     BorderStrip {
@@ -109,9 +136,12 @@ Item {
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
-        thickness: border.b
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
-        arc: Qt.point(0, -border.r)
+        thickness: border.b
         area: Qt.rect(border.outer.x, border.outer.y + border.outer.height - border.r, border.r, border.r)
     }
     BorderStrip {
@@ -120,9 +150,12 @@ Item {
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
-        thickness: border.b
+        stripColor2: border.borderColor2
+        angle: border.gradientAngle
+        ring: Qt.size(border.outer.width, border.outer.height)
+        offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
-        arc: Qt.point(-border.r, -border.r)
+        thickness: border.b
         area: Qt.rect(border.outer.x + border.outer.width - border.r, border.outer.y + border.outer.height - border.r, border.r, border.r)
     }
 }

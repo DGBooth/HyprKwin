@@ -25,6 +25,12 @@
         <entry name="InactiveBorderSource" type="Int"><default>0</default></entry>
         <entry name="ActiveBorderColor" type="Color"><default>#33ccff</default></entry>
         <entry name="InactiveBorderColor" type="Color"><default>#595959</default></entry>
+        <!-- With ActiveBorderSource 2 the focused border runs from
+             ActiveBorderColor to ActiveBorderColor2 (col.active_border). -->
+        <entry name="ActiveBorderColor2" type="Color"><default>#00ff99</default></entry>
+        <entry name="BorderGradientAngle" type="Int"><default>45</default></entry>
+        <entry name="ActiveOpacity" type="Double"><default>1.0</default></entry>
+        <entry name="InactiveOpacity" type="Double"><default>1.0</default></entry>
         <entry name="ShowInactiveBorders" type="Bool"><default>false</default></entry>
         <entry name="GroupBarHeight" type="Int"><default>22</default></entry>
         <!-- Behaviour -->
