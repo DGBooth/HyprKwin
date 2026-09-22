@@ -367,6 +367,7 @@ function createDriver(env) {
             inactiveBorderColor: colour(rc("InactiveBorderColor", "#595959"), "#595959"),
             activeBorderColor2: colour(rc("ActiveBorderColor2", "#00ff99"), "#00ff99"),
             borderGradientAngle: num(rc("BorderGradientAngle", 45), 45),
+            borderGradientSpin: Math.max(0, num(rc("BorderGradientSpin", 0), 0)),
             activeOpacity: Math.max(0.1, Math.min(1, num(rc("ActiveOpacity", "1.0"), 1.0))),
             inactiveOpacity: Math.max(0.1, Math.min(1, num(rc("InactiveOpacity", "1.0"), 1.0))),
             showInactiveBorders: bool(rc("ShowInactiveBorders", false), false),

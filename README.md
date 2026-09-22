@@ -259,6 +259,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Corner radius | `decoration:rounding` | 0 (square) |
 | Focused / unfocused border colour | `col.active_border`, `col.inactive_border` | follow the colour scheme |
 | Focused border as a gradient (two colours and an angle) | `col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg` | off |
+| Turning the gradient | `animation = borderangle, …` | off (0°/s) |
 | Focused / unfocused window opacity | `decoration:active_opacity`, `inactive_opacity` | 1.0 (untouched) |
 | Group tab bar height | `group:groupbar:height` | 22 |
 | Focus follows mouse | `input:follow_mouse = 1` | off |
@@ -277,7 +278,9 @@ Border colours follow the colour scheme by default: the accent colour marks
 the focused window and the scheme's dimmed colour the rest, so they change
 with your Plasma theme. Either can be set to a fixed colour instead, and the
 focused one to a gradient between two colours at any angle, the way
-Hyprland's `col.active_border` takes two colours and `45deg`.
+Hyprland's `col.active_border` takes two colours and `45deg`. The gradient can
+turn around the border as Hyprland's `borderangle` animation does; it is off
+by default, since it redraws the border continuously.
 
 Settings apply as soon as you press OK or Apply: Plasma doesn't notify
 scripts about their settings, so HyprKwin notices the change to `kwinrc` and
@@ -494,6 +497,11 @@ tools/hyprkwin-rules.py remove 2    # drop one
   "cursor follows focus" / `cursor:warp_on_change_workspace`.
 - In the scrolling layout, columns hold a single window; niri's stacking of
   several windows in one column is not there yet.
+- Windows themselves are not rounded, only the border around them
+  (`decoration:rounding` rounds the window in Hyprland). A scripted effect can
+  load a fragment shader, but applying one to a window renders it black, so
+  this needs a compiled effect: the third-party
+  [Shape Corners](https://github.com/matinlotfali/KDE-Rounded-Corners) does it.
 - Animations come from a companion KWin effect, which cannot resize an app
   smoothly; see [Animations](#animations) for how resizes are handled.
 - Every monitor having its own workspaces is emulated on top of Plasma's

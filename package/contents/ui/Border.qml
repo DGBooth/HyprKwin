@@ -16,6 +16,9 @@ Item {
     property bool activeGradient: false
     property color activeColor2: "#00ff99"
     property real gradientAngle: 45
+    // Hyprland's borderangle: degrees per second the gradient turns.
+    property real spinSpeed: 0
+    property real spin: 0
     property bool overlaysHidden: false
     property int revision: 0
     property int radius: 0
@@ -32,6 +35,16 @@ Item {
     readonly property int b: borderWidth
     // Corners can never take more than half the window.
     readonly property int r: Math.max(0, Math.min(radius, Math.floor(Math.min(outer.width, outer.height) / 2)))
+
+    readonly property bool spinning: shown && active && activeGradient && spinSpeed > 0
+
+    NumberAnimation on spin {
+        running: border.spinning
+        from: 0
+        to: 360
+        duration: border.spinSpeed > 0 ? Math.max(200, 360 / border.spinSpeed * 1000) : 1000
+        loops: Animation.Infinite
+    }
 
     function hideAll() {
         accent.hide();
@@ -51,7 +64,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -65,7 +78,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -79,7 +92,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -93,7 +106,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -109,7 +122,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -123,7 +136,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -137,7 +150,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
@@ -151,7 +164,7 @@ Item {
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
         stripColor2: border.borderColor2
-        angle: border.gradientAngle
+        angle: border.gradientAngle + border.spin
         ring: Qt.size(border.outer.width, border.outer.height)
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r

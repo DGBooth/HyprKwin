@@ -37,6 +37,8 @@
              ActiveBorderColor to ActiveBorderColor2 (col.active_border). -->
         <entry name="ActiveBorderColor2" type="Color"><default>#00ff99</default></entry>
         <entry name="BorderGradientAngle" type="Int"><default>45</default></entry>
+        <!-- Degrees per second; 0 keeps the gradient still (borderangle). -->
+        <entry name="BorderGradientSpin" type="Int"><default>0</default></entry>
         <entry name="ActiveOpacity" type="Double"><default>1.0</default></entry>
         <entry name="InactiveOpacity" type="Double"><default>1.0</default></entry>
         <entry name="ShowInactiveBorders" type="Bool"><default>false</default></entry>

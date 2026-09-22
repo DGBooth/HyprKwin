@@ -1462,6 +1462,32 @@ def border_can_be_a_gradient(sb):
     eq(near(pixel(sb, path, 960, 5), (0, 255, 0)), True, "custom colour in the settings page's format")
 
 
+@test(config={"BorderSize": 8, "ActiveBorderSource": 2, "BorderGradientAngle": 0,
+              "BorderGradientSpin": 360, "ActiveBorderColor": "255,0,0", "ActiveBorderColor2": "0,0,255"})
+def the_gradient_can_turn(sb):
+    """Hyprland's borderangle: the gradient rotates around the border."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ffffff")
+    sb.settle(0.8)
+    # A full turn a second, so this point cycles between the two colours.
+    seen = []
+    for i in range(7):
+        sb.screenshot(shots / ("spin%d.png" % i))
+        seen.append(pixel(sb, shots / ("spin%d.png" % i), 20, 5))
+    reds = [p[0] for p in seen]
+    blues = [p[2] for p in seen]
+    eq(max(reds) - min(reds) > 60, True, "the colour at that point changes as it turns: %r" % (seen,))
+    eq(max(blues) - min(blues) > 60, True, "through the other end of the gradient: %r" % (seen,))
+    sb.configure(BorderGradientSpin=0)
+    sb.settle(0.8)
+    still = []
+    for i in range(3):
+        sb.screenshot(shots / ("still%d.png" % i))
+        still.append(pixel(sb, shots / ("still%d.png" % i), 20, 5))
+    eq(max(p[0] for p in still) - min(p[0] for p in still) < 25, True, "and holds still at 0: %r" % (still,))
+
+
 @test(config={"ActiveOpacity": "0.95", "InactiveOpacity": "0.7"})
 def unfocused_windows_can_be_see_through(sb):
     """decoration:active_opacity / inactive_opacity; fullscreen stays opaque."""

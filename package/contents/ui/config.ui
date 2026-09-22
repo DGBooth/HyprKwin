@@ -260,6 +260,16 @@
          <property name="toolTip"><string>0° runs left to right, 90° top to bottom, 45° from the top-left corner to the bottom-right one.</string></property>
         </widget>
        </item>
+       <item row="16" column="0">
+        <widget class="QLabel" name="gradientSpinLabel"><property name="text"><string>Gradient rotation:</string></property></widget>
+       </item>
+       <item row="16" column="1">
+        <widget class="QSpinBox" name="kcfg_BorderGradientSpin">
+         <property name="suffix"><string>°/s</string></property>
+         <property name="maximum"><number>720</number></property>
+         <property name="toolTip"><string>Hyprland's borderangle animation: the gradient turns around the focused window's border. 0 keeps it still. Anything above 0 redraws the border continuously, which costs a little power.</string></property>
+        </widget>
+       </item>
        <item row="7" column="1">
         <widget class="QCheckBox" name="kcfg_ShowInactiveBorders">
          <property name="text"><string>Draw borders around unfocused tiled windows too</string></property>
