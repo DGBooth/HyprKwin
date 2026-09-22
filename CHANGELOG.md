@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.1
+
+- **Far fewer offscreen buffers while animating.** Cross-fading a window's
+  contents makes KWin render it into an offscreen buffer and blit it. A
+  layout change moves every window at once, so a single keypress could start
+  eight of those in one frame (including one per border strip). Borders and
+  tab bars are flat colour and never cross-fade now, and at most two windows
+  cross-fade at a time; the rest simply resize. There is a setting to turn
+  cross-fading off entirely.
+- This was found while investigating two KWin crashes on an NVIDIA card,
+  where the GPU halted and reset (`Xid 62`, `Xid 45`) and KWin then died
+  inside the driver on exactly that blit. The fault is the driver's, but
+  those bursts were what provoked it.
+- The effect now has unit tests of its own.
+
 ## 0.8.0
 
 - **Master and monocle layouts**, chosen per workspace:

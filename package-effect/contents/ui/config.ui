@@ -46,6 +46,12 @@
      <property name="toolTip"><string>Keeps the focus border attached to the window while it moves. Turn off to leave borders snapping instantly.</string></property>
     </widget>
    </item>
+   <item row="5" column="1">
+    <widget class="QCheckBox" name="kcfg_CrossFade">
+     <property name="text"><string>Fade a window's old contents into its new ones when it resizes</string></property>
+     <property name="toolTip"><string>Without it, a window's picture is stretched while it grows, which is what Hyprland does. Fading makes KWin draw the window into an offscreen buffer, so it is limited to a couple of windows at a time and never used for borders; turn it off entirely if your graphics driver is unhappy with it.</string></property>
+    </widget>
+   </item>
    <item row="6" column="0">
     <widget class="QLabel" name="openCloseLabel"><property name="text"><string>Window open/close:</string></property></widget>
    </item>

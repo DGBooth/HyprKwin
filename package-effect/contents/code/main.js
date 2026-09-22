@@ -57,6 +57,15 @@ class HyprKwinAnimations {
         // the whole width looks like a glitch rather than a transition.
         this.maxDistance = effect.readConfig("MaxDistance", 0);
         this.overlayGrace = 80;
+        // Cross-fading means KWin renders a window into an offscreen buffer
+        // and blits it. That is fine for one window, but a layout change
+        // moves every window at once, and a burst of big offscreen buffers in
+        // a single frame is enough to bring some drivers down. Only the first
+        // couple of windows in a batch cross-fade; the rest just resize.
+        this.crossFade = effect.readConfig("CrossFade", true);
+        this.maxCrossFades = 2;
+        this.fadeBatchStarted = 0;
+        this.fadesInBatch = 0;
         // Fixed rather than following Duration: HyprKwin holds the shrinking
         // window back for 220ms, and the slide has to finish first.
         const slide = effect.readConfig("SlideDuration", 180) || 180;
@@ -119,6 +128,19 @@ class HyprKwinAnimations {
         const dw = Math.abs(n.width - o.width) / Math.max(1, o.width);
         const dh = Math.abs(n.height - o.height) / Math.max(1, o.height);
         return edgeKeptX && edgeKeptY && dw < 0.4 && dh < 0.4;
+    }
+
+    // Whether this window may cross-fade: at most a couple per batch of
+    // windows animating together.
+    allowCrossFade() {
+        if (!this.crossFade) return false;
+        const now = Date.now();
+        if (now - this.fadeBatchStarted > 100) {
+            this.fadeBatchStarted = now;
+            this.fadesInBatch = 0;
+        }
+        this.fadesInBatch++;
+        return this.fadesInBatch <= this.maxCrossFades;
     }
 
     snap(window) {
@@ -294,13 +316,16 @@ class HyprKwinAnimations {
                 curve: this.curve,
             });
             // Fade the old contents into the new ones, otherwise the window
-            // looks stretched while it grows.
-            animations.push({
-                type: Effect.CrossFadePrevious,
-                from: 0.0,
-                to: 1.0,
-                curve: this.curve,
-            });
+            // looks stretched while it grows. Borders and tab bars are flat
+            // colour, so they never need it.
+            if (window.caption !== OVERLAY_TITLE && this.allowCrossFade()) {
+                animations.push({
+                    type: Effect.CrossFadePrevious,
+                    from: 0.0,
+                    to: 1.0,
+                    curve: this.curve,
+                });
+            }
         }
 
         const sliding = window.caption === OVERLAY_TITLE && Date.now() < this.slideUntil;
@@ -310,7 +335,7 @@ class HyprKwinAnimations {
         window.hkAnimation = animate({
             window: window,
             duration: sliding ? this.slideDuration : this.duration,
-            animations: sliding ? animations.filter((a) => a.type !== Effect.CrossFadePrevious) : animations,
+            animations: animations,
         });
     }
 }
