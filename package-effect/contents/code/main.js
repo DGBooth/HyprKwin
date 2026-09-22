@@ -12,6 +12,9 @@
 "use strict";
 
 const OVERLAY_TITLE = "HyprKwin overlay";
+// Replaced by tools/install.sh in the installed copy, and logged at startup
+// so the installer can tell the effect it reloaded is the one just installed.
+const BUILD = "source";
 
 // Plasma's own open/close animations. KWin marks them exclusive, so loading
 // one retires the others; we unload explicitly too in case that changes.
@@ -19,6 +22,7 @@ const OPEN_CLOSE_EFFECTS = ["scale", "fade", "glide"];
 
 class HyprKwinAnimations {
     constructor() {
+        print("HYPRKWIN_EFFECT_BUILD " + BUILD);
         // Set whenever a real window animates. HyprKwin applies window
         // geometry first and updates its overlays a moment later, so this
         // tells the two cases apart: a border following its own moving

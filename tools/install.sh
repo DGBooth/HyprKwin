@@ -53,29 +53,58 @@ done
 INSTALLED="${XDG_DATA_HOME:-$HOME/.local/share}/kwin/scripts/hyprkwin"
 BUILD_ID="$(date +%s%N)"
 printf 'var BUILD_ID = "%s";\n' "$BUILD_ID" > "$INSTALLED/contents/code/build.js"
+# KWin caches a script's code by file path for as long as it runs, so this
+# version also goes into a folder of its own, which the entry point
+# (ui/loader.qml) loads. That is what lets an upgrade apply without logging out.
+mkdir -p "$INSTALLED/contents/build-$BUILD_ID"
+cp -r "$INSTALLED/contents/ui" "$INSTALLED/contents/code" "$INSTALLED/contents/build-$BUILD_ID/"
+kwriteconfig6 --file kwinrc --group Script-hyprkwin --key BuildId "$BUILD_ID"
+EFFECT_INSTALLED="${XDG_DATA_HOME:-$HOME/.local/share}/kwin/effects/hyprkwinanimations"
+sed -i "s/^const BUILD = \"source\";/const BUILD = \"$BUILD_ID\";/" "$EFFECT_INSTALLED/contents/code/main.js"
+
+# The script logs its build when it starts; the journal, or HYPRKWIN_LOG when
+# KWin logs somewhere else (the test sandbox).
+running_this_build() {
+    for _ in $(seq 1 20); do
+        if [ -n "${HYPRKWIN_LOG:-}" ]; then
+            grep -q "HYPRKWIN_BUILD $BUILD_ID" "$HYPRKWIN_LOG" 2>/dev/null && return 0
+        elif command -v journalctl >/dev/null 2>&1; then
+            journalctl --user -b --since "60 seconds ago" 2>/dev/null | grep -q "HYPRKWIN_BUILD $BUILD_ID" && return 0
+        else
+            return 0
+        fi
+        sleep 0.25
+    done
+    return 1
+}
 
 if qdbus6 org.kde.KWin /KWin >/dev/null 2>&1; then
     # Unload first so an upgrade picks up the new code, then let KWin load
     # every enabled script again.
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript hyprkwin >/dev/null || true
     qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure
-    sleep 2
+    # Effects are not cached the way scripts are: reloading one runs its new code.
+    if [ "$(qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.isEffectLoaded hyprkwinanimations 2>/dev/null)" = "true" ]; then
+        qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect hyprkwinanimations >/dev/null || true
+        qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect hyprkwinanimations >/dev/null || true
+    fi
+    sleep 1
     if [ "$(qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.isScriptLoaded hyprkwin)" != "true" ]; then
         if [ "$ENABLE" = 1 ]; then
             echo "HyprKwin was installed but did not start; check: journalctl --user -b | grep -i hyprkwin"
             exit 1
         fi
-    elif command -v journalctl >/dev/null 2>&1 &&
-         ! journalctl --user -b --since "30 seconds ago" 2>/dev/null | grep -q "HYPRKWIN_BUILD $BUILD_ID"; then
+    elif ! running_this_build; then
         cat <<'STALE'
 HyprKwin is running, but KWin is still using a cached copy of a previous
-version: KWin keeps a script's QML and JavaScript for the lifetime of its
-process, so reloading the script is not enough for an upgrade.
+version. That happens once, when upgrading from a version older than 0.7:
+KWin keeps the old entry point cached until it restarts.
 
 Log out and back in (or restart KWin) to run the version just installed.
+From then on, upgrades apply straight away without logging out.
 STALE
     else
-        echo "HyprKwin is running."
+        echo "HyprKwin is running the version just installed (no need to log out)."
     fi
 fi
 

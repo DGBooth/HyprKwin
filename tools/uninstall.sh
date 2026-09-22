@@ -79,6 +79,7 @@ elif [ "$ACCEL" = 0 ] && { [ -f "$DATA/shortcuts-before-hyprkwin.json" ] || [ -f
         echo "Once logged in, run: $TOOL restore"
     fi
 fi
+kwriteconfig6 --file kwinrc --group Script-hyprkwin --key BuildId --delete
 kpackagetool6 --type=KWin/Script --remove hyprkwin
 kpackagetool6 --type=KWin/Effect --remove hyprkwinanimations 2>/dev/null || true
 echo "HyprKwin removed. Its settings remain in ~/.config/kwinrc under [Script-hyprkwin]"

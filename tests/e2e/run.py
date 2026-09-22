@@ -763,6 +763,33 @@ def backup_is_rebuilt_for_an_existing_install(sb):
     eq(differences(original, snap), {}, "the backup matches the state before apply")
 
 
+@test(effect=True)
+def upgrades_apply_without_logging_out(sb):
+    """KWin caches a script's code by file path for as long as it runs.
+    install.sh puts each version in a folder of its own for the entry point to
+    load, so two upgrades in a row inside one KWin both run their new code."""
+    import subprocess
+    env = dict(sb.env, HYPRKWIN_LOG=str(sb.log_path))
+    for attempt in (1, 2):
+        r = subprocess.run(["bash", str(ROOT_DIR / "tools" / "install.sh")], env=env,
+                           capture_output=True, text=True, timeout=180)
+        eq(r.returncode, 0, "install %d succeeded: %s" % (attempt, (r.stdout + r.stderr)[-400:]))
+        eq("running the version just installed" in r.stdout, True,
+           "install %d runs its own build: %s" % (attempt, r.stdout[-400:]))
+    import re
+    log = sb.log_path.read_text(errors="replace")
+    scripts = re.findall(r"HYPRKWIN_BUILD (\w+)", log)
+    effects = re.findall(r"HYPRKWIN_EFFECT_BUILD (\w+)", log)
+    eq(len(set(scripts)), 3, "the script ran three different builds in one KWin: %r" % scripts)
+    eq(set(effects[-2:]) <= set(scripts), True, "so did the effect: %r" % effects)
+    eq(len(set(effects)), 3, "the effect too: %r" % effects)
+    sb.spawn("A")
+    sb.spawn("B")
+    s = sb.state()
+    eq((sb.geometry("A", s), sb.geometry("B", s)), (LEFT, RIGHT), "and it still tiles")
+    eq(sb.errors(), [], "no script errors")
+
+
 @test
 def overlays_recover_and_ignore_tiny_windows(sb):
     """Overlays must re-assert themselves after being closed behind our back

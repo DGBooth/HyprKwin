@@ -70,12 +70,13 @@ is untested). The helper scripts also need `python3` with dbus-python
 
 To remove it again, see [Uninstall](#uninstall).
 
-**Upgrades need a KWin restart.** KWin keeps a script's QML and JavaScript
-cached for the lifetime of its process, so reloading the script re-runs the
-*old* code. `install.sh` detects this and tells you; log out and back in to
-activate an update. A first install works straight away. Other tiling scripts
-(Polonium, Krohnkite, Bismuth) must be disabled; the installer warns if one
-is enabled.
+**Upgrades apply without logging out.** Run `tools/install.sh` again and it
+reloads HyprKwin in the running session. (KWin caches a script's code for as
+long as it runs, so HyprKwin loads each installed version from a folder of
+its own.) The one exception is the upgrade *to* 0.7 from an older version,
+which needs one last logout; the installer says so when it does. Other
+tiling scripts (Polonium, Krohnkite, Bismuth) must be disabled; the installer
+warns if one is enabled.
 
 ### Animations
 
@@ -456,9 +457,8 @@ tools/hyprkwin-rules.py remove 2    # drop one
   "on all desktops" in the task manager and pager.
 - Scripts can't bind mouse wheel shortcuts, so there's no Meta+scroll
   workspace switching.
-- KWin caches script code per process, so upgrading needs a KWin restart
-  (see above), and it does not destroy a script's overlay windows when the
-  script is unloaded — HyprKwin closes any leftovers when it next starts, and
+- KWin does not destroy a script's overlay windows when the script is
+  unloaded; HyprKwin closes any leftovers when it next starts, and
   `uninstall.sh` sweeps them.
 
 ## Development
@@ -470,7 +470,8 @@ package/
   contents/code/rules.js       Hyprland window-rule parser
   contents/code/driver.js      binds the engine to KWin (spaces, windows, actions)
   contents/code/shortcuts.js   default shortcuts
-  contents/ui/main.qml         entry point: shortcuts, timers, overlays
+  contents/ui/main.qml         entry point: loads the installed build (so upgrades apply without logging out)
+  contents/ui/HyprKwin.qml     the script: shortcuts, timers, overlays
   contents/ui/Border.qml, BorderStrip.qml, GroupBar.qml
   contents/ui/config.ui        settings page (+ contents/config/main.xml)
 tests/
