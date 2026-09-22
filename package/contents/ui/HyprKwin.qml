@@ -183,7 +183,19 @@ Item {
     Component { id: borderComponent; Border {} }
     // Declared rather than created on demand: KWin only registers an internal
     // window that existed before it was first shown.
-    Osd { id: osd; overlaysHidden: root.effectActive || root.shuttingDown }
+    Osd {
+        id: osd
+        overlaysHidden: root.effectActive || root.shuttingDown
+        // Framed in the focus border's colours, so it matches the window it
+        // is telling you about.
+        accentFromTheme: (root.style.activeBorderSource || 0) === 0
+        accentColor: root.style.activeBorderColor || "#33ccff"
+        accentColor2: root.style.activeBorderColor2 || "#00ff99"
+        gradient: root.style.activeBorderSource === 2
+        gradientAngle: root.style.borderGradientAngle || 0
+        spinSpeed: root.style.borderGradientSpin || 0
+        thickness: root.style.borderSize || 2
+    }
     Component { id: groupBarComponent; GroupBar {} }
 
     function dropMissing(map, seen) {

@@ -16,7 +16,8 @@
   the split direction: a short caption near the bottom of the monitor you are
   using, like Plasma's own on-screen display. Plasma's OSD service only takes
   fixed kinds of message, so HyprKwin draws its own. There is a setting to
-  turn it off.
+  turn it off. It is framed in the focus border's colours, gradient and
+  turning angle included, so it matches the window it is telling you about.
 - Fixed: a keyboard resize could throw when a window took its new size during
   the same layout pass.
 

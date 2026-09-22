@@ -186,6 +186,33 @@ def changing_layout_shows_a_message(sb):
     eq(y > 700, True, "near the bottom: %r" % (boxes,))
 
 
+@test(config={"OsdDuration": 6000, "BorderSize": 6, "ActiveBorderSource": 1,
+              "ActiveBorderColor": "255,0,0"})
+def the_message_is_framed_in_the_border_colour(sb):
+    """The message wears the focus border's colours, so it matches the window
+    it is telling you about."""
+    sb.spawn("A")
+    sb.invoke("cycleLayout", settle=False)
+    time.sleep(0.4)
+    boxes = osd_boxes(sb)
+    eq(len(boxes), 1, "a message is on screen: %r" % (sb.overlays(),))
+    x, y, w, h = boxes[0]
+    shot = sb.base / "osd-colour.png"
+    sb.screenshot(shot)
+    eq(near(pixel(sb, shot, x + w // 2, y + 2), (255, 0, 0)), True, "the frame is the border colour")
+    # And col.active_border's gradient runs around it, as it does around a window.
+    sb.configure(ActiveBorderSource=2, ActiveBorderColor2="0,0,255", BorderGradientAngle=0)
+    sb.invoke("cycleLayout", settle=False)
+    time.sleep(0.5)
+    x, y, w, h = osd_boxes(sb)[0]
+    shot = sb.base / "osd-gradient.png"
+    sb.screenshot(shot)
+    left = pixel(sb, shot, x + 3, y + h // 2)
+    right = pixel(sb, shot, x + w - 4, y + h // 2)
+    eq(left[0] > left[2] and right[2] > right[0], True,
+       "red at one end, blue at the other: %r %r" % (left, right))
+
+
 @test(config={"LayoutOsd": "false"})
 def the_message_can_be_turned_off(sb):
     sb.spawn("A")

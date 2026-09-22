@@ -361,7 +361,8 @@ what a workspace starts with.
 
 Changing the layout, or the split direction on `Meta+J`, puts a short message
 on screen naming what it changed to, in the manner of Plasma's own on-screen
-display. Turn it off with "Show a message when the layout or split changes".
+display, framed in the focus border's colours. Turn it off with "Show a
+message when the layout or split changes".
 
 ### Focus indicator
 
