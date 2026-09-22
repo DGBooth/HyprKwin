@@ -18,7 +18,18 @@ var DEFAULT_CONFIG = {
     noGapsWhenOnly: false,
     groupBarHeight: 22,
     groupBarGap: 2,
+    // Hyprland's master layout: the share of the screen the master area
+    // takes, how many windows are masters, where they sit, and whether a new
+    // window becomes one (master:new_status).
+    defaultLayout: "dwindle",
+    masterFactor: 0.55,
+    masterCount: 1,
+    masterOrientation: "left",
+    masterNewIsMaster: false,
 };
+
+var LAYOUTS = ["dwindle", "master", "monocle"];
+var ORIENTATIONS = ["left", "right", "top", "bottom", "center"];
 
 var MIN_SHARE = 0.05;
 
@@ -124,6 +135,8 @@ function createEngine(userConfig) {
     var spaceOf = {};    // window id -> space
     var focusOrder = []; // most recently focused first
     var pseudoSizes = {};// window id -> {width, height} when pseudotiled
+    var modes = {};      // space -> layout ("dwindle", "master", "monocle")
+    var masterOpts = {}; // space -> {factor, count, orientation}
     var isVisible = function () { return true; };
     var nextNodeId = 1;
 
@@ -158,6 +171,98 @@ function createEngine(userConfig) {
         return out;
     }
 
+    // ---- layouts -----------------------------------------------------------
+
+    function modeOf(space) {
+        if (LAYOUTS.indexOf(modes[space]) >= 0) return modes[space];
+        return LAYOUTS.indexOf(cfg.defaultLayout) >= 0 ? cfg.defaultLayout : "dwindle";
+    }
+
+    function masterOf(space) {
+        if (!masterOpts[space]) {
+            masterOpts[space] = {
+                factor: cfg.masterFactor,
+                count: cfg.masterCount,
+                orientation: ORIENTATIONS.indexOf(cfg.masterOrientation) >= 0 ? cfg.masterOrientation : "left",
+            };
+        }
+        return masterOpts[space];
+    }
+
+    // Equal shares of `r` along one axis, in order.
+    function spread(list, r, dir) {
+        var n = list.length;
+        for (var i = 0; i < n; i++) {
+            list[i].rect = dir === "v"
+                ? rect(r.x, r.y + r.height * i / n, r.width, r.height / n)
+                : rect(r.x + r.width * i / n, r.y, r.width / n, r.height);
+        }
+    }
+
+    // Masters in a row (or column) of their own, everything else sharing the
+    // rest; "center" puts the masters in the middle with the others to either
+    // side, which is Krohnkite's three-column layout.
+    function placeMaster(space, all, inner) {
+        var p = masterOf(space);
+        var count = clamp(Math.round(p.count), 1, all.length);
+        var masters = all.slice(0, count), stack = all.slice(count);
+        var f = clamp(p.factor, MIN_SHARE, 1 - MIN_SHARE);
+        var sideways = p.orientation !== "top" && p.orientation !== "bottom";
+        if (!stack.length) {
+            spread(masters, inner, sideways ? "v" : "h");
+            return;
+        }
+        if (p.orientation === "center") {
+            var right = [], left = [];
+            stack.forEach(function (leaf, i) { (i % 2 === 0 ? right : left).push(leaf); });
+            var side = inner.width * (1 - f) / (left.length && right.length ? 2 : 1);
+            var leftW = left.length ? side : 0, rightW = right.length ? side : 0;
+            var midW = inner.width - leftW - rightW;
+            if (left.length) spread(left, rect(inner.x, inner.y, leftW, inner.height), "v");
+            spread(masters, rect(inner.x + leftW, inner.y, midW, inner.height), "v");
+            if (right.length) spread(right, rect(inner.x + leftW + midW, inner.y, rightW, inner.height), "v");
+            return;
+        }
+        if (sideways) {
+            var mw = inner.width * f;
+            var mx = p.orientation === "left" ? inner.x : inner.x + inner.width - mw;
+            var sx = p.orientation === "left" ? inner.x + mw : inner.x;
+            spread(masters, rect(mx, inner.y, mw, inner.height), "v");
+            spread(stack, rect(sx, inner.y, inner.width - mw, inner.height), "v");
+        } else {
+            var mh = inner.height * f;
+            var my = p.orientation === "top" ? inner.y : inner.y + inner.height - mh;
+            var sy = p.orientation === "top" ? inner.y + mh : inner.y;
+            spread(masters, rect(inner.x, my, inner.width, mh), "h");
+            spread(stack, rect(inner.x, sy, inner.width, inner.height - mh), "h");
+        }
+    }
+
+    // Put every visible leaf of a space where its layout wants it.
+    function arrange(space, inner) {
+        var root = roots[space];
+        if (!root) return [];
+        var all = leaves(root).filter(shown);
+        var mode = modeOf(space);
+        if (!all.length) return all;
+        if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
+        else if (mode === "master") placeMaster(space, all, inner);
+        else place(root, inner);
+        return all;
+    }
+
+    // The master boundary moves right (or down) on a positive delta, whichever
+    // side of it the window is on, as the dwindle divider does.
+    function nudgeMaster(space, delta, sideways) {
+        var p = masterOf(space);
+        var area = areas[space] || rect(0, 0, 1920, 1080);
+        var share = delta / Math.max(1, sideways ? area.width : area.height);
+        if (p.orientation === "right" || p.orientation === "bottom") share = -share;
+        var before = p.factor;
+        p.factor = clamp(p.factor + share, MIN_SHARE, 1 - MIN_SHARE);
+        return p.factor !== before;
+    }
+
     function autoDir(r) {
         if (!r) return "h";
         return r.width * cfg.splitWidthMultiplier >= r.height ? "h" : "v";
@@ -166,10 +271,8 @@ function createEngine(userConfig) {
     // Compute node rects for a space without producing window geometry.
     function computeRects(space) {
         var area = areas[space] || rect(0, 0, 1920, 1080);
-        var root = roots[space];
-        if (!root) return;
-        var inner = shrink(area, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut);
-        place(root, inner);
+        if (!roots[space]) return;
+        arrange(space, shrink(area, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut));
     }
 
     // A subtree is shown if any window in it is visible. Hidden subtrees
@@ -355,6 +458,15 @@ function createEngine(userConfig) {
 
         add: function (id, space, opts) {
             if (leafOf[id]) detach(id);
+            var mode = modeOf(space);
+            if (mode !== "dwindle" && roots[space]) {
+                // Order is all these layouts go by: a new window becomes the
+                // master (master:new_status) or joins the end.
+                var all = leaves(roots[space]);
+                var first = mode === "master" && cfg.masterNewIsMaster;
+                var edge = first ? all[0] : all[all.length - 1];
+                opts = { target: edge.wins[edge.active], side: first ? "left" : "right" };
+            }
             insert(id, space, opts);
         },
 
@@ -411,7 +523,7 @@ function createEngine(userConfig) {
             var gIn = only ? 0 : cfg.gapsIn;
             var gOut = only ? 0 : cfg.gapsOut;
             var inner = shrink(area, gOut, gOut, gOut, gOut);
-            place(root, inner);
+            arrange(space, inner);
             var eps = 0.5;
             all.forEach(function (leaf) {
                 var r = leaf.rect;
@@ -458,7 +570,7 @@ function createEngine(userConfig) {
 
         toggleSplit: function (id) {
             var leaf = leafOf[id];
-            if (!leaf || !leaf.parent) return false;
+            if (!leaf || !leaf.parent || modeOf(spaceOf[id]) !== "dwindle") return false;
             var p = leaf.parent;
             p.dir = p.dir === "h" ? "v" : "h";
             p.locked = true;
@@ -483,6 +595,13 @@ function createEngine(userConfig) {
         moveDivider: function (id, dx, dy) {
             var leaf = leafOf[id];
             if (!leaf) return false;
+            var mode = modeOf(spaceOf[id]);
+            if (mode === "monocle") return false;   // one window, no divider
+            if (mode === "master") {
+                var sideways = masterOf(spaceOf[id]).orientation !== "top" &&
+                    masterOf(spaceOf[id]).orientation !== "bottom";
+                return nudgeMaster(spaceOf[id], sideways ? dx : dy, sideways);
+            }
             computeRects(spaceOf[id]);
             var changed = false;
             if (dx) changed = shiftSplit(leaf, "h", dx) || changed;
@@ -495,10 +614,18 @@ function createEngine(userConfig) {
         resizeByRects: function (id, before, after) {
             var leaf = leafOf[id];
             if (!leaf) return false;
-            computeRects(spaceOf[id]);
-            var changed = false;
             var dL = after.x - before.x, dT = after.y - before.y;
             var dR = rectRight(after) - rectRight(before), dB = rectBottom(after) - rectBottom(before);
+            var mode = modeOf(spaceOf[id]);
+            if (mode === "monocle") return false;
+            if (mode === "master") {
+                // Whichever edge was dragged, the master boundary moved with it.
+                var sideways = masterOf(spaceOf[id]).orientation !== "top" &&
+                    masterOf(spaceOf[id]).orientation !== "bottom";
+                return nudgeMaster(spaceOf[id], sideways ? dL + dR : dT + dB, sideways);
+            }
+            computeRects(spaceOf[id]);
+            var changed = false;
             if (Math.abs(dR) >= 1) changed = adjustEdge(leaf, "h", true, dR) || changed;
             if (Math.abs(dL) >= 1) changed = adjustEdge(leaf, "h", false, dL) || changed;
             if (Math.abs(dB) >= 1) changed = adjustEdge(leaf, "v", true, dB) || changed;
@@ -647,6 +774,72 @@ function createEngine(userConfig) {
         },
 
         // Debug / tests: serialise a space's tree.
+        // ---- layouts ------------------------------------------------------
+
+        layouts: function () { return LAYOUTS.slice(); },
+
+        layoutOf: function (space) { return modeOf(space); },
+
+        setLayout: function (space, mode) {
+            if (LAYOUTS.indexOf(mode) < 0 || modeOf(space) === mode) return false;
+            modes[space] = mode;
+            return true;
+        },
+
+        cycleLayout: function (space, delta) {
+            var i = LAYOUTS.indexOf(modeOf(space));
+            modes[space] = LAYOUTS[((i + (delta || 1)) % LAYOUTS.length + LAYOUTS.length) % LAYOUTS.length];
+            return modes[space];
+        },
+
+        masterParams: function (space) {
+            var p = masterOf(space);
+            return { factor: p.factor, count: p.count, orientation: p.orientation };
+        },
+
+        // Hyprland's layoutmsg swapwithmaster: the focused window and the
+        // first master change places.
+        swapWithMaster: function (id) {
+            var leaf = leafOf[id];
+            if (!leaf) return false;
+            var all = leaves(roots[spaceOf[id]] || null).filter(shown);
+            if (all.length < 2 || all[0] === leaf) return false;
+            return api.swap(id, all[0].wins[all[0].active]);
+        },
+
+        // The window of the first master leaf (layoutmsg focusmaster).
+        firstMaster: function (space) {
+            var all = leaves(roots[space] || null).filter(shown);
+            return all.length ? all[0].wins[all[0].active] : null;
+        },
+
+        setMasterCount: function (space, delta) {
+            var p = masterOf(space);
+            var all = leaves(roots[space] || null).filter(shown);
+            var before = p.count;
+            p.count = clamp(Math.round(p.count + delta), 1, Math.max(1, all.length));
+            return p.count !== before;
+        },
+
+        cycleMasterOrientation: function (space, delta) {
+            var p = masterOf(space);
+            var i = ORIENTATIONS.indexOf(p.orientation);
+            p.orientation = ORIENTATIONS[((i + (delta || 1)) % ORIENTATIONS.length + ORIENTATIONS.length) % ORIENTATIONS.length];
+            return p.orientation;
+        },
+
+        // The next window in layout order (Hyprland's cyclenext), which is
+        // how you move through a monocle layout.
+        cycleWindow: function (id, delta) {
+            var space = spaceOf[id];
+            if (!leafOf[id]) return null;
+            var all = leaves(roots[space] || null).filter(shown);
+            if (all.length < 2) return null;
+            var i = all.indexOf(leafOf[id]);
+            var next = all[((i + (delta || 1)) % all.length + all.length) % all.length];
+            return next.wins[next.active];
+        },
+
         dump: function (space) {
             function d(n) {
                 if (!n) return null;

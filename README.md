@@ -13,6 +13,9 @@ desktops, activities, window rules, KRunner and System Settings.
   `gaps_in` / `gaps_out`, `default_split_ratio` (same units as Hyprland),
   `preserve_split`, `force_split`, `split_width_multiplier`, `togglesplit`,
   pseudotiling.
+- **Master and monocle layouts** as well, chosen per workspace: a master area
+  with `mfact`, several masters, and the master area on any side or in the
+  middle (the three-column layout).
 - **Workspaces = Plasma virtual desktops** (created on demand), and every
   monitor gets its own, as in Hyprland. Pager, Overview and the desktop
   switcher keep working.
@@ -154,7 +157,11 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | Keys | Action |
 |---|---|
 | `Meta+Q` | Close window |
-| `Meta+J` | Toggle window split |
+| `Meta+J` | Toggle window split (dwindle) |
+| `Meta+Shift+J` | Next layout (dwindle, master, monocle) |
+| `Meta+M` / `Meta+Shift+M` | Swap window with the master / focus the master |
+| `Meta+>` / `Meta+<` | One more / one fewer master window |
+| `Meta+Alt+M` | Move the master area round |
 | `Meta+P` | Pseudotile window |
 | `Meta+T` | Toggle window floating/tiling |
 | `Meta+F` | Full screen |
@@ -181,7 +188,7 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | `Meta+Alt+Tab` / `Meta+Alt+Shift+Tab` | Next / previous window in group |
 | `Meta+Ctrl+Left` / `Right` | Previous / next window in group |
 | `Meta+Alt+1…5` | Switch to group window 1–5 |
-| unbound | Swap split halves, move window in direction (Hyprland `movewindow`), reload & retile |
+| unbound | Pick a layout directly, previous layout, move the master area back, focus next/previous window in the layout, swap split halves, move window in direction (Hyprland `movewindow`), reload & retile |
 
 Mouse: hold Meta and drag with the left button to move a window (drop it on
 another tile to re-tile there, or on another monitor), or with the right
@@ -236,6 +243,9 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 
 | Setting | Hyprland equivalent | Default |
 |---|---|---|
+| Layout | `dwindle` / `master` | dwindle |
+| Master area size, master count, master area position | `master:mfact`, `master:orientation` | 0.55, 1, left |
+| New windows become the master | `master:new_status` | off |
 | Inner / outer gaps | `general:gaps_in` / `gaps_out` | 5 / 10 |
 | Default split ratio | `dwindle:default_split_ratio` | 1.0 |
 | Split width multiplier | `dwindle:split_width_multiplier` | 1.0 |
@@ -312,6 +322,29 @@ with a rule (it then just flags itself in the taskbar, as in plain Plasma):
 ```
 focusonactivate off, class:^(discord|vesktop|org\.telegram\.desktop)$
 ```
+
+### Layouts
+
+Three layouts, each workspace with its own:
+
+- **Dwindle** (the default), Hyprland's: every new window splits the one it
+  lands on, along its longer side.
+- **Master**: a master area beside a stack. The master area can take any share
+  of the screen (`mfact`), hold several windows, and sit on any side or in the
+  middle, which gives the three-column layout.
+- **Monocle**: one window at a time, each filling the workspace, with
+  everything else behind it.
+
+`Meta+Shift+J` moves the current workspace to the next layout; there are also
+shortcuts to pick one directly. In the master layout, `Meta+M` swaps the
+focused window with the master, `Meta+Shift+M` focuses the master,
+`Meta+>` / `Meta+<` change how many windows are masters, and `Meta+Alt+M`
+moves the master area round. The resize keys and dragging the edge move the
+boundary between the master area and the stack, exactly as they move a
+dwindle split.
+
+The layout of a workspace lasts as long as the session; the setting decides
+what a workspace starts with.
 
 ### Focus indicator
 
@@ -449,7 +482,7 @@ tools/hyprkwin-rules.py remove 2    # drop one
 
 - KWin scripts cannot move the mouse pointer, so there is no
   "cursor follows focus" / `cursor:warp_on_change_workspace`.
-- The layout is dwindle only (no master or scrolling layout).
+- No scrolling layout yet (dwindle, master and monocle are there).
 - Animations come from a companion KWin effect, which cannot resize an app
   smoothly; see [Animations](#animations) for how resizes are handled.
 - Every monitor having its own workspaces is emulated on top of Plasma's

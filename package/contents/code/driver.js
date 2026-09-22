@@ -282,6 +282,10 @@ function createDriver(env) {
 
     // ---- configuration -----------------------------------------------------
 
+    // The settings page stores these as the index of a combo box.
+    var LAYOUT_NAMES = ["dwindle", "master", "monocle"];
+    var ORIENTATION_NAMES = ["left", "right", "top", "bottom", "center"];
+
     // 0: let Plasma draw title bars (no overlays at all)
     // 1: hide title bars, draw our own border
     // 2: hide title bars, no focus indicator
@@ -368,6 +372,11 @@ function createDriver(env) {
             showInactiveBorders: bool(rc("ShowInactiveBorders", false), false),
             focusFollowsMouse: bool(rc("FocusFollowsMouse", false), false),
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
+            defaultLayout: LAYOUT_NAMES[num(rc("DefaultLayout", 0), 0)] || "dwindle",
+            masterFactor: Math.max(0.05, Math.min(0.95, num(rc("MasterFactor", "0.55"), 0.55))),
+            masterCount: Math.max(1, num(rc("MasterCount", 1), 1)),
+            masterOrientation: ORIENTATION_NAMES[num(rc("MasterOrientation", 0), 0)] || "left",
+            masterNewIsMaster: bool(rc("MasterNewIsMaster", false), false),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
             slideDivider: bool(rc("SlideDivider", true), true),
@@ -1334,6 +1343,41 @@ function createDriver(env) {
         if (q && tracked[q.id] && (q.dx || q.dy)) slideDivider(tracked[q.id], q.dx, q.dy);
     }
 
+    // The space the layout actions work on: where the focused window is, or
+    // what the monitor in use is showing.
+    function currentSpace() {
+        var st = active();
+        if (st && !st.special) {
+            var space = engine.spaceOf(st.id);
+            if (space) return space;
+        }
+        var screen = focusedScreen();
+        return screen ? spaceFor(desktopFor(screen), screen) : null;
+    }
+
+    function setLayout(mode) {
+        var space = currentSpace();
+        if (!space || !engine.setLayout(space, mode)) return;
+        log("layout", space, "->", mode);
+        relayout();
+    }
+
+    function cycleLayout(delta) {
+        var space = currentSpace();
+        if (!space) return;
+        log("layout", space, "->", engine.cycleLayout(space, delta));
+        relayout();
+    }
+
+    function masterAction(fn) {
+        var space = currentSpace();
+        if (space && fn(space) !== false) relayout();
+    }
+
+    function focusWindowId(id) {
+        if (id && tracked[id]) activate(tracked[id].w);
+    }
+
     function resizeActive(dx, dy) {
         var st = active();
         if (!st || st.w.fullScreen) return;
@@ -1729,6 +1773,32 @@ function createDriver(env) {
         intoGroupDown: function () { intoGroup("down"); },
         groupNextAlt: function () { actions.groupNext(); },
         groupPreviousAlt: function () { actions.groupPrevious(); },
+        cycleLayout: function () { cycleLayout(1); },
+        cycleLayoutBack: function () { cycleLayout(-1); },
+        layoutDwindle: function () { setLayout("dwindle"); },
+        layoutMaster: function () { setLayout("master"); },
+        layoutMonocle: function () { setLayout("monocle"); },
+        masterSwap: function () {
+            var st = active();
+            if (st && engine.swapWithMaster(st.id)) {
+                syncDesktop(st);
+                relayout();
+            }
+        },
+        masterFocus: function () {
+            var space = currentSpace();
+            if (space) focusWindowId(engine.firstMaster(space));
+        },
+        masterCountIncrease: function () { masterAction(function (space) { return engine.setMasterCount(space, 1); }); },
+        masterCountDecrease: function () { masterAction(function (space) { return engine.setMasterCount(space, -1); }); },
+        masterOrientationNext: function () {
+            masterAction(function (space) { log("master area", engine.cycleMasterOrientation(space, 1)); });
+        },
+        masterOrientationPrevious: function () {
+            masterAction(function (space) { log("master area", engine.cycleMasterOrientation(space, -1)); });
+        },
+        cycleNext: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, 1)); },
+        cyclePrevious: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, -1)); },
         retile: function () { reloadConfig(); },
     };
     for (var n = 1; n <= 10; n++) {
@@ -1926,6 +1996,15 @@ function createDriver(env) {
                 configReloads: reloads,
                 cursor: { x: ws.cursorPos.x, y: ws.cursorPos.y },
                 popups: popupRects(),
+                layouts: (function () {
+                    var out = {};
+                    engine.spaces().forEach(function (space) {
+                        var p = engine.masterParams(space);
+                        out[space] = { layout: engine.layoutOf(space), factor: Math.round(p.factor * 1000) / 1000,
+                                       masters: p.count, orientation: p.orientation };
+                    });
+                    return out;
+                })(),
                 shown: perOutput() ? shown : null,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });

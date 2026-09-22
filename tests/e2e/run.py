@@ -114,6 +114,85 @@ def toggle_split_and_resize(sb):
     eq(sb.geometry("A"), (10, 10, 845, 1060), "no vertical split: nothing moves")
 
 
+def layout_of(sb, s=None):
+    s = s or sb.state()
+    spaces = [v for k, v in s["layouts"].items() if k != "special"]
+    return spaces[0] if len(spaces) == 1 else {k: v for k, v in s["layouts"].items()}
+
+
+@test
+def layouts_can_be_switched_per_workspace(sb):
+    """Dwindle, master and monocle, chosen per workspace."""
+    three(sb)
+    eq(layout_of(sb)["layout"], "dwindle", "dwindle to start with")
+    sb.invoke("cycleLayout")
+    s = sb.state()
+    eq(layout_of(sb, s)["layout"], "master", "next layout")
+    a, b, c = (sb.geometry(t, s) for t in "ABC")
+    eq(a[3], 1060, "the master fills the height")
+    eq(a[2] > b[2], True, "and is wider than the stack: %r vs %r" % (a, b))
+    eq((b[0], c[0]), (a[0] + a[2] + 10, a[0] + a[2] + 10), "the stack sits beside it")
+    eq((b[1], c[1] > b[1], b[3] == c[3]), (10, True, True), "stacked evenly")
+    sb.invoke("cycleLayout")
+    s = sb.state()
+    eq(layout_of(sb, s)["layout"], "monocle", "and the next")
+    eq([sb.geometry(t, s) for t in "ABC"], [FULL] * 3, "monocle: all of them full size")
+    sb.invoke("cycleLayout")
+    s = sb.state()
+    eq(layout_of(sb, s)["layout"], "dwindle", "round again")
+    eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "laid out as before")
+    # Another workspace keeps its own layout.
+    sb.invoke("layoutMonocle")
+    sb.invoke("desktop2")
+    sb.spawn("D")
+    s = sb.state()
+    layouts = {v["layout"] for v in s["layouts"].values()}
+    eq(layouts, {"monocle", "dwindle"}, "one workspace each: %r" % s["layouts"])
+    eq(sb.geometry("D", s), FULL, "the new workspace is still dwindle")
+
+
+@test(config={"DefaultLayout": 1, "MasterFactor": "0.5"})
+def master_layout_can_be_rearranged(sb):
+    """Hyprland's layoutmsg: swap with master, more masters, move the master
+    area round, and the divider keys resizing it."""
+    three(sb)                                    # C focused
+    s = sb.state()
+    eq(layout_of(sb, s)["layout"], "master", "the default layout is used")
+    eq(sb.geometry("A", s)[2], 945, "A is the master at 50%")
+    sb.invoke("masterSwap")
+    s = sb.state()
+    eq(sb.geometry("C", s)[2], 945, "C swapped into the master area")
+    eq(sb.geometry("A", s)[0] > 900, True, "A went to the stack: %r" % (sb.geometry("A", s),))
+    sb.invoke("masterFocus")
+    s = sb.state()
+    eq(s["active"], sb.window("C", s)["id"], "focus follows to the master")
+    sb.invoke("masterCountIncrease")
+    s = sb.state()
+    eq(layout_of(sb, s)["masters"], 2, "two masters")
+    eq(sb.geometry("B", s)[2], 945, "B joined the master area: %r" % (sb.geometry("B", s),))
+    sb.invoke("masterOrientationNext")
+    s = sb.state()
+    eq(layout_of(sb, s)["orientation"], "right", "master area moved right")
+    eq(sb.geometry("C", s)[0] > sb.geometry("A", s)[0], True, "masters are on the right now")
+    sb.invoke("resizeRight")                     # the divider goes right: masters shrink
+    s = sb.state()
+    eq(round(layout_of(sb, s)["factor"], 2), 0.45, "master area resized")
+    eq(sb.geometry("C", s)[2], 846, "and the masters with it (a 100px step is a share of the screen)")
+
+
+@test(config={"DefaultLayout": 2})
+def monocle_layout_shows_one_window_at_a_time(sb):
+    three(sb)
+    s = sb.state()
+    eq([sb.geometry(t, s) for t in "ABC"], [FULL] * 3, "all full size")
+    eq(s["active"], sb.window("C", s)["id"], "the newest is focused")
+    sb.invoke("cycleNext")
+    s = sb.state()
+    eq(s["active"], sb.window("A", s)["id"], "cycling wraps round to A")
+    sb.invoke("cyclePrevious")
+    eq(sb.state()["active"], sb.window("C", s)["id"], "and back")
+
+
 @test
 def floating_toggle(sb):
     three(sb)

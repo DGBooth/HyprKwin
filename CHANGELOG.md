@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0
+
+- **Master and monocle layouts**, chosen per workspace:
+  - **Master**: a master area beside a stack, with `mfact`, several masters,
+    and the master area on any side or in the middle (the three-column
+    layout). New windows can become the master (`master:new_status`).
+  - **Monocle**: one window at a time, each filling the workspace.
+  - `Meta+Shift+J` cycles a workspace through the layouts; `Meta+M`,
+    `Meta+Shift+M`, `Meta+>`, `Meta+<` and `Meta+Alt+M` drive the master
+    layout. The resize keys and edge dragging move the master boundary the
+    way they move a dwindle split.
+  - The layout a new workspace starts with is in the settings page, along
+    with the master settings.
+- Dwindle is unchanged and stays the default.
+
 ## 0.7.0
 
 - **Upgrades apply without logging out.** Running `tools/install.sh` again

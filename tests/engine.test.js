@@ -322,3 +322,100 @@ Deno.test("windows fully past the edge still win over merely overlapping ones", 
     ];
     assertEquals(E.pickInDirection(from, cands, "left"), "clear");
 });
+
+// ---- master and monocle layouts ------------------------------------------
+
+function three(e, space = S) {
+    e.add("a", space); e.focused("a");
+    e.add("b", space); e.focused("b");
+    e.add("c", space); e.focused("c");
+    return e;
+}
+
+Deno.test("master layout: one master beside a stack", () => {
+    const e = eng({ defaultLayout: "master", masterFactor: 0.6, gapsIn: 0, gapsOut: 0 });
+    three(e);
+    const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    assertEquals(l.windows.a, { x: 0, y: 0, width: 600, height: 900 }, "master takes 60%");
+    assertEquals(l.windows.b, { x: 600, y: 0, width: 400, height: 450 });
+    assertEquals(l.windows.c, { x: 600, y: 450, width: 400, height: 450 });
+});
+
+Deno.test("master layout: count, orientation and the single-window case", () => {
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: 0 });
+    e.add("a", S);
+    assertEquals(e.layout(S, { x: 0, y: 0, width: 1000, height: 900 }).windows.a,
+                 { x: 0, y: 0, width: 1000, height: 900 }, "alone: the whole area");
+    three(e);
+    e.setMasterCount(S, 1);                       // two masters now
+    let l = e.layout(S);
+    assertEquals([l.windows.a.height, l.windows.b.y], [450, 450], "masters share the master area");
+    assertEquals(l.windows.c, { x: 500, y: 0, width: 500, height: 900 }, "c is the whole stack");
+    assertEquals(e.cycleMasterOrientation(S, 1), "right");
+    l = e.layout(S);
+    assertEquals([l.windows.a.x, l.windows.c.x], [500, 0], "masters move to the right");
+    assertEquals(e.cycleMasterOrientation(S, 1), "top");
+    l = e.layout(S);
+    assertEquals([l.windows.a.y, l.windows.a.width, l.windows.c.y], [0, 500, 450], "masters on top, side by side");
+});
+
+Deno.test("master layout: centre puts the stack on both sides", () => {
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, masterOrientation: "center", gapsIn: 0, gapsOut: 0 });
+    three(e);
+    e.add("d", S);
+    const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 800 });
+    assertEquals(l.windows.a, { x: 250, y: 0, width: 500, height: 800 }, "master in the middle");
+    assertEquals([l.windows.b.x, l.windows.d.x], [750, 750], "b and d to the right");
+    assertEquals(l.windows.c, { x: 0, y: 0, width: 250, height: 800 }, "c to the left");
+});
+
+Deno.test("master layout: the divider moves right on a positive delta", () => {
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: 0 });
+    three(e);
+    e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    e.moveDivider("c", 100, 0);                    // from a stack window
+    assertEquals(e.layout(S).windows.a.width, 600, "master grew");
+    e.moveDivider("a", -200, 0);                   // and from the master
+    assertEquals(e.layout(S).windows.a.width, 400, "master shrank");
+    e.cycleMasterOrientation(S, 1);                // master on the right, 400 wide
+    e.moveDivider("a", 100, 0);
+    assertEquals(e.layout(S).windows.a.width, 300, "the divider goes right, so a master on the right shrinks");
+});
+
+Deno.test("monocle layout: every window fills the area", () => {
+    const e = eng({ defaultLayout: "monocle", gapsOut: 10, gapsIn: 5 });
+    three(e);
+    const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    const full = { x: 10, y: 10, width: 980, height: 880 };
+    assertEquals([l.windows.a, l.windows.b, l.windows.c], [full, full, full]);
+    assertEquals(e.moveDivider("a", 100, 0), false, "nothing to resize");
+    assertEquals(e.cycleWindow("a", 1), "b", "cycling moves through them");
+    assertEquals(e.cycleWindow("a", -1), "c");
+});
+
+Deno.test("layouts are per space, and dwindle is untouched", () => {
+    const e = eng({ gapsIn: 0, gapsOut: 0 });
+    const other = "desk2|screen";
+    three(e);
+    e.add("z", other);
+    assertEquals([e.layoutOf(S), e.layoutOf(other)], ["dwindle", "dwindle"]);
+    assertEquals(e.setLayout(S, "master"), true);
+    assertEquals([e.layoutOf(S), e.layoutOf(other)], ["master", "dwindle"], "only that space changed");
+    assertEquals(e.cycleLayout(S, 1), "monocle");
+    assertEquals(e.cycleLayout(S, 1), "dwindle", "and round again");
+    const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    assertEquals([l.windows.a.width, l.windows.b.width, l.windows.c.height], [500, 500, 450], "dwindle as before");
+});
+
+Deno.test("master: swapwithmaster and new windows joining", () => {
+    const e = eng({ defaultLayout: "master", gapsIn: 0, gapsOut: 0 });
+    three(e);
+    assertEquals(e.firstMaster(S), "a");
+    assertEquals(e.swapWithMaster("c"), true);
+    assertEquals(e.firstMaster(S), "c", "c is the master now");
+    e.add("d", S);                                 // joins the end by default
+    assertEquals(e.layout(S, { x: 0, y: 0, width: 1000, height: 900 }).windows.d.y, 600);
+    e.setConfig({ masterNewIsMaster: true });
+    e.add("m", S);
+    assertEquals(e.firstMaster(S), "m", "new windows can become the master instead");
+});
