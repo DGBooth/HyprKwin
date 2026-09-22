@@ -109,6 +109,15 @@ class HyprKwinAnimations {
         window.hkSuspendUntil = Date.now() + 500;
     }
 
+    // The whole desktop; a window outside it is parked out of the way by a
+    // scrolling layout and has nothing to animate.
+    onScreen(geometry) {
+        const screen = effects.virtualScreenGeometry;
+        if (!screen) return true;
+        return geometry.x < screen.x + screen.width && screen.x < geometry.x + geometry.width &&
+            geometry.y < screen.y + screen.height && screen.y < geometry.y + geometry.height;
+    }
+
     shouldAnimate(window) {
         if (!window.visible || window.minimized || window.deleted) return false;
         // The user is dragging it: it is already following the pointer.
@@ -261,6 +270,10 @@ class HyprKwinAnimations {
         const newGeometry = window.geometry;
         if (this.userResizing || Date.now() - this.userResizeEnded < 150) {
             this.snap(window);
+            return;
+        }
+        if (!this.onScreen(oldGeometry) || !this.onScreen(newGeometry)) {
+            this.snap(window);      // parked out of sight by a scrolling layout
             return;
         }
         if (window.caption !== OVERLAY_TITLE) {

@@ -283,7 +283,7 @@ function createDriver(env) {
     // ---- configuration -----------------------------------------------------
 
     // The settings page stores these as the index of a combo box.
-    var LAYOUT_NAMES = ["dwindle", "master", "monocle"];
+    var LAYOUT_NAMES = ["dwindle", "master", "monocle", "scrolling"];
     var ORIENTATION_NAMES = ["left", "right", "top", "bottom", "center"];
 
     // 0: let Plasma draw title bars (no overlays at all)
@@ -373,6 +373,7 @@ function createDriver(env) {
             focusFollowsMouse: bool(rc("FocusFollowsMouse", false), false),
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             defaultLayout: LAYOUT_NAMES[num(rc("DefaultLayout", 0), 0)] || "dwindle",
+            columnWidth: Math.max(0.1, Math.min(1, num(rc("ColumnWidth", "0.5"), 0.5))),
             masterFactor: Math.max(0.05, Math.min(0.95, num(rc("MasterFactor", "0.55"), 0.55))),
             masterCount: Math.max(1, num(rc("MasterCount", 1), 1)),
             masterOrientation: ORIENTATION_NAMES[num(rc("MasterOrientation", 0), 0)] || "left",
@@ -899,6 +900,17 @@ function createDriver(env) {
         return out;
     }
 
+    // Just off the right-hand end of every monitor.
+    function parkingSpot() {
+        var right = 0, top = 0;
+        screens().forEach(function (s) {
+            var g = s.geometry;
+            right = Math.max(right, g.x + g.width);
+            top = Math.min(top, g.y);
+        });
+        return { x: right + 200, y: top };
+    }
+
     function apply(st, r, shown) {
         var w = st.w;
         if (w.fullScreen || isMaximized(w) || w.move || w.resize) return;
@@ -954,6 +966,18 @@ function createDriver(env) {
             for (var id in L.windows) {
                 var st = tracked[id];
                 if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
+            }
+            // A scrolling layout keeps only whole columns on screen. The rest
+            // wait past the last monitor, where KWin draws nothing, rather
+            // than half on the neighbouring screen.
+            if (L.offscreen.length) {
+                var park = parkingSpot();
+                L.offscreen.forEach(function (id) {
+                    var st = tracked[id];
+                    if (!st) return;
+                    var g = st.w.frameGeometry;
+                    apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
+                });
             }
             if (!vs.visible) return;
             if (special.shown && vs.space !== SPECIAL) return;
@@ -1178,8 +1202,23 @@ function createDriver(env) {
         up: "slotSwitchToAboveScreen", down: "slotSwitchToBelowScreen",
     };
 
+    // In a strip of columns, left and right mean the next and previous
+    // column, not whatever happens to be in that direction on screen: the
+    // columns out of view are parked off the end of the monitors.
+    function scrollingNeighbour(st, dir) {
+        if (!st || dir === "up" || dir === "down") return null;
+        var space = engine.spaceOf(st.id);
+        if (!space || engine.layoutOf(space) !== "scrolling") return null;
+        return engine.cycleWindow(st.id, dir === "right" ? 1 : -1);
+    }
+
     function focusDirection(dir) {
         var st = active();
+        var along = scrollingNeighbour(st, dir);
+        if (along) {
+            focusWindowId(along);
+            return;
+        }
         var from = st ? copyRect(st.w.frameGeometry) : { x: ws.cursorPos.x, y: ws.cursorPos.y, width: 1, height: 1 };
         var cands = visibleWindows().filter(function (c) { return c !== st; })
             .map(function (c) { return { id: c.id, rect: copyRect(c.w.frameGeometry) }; });
@@ -1241,6 +1280,13 @@ function createDriver(env) {
     function swapDirection(dir) {
         var st = active();
         if (!st) return;
+        var along = scrollingNeighbour(st, dir);
+        if (along) {
+            engine.swap(st.id, along);
+            syncDesktop(st);
+            relayout();
+            return;
+        }
         if (!isTiled(st)) { moveToScreen(st, screenInDirection(st.w.output, dir)); return; }
         var t = tiledNeighbour(st, dir);
         if (t) {
@@ -1300,7 +1346,9 @@ function createDriver(env) {
         slideGrowers = {};
         relayout();
         holdShrinks = false;
-        if (!Object.keys(slideGrowers).length) slideGrowers = null;
+        // A window may take its new size during that very layout pass, which
+        // clears this; only an empty set means nothing grew.
+        if (slideGrowers && !Object.keys(slideGrowers).length) slideGrowers = null;
         var any = false;
         for (var id in tracked) if (tracked[id].hold) any = true;
         if (!any) return;
@@ -1778,6 +1826,7 @@ function createDriver(env) {
         layoutDwindle: function () { setLayout("dwindle"); },
         layoutMaster: function () { setLayout("master"); },
         layoutMonocle: function () { setLayout("monocle"); },
+        layoutScrolling: function () { setLayout("scrolling"); },
         masterSwap: function () {
             var st = active();
             if (st && engine.swapWithMaster(st.id)) {
@@ -1903,6 +1952,10 @@ function createDriver(env) {
             if (st) {
                 var before = engine.groupOf(st.id);
                 engine.focused(st.id);
+                // A strip of columns is laid out around the focused one, so
+                // moving the focus scrolls it.
+                var space = engine.spaceOf(st.id);
+                if (space && engine.layoutOf(space) === "scrolling") schedule();
                 // The focused monitor is the one Plasma's current desktop
                 // follows, so focus crossing monitors brings it along.
                 if (perOutput() && w.output && !st.special && !st.pinned) {

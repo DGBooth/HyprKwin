@@ -26,9 +26,11 @@ var DEFAULT_CONFIG = {
     masterCount: 1,
     masterOrientation: "left",
     masterNewIsMaster: false,
+    // Scrolling layout: the share of the screen a column takes by default.
+    columnWidth: 0.5,
 };
 
-var LAYOUTS = ["dwindle", "master", "monocle"];
+var LAYOUTS = ["dwindle", "master", "monocle", "scrolling"];
 var ORIENTATIONS = ["left", "right", "top", "bottom", "center"];
 
 var MIN_SHARE = 0.05;
@@ -135,7 +137,8 @@ function createEngine(userConfig) {
     var spaceOf = {};    // window id -> space
     var focusOrder = []; // most recently focused first
     var pseudoSizes = {};// window id -> {width, height} when pseudotiled
-    var modes = {};      // space -> layout ("dwindle", "master", "monocle")
+    var modes = {};      // space -> layout, one of LAYOUTS
+    var scrollFirst = {};// space -> index of the leftmost column on screen
     var masterOpts = {}; // space -> {factor, count, orientation}
     var isVisible = function () { return true; };
     var nextNodeId = 1;
@@ -238,8 +241,45 @@ function createEngine(userConfig) {
         }
     }
 
+    // A strip of columns, as niri and hyprscrolling do it: the focused column
+    // is always on screen, and whole columns are shown, never parts of one.
+    // Columns that do not fit are reported to the driver, which parks them
+    // beyond the monitors rather than letting them spill onto the next one.
+    function placeScrolling(space, all, inner, offscreen) {
+        var focused = leafOf[api.lastFocused(space)] || all[0];
+        var index = Math.max(0, all.indexOf(focused));
+        var widths = all.map(function (leaf) {
+            return Math.max(MIN_SHARE, Math.min(1, leaf.share || cfg.columnWidth)) * inner.width;
+        });
+        // How far the strip reaches when it starts at `start`.
+        var reach = function (start) {
+            var used = 0, last = start;
+            while (last < all.length && used + widths[last] <= inner.width + 0.5) {
+                used += widths[last];
+                last++;
+            }
+            return Math.max(last, start + 1);   // a column wider than the view still shows
+        };
+        var first = Math.max(0, Math.min(scrollFirst[space] || 0, all.length - 1));
+        if (index < first) first = index;
+        while (reach(first) <= index) first++;                        // keep the focused column in view
+        while (first > 0 && reach(first - 1) > index) first--;        // and the view full
+        scrollFirst[space] = first;
+        var x = inner.x, room = inner.width;
+        all.forEach(function (leaf, i) {
+            if (i < first || widths[i] > room + 0.5) {
+                leaf.rect = null;
+                leaf.wins.forEach(function (id) { offscreen.push(id); });
+                return;
+            }
+            leaf.rect = rect(x, inner.y, widths[i], inner.height);
+            x += widths[i];
+            room -= widths[i];
+        });
+    }
+
     // Put every visible leaf of a space where its layout wants it.
-    function arrange(space, inner) {
+    function arrange(space, inner, offscreen) {
         var root = roots[space];
         if (!root) return [];
         var all = leaves(root).filter(shown);
@@ -247,6 +287,7 @@ function createEngine(userConfig) {
         if (!all.length) return all;
         if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
         else if (mode === "master") placeMaster(space, all, inner);
+        else if (mode === "scrolling") placeScrolling(space, all, inner, offscreen || []);
         else place(root, inner);
         return all;
     }
@@ -510,10 +551,11 @@ function createEngine(userConfig) {
         isPseudo: function (id) { return !!pseudoSizes[id]; },
 
         // Returns {windows: {id: rect}, groups: [{space, rect, wins, active}],
-        // hidden: [ids of inactive group members]}.
+        // hidden: [ids of inactive group members],
+        // offscreen: [ids a scrolling layout has no room for]}.
         layout: function (space, area) {
             if (area) areas[space] = area;
-            var result = { windows: {}, groups: [], hidden: [] };
+            var result = { windows: {}, groups: [], hidden: [], offscreen: [] };
             var root = roots[space];
             if (!root) return result;
             area = areas[space];
@@ -523,10 +565,11 @@ function createEngine(userConfig) {
             var gIn = only ? 0 : cfg.gapsIn;
             var gOut = only ? 0 : cfg.gapsOut;
             var inner = shrink(area, gOut, gOut, gOut, gOut);
-            arrange(space, inner);
+            arrange(space, inner, result.offscreen);
             var eps = 0.5;
             all.forEach(function (leaf) {
                 var r = leaf.rect;
+                if (!r) return;    // scrolled out of view; the driver parks it
                 var l = Math.abs(r.x - inner.x) < eps ? 0 : gIn;
                 var t = Math.abs(r.y - inner.y) < eps ? 0 : gIn;
                 var rr = Math.abs(rectRight(r) - rectRight(inner)) < eps ? 0 : gIn;
@@ -597,6 +640,13 @@ function createEngine(userConfig) {
             if (!leaf) return false;
             var mode = modeOf(spaceOf[id]);
             if (mode === "monocle") return false;   // one window, no divider
+            if (mode === "scrolling") {
+                if (!dx) return false;
+                var area = areas[spaceOf[id]] || rect(0, 0, 1920, 1080);
+                var before = leaf.share || cfg.columnWidth;
+                leaf.share = clamp(before + dx / Math.max(1, area.width), MIN_SHARE, 1);
+                return leaf.share !== before;
+            }
             if (mode === "master") {
                 var sideways = masterOf(spaceOf[id]).orientation !== "top" &&
                     masterOf(spaceOf[id]).orientation !== "bottom";
@@ -618,6 +668,7 @@ function createEngine(userConfig) {
             var dR = rectRight(after) - rectRight(before), dB = rectBottom(after) - rectBottom(before);
             var mode = modeOf(spaceOf[id]);
             if (mode === "monocle") return false;
+            if (mode === "scrolling") return api.moveDivider(id, dL + dR, 0);
             if (mode === "master") {
                 // Whichever edge was dragged, the master boundary moved with it.
                 var sideways = masterOf(spaceOf[id]).orientation !== "top" &&

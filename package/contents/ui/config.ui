@@ -21,6 +21,7 @@
          <item><property name="text"><string>Dwindle (Hyprland's default: each window splits the last)</string></property></item>
          <item><property name="text"><string>Master (a master area beside a stack)</string></property></item>
          <item><property name="text"><string>Monocle (one window at a time, full size)</string></property></item>
+         <item><property name="text"><string>Scrolling (a strip of columns you scroll through)</string></property></item>
         </widget>
        </item>
        <item row="1" column="0">
@@ -134,6 +135,17 @@
          <item><property name="text"><string>Top</string></property></item>
          <item><property name="text"><string>Bottom</string></property></item>
          <item><property name="text"><string>Centre</string></property></item>
+        </widget>
+       </item>
+       <item row="14" column="0">
+        <widget class="QLabel" name="columnWidthLabel"><property name="text"><string>Column width:</string></property></widget>
+       </item>
+       <item row="14" column="1">
+        <widget class="QDoubleSpinBox" name="kcfg_ColumnWidth">
+         <property name="minimum"><double>0.1</double></property>
+         <property name="maximum"><double>1.0</double></property>
+         <property name="singleStep"><double>0.05</double></property>
+         <property name="toolTip"><string>The share of the screen each column takes in the scrolling layout. Only whole columns are shown; the rest wait off-screen, and the resize keys widen or narrow the focused column.</string></property>
         </widget>
        </item>
        <item row="13" column="1">

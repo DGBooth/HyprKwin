@@ -402,6 +402,7 @@ Deno.test("layouts are per space, and dwindle is untouched", () => {
     assertEquals(e.setLayout(S, "master"), true);
     assertEquals([e.layoutOf(S), e.layoutOf(other)], ["master", "dwindle"], "only that space changed");
     assertEquals(e.cycleLayout(S, 1), "monocle");
+    assertEquals(e.cycleLayout(S, 1), "scrolling");
     assertEquals(e.cycleLayout(S, 1), "dwindle", "and round again");
     const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     assertEquals([l.windows.a.width, l.windows.b.width, l.windows.c.height], [500, 500, 450], "dwindle as before");
@@ -418,4 +419,38 @@ Deno.test("master: swapwithmaster and new windows joining", () => {
     e.setConfig({ masterNewIsMaster: true });
     e.add("m", S);
     assertEquals(e.firstMaster(S), "m", "new windows can become the master instead");
+});
+
+Deno.test("scrolling layout: whole columns, and the rest reported off-view", () => {
+    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: 0 });
+    e.add("a", S); e.focused("a");
+    e.add("b", S); e.focused("b");
+    e.add("c", S); e.focused("c");
+    let l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    // c is focused, so the strip shows the two columns that fit ending at c.
+    assertEquals(l.offscreen, ["a"], "a is scrolled out of view");
+    assertEquals(l.windows.b, { x: 0, y: 0, width: 500, height: 900 });
+    assertEquals(l.windows.c, { x: 500, y: 0, width: 500, height: 900 });
+    assertEquals(l.windows.a, undefined, "nothing is placed for it");
+    e.focused("a");
+    l = e.layout(S);
+    assertEquals(l.offscreen, ["c"], "focusing a scrolls back to the start");
+    assertEquals(l.windows.a.x, 0);
+    assertEquals(l.windows.b.x, 500);
+});
+
+Deno.test("scrolling layout: column width, and a wide column taking the view", () => {
+    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: 0 });
+    e.add("a", S); e.focused("a");
+    e.add("b", S); e.focused("b");
+    e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    e.moveDivider("b", 300, 0);                       // widen the focused column
+    let l = e.layout(S);
+    assertEquals(l.windows.b.width, 800, "b is wider");
+    assertEquals(l.offscreen, ["a"], "so a no longer fits beside it");
+    e.moveDivider("b", -300, 0);
+    l = e.layout(S);
+    assertEquals([l.windows.a.width, l.windows.b.width], [500, 500], "back to two columns");
+    assertEquals(l.offscreen, []);
+    assertEquals(e.moveDivider("b", 0, 100), false, "there is nothing to resize vertically");
 });

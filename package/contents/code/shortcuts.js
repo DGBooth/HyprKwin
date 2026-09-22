@@ -58,11 +58,12 @@ function shortcutList() {
         ["focusNextMonitor", "Focus next monitor", "Ctrl+Alt+Tab"],
         ["focusPreviousMonitor", "Focus previous monitor", "Ctrl+Alt+Shift+Tab"],
 
-        ["cycleLayout", "Next layout (dwindle, master, monocle)", "Meta+Shift+J"],
+        ["cycleLayout", "Next layout (dwindle, master, monocle, scrolling)", "Meta+Shift+J"],
         ["cycleLayoutBack", "Previous layout", ""],
         ["layoutDwindle", "Use the dwindle layout", ""],
         ["layoutMaster", "Use the master layout", ""],
         ["layoutMonocle", "Use the monocle layout", ""],
+        ["layoutScrolling", "Use the scrolling layout", ""],
         ["masterSwap", "Swap window with the master", "Meta+M"],
         ["masterFocus", "Focus the master window", "Meta+Shift+M"],
         ["masterCountIncrease", "One more master window", "Meta+>"],

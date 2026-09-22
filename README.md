@@ -13,9 +13,10 @@ desktops, activities, window rules, KRunner and System Settings.
   `gaps_in` / `gaps_out`, `default_split_ratio` (same units as Hyprland),
   `preserve_split`, `force_split`, `split_width_multiplier`, `togglesplit`,
   pseudotiling.
-- **Master and monocle layouts** as well, chosen per workspace: a master area
-  with `mfact`, several masters, and the master area on any side or in the
-  middle (the three-column layout).
+- **Master, monocle and scrolling layouts** as well, chosen per workspace: a
+  master area with `mfact`, several masters, and the master area on any side
+  or in the middle (the three-column layout); or a niri-style strip of
+  columns you scroll through.
 - **Workspaces = Plasma virtual desktops** (created on demand), and every
   monitor gets its own, as in Hyprland. Pager, Overview and the desktop
   switcher keep working.
@@ -243,7 +244,8 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 
 | Setting | Hyprland equivalent | Default |
 |---|---|---|
-| Layout | `dwindle` / `master` | dwindle |
+| Layout | `dwindle` / `master` / scrolling (hyprscrolling) | dwindle |
+| Column width (scrolling) | `hyprscrolling:column_width` | 0.5 |
 | Master area size, master count, master area position | `master:mfact`, `master:orientation` | 0.55, 1, left |
 | New windows become the master | `master:new_status` | off |
 | Inner / outer gaps | `general:gaps_in` / `gaps_out` | 5 / 10 |
@@ -334,6 +336,14 @@ Three layouts, each workspace with its own:
   middle, which gives the three-column layout.
 - **Monocle**: one window at a time, each filling the workspace, with
   everything else behind it.
+- **Scrolling**: a strip of columns, as in niri or hyprscrolling. Moving the
+  focus scrolls the strip, and the resize keys widen or narrow the focused
+  column. Only whole columns are shown; the ones out of view wait past the
+  last monitor, so nothing ever spills onto the screen next door.
+
+In the scrolling layout, `Meta+Left` / `Meta+Right` move along the strip and
+`Meta+Shift+Left` / `Meta+Shift+Right` move the column itself, rather than
+going by what is where on screen.
 
 `Meta+Shift+J` moves the current workspace to the next layout; there are also
 shortcuts to pick one directly. In the master layout, `Meta+M` swaps the
@@ -482,7 +492,8 @@ tools/hyprkwin-rules.py remove 2    # drop one
 
 - KWin scripts cannot move the mouse pointer, so there is no
   "cursor follows focus" / `cursor:warp_on_change_workspace`.
-- No scrolling layout yet (dwindle, master and monocle are there).
+- In the scrolling layout, columns hold a single window; niri's stacking of
+  several windows in one column is not there yet.
 - Animations come from a companion KWin effect, which cannot resize an app
   smoothly; see [Animations](#animations) for how resizes are handled.
 - Every monitor having its own workspaces is emulated on top of Plasma's

@@ -138,6 +138,8 @@ def layouts_can_be_switched_per_workspace(sb):
     eq(layout_of(sb, s)["layout"], "monocle", "and the next")
     eq([sb.geometry(t, s) for t in "ABC"], [FULL] * 3, "monocle: all of them full size")
     sb.invoke("cycleLayout")
+    eq(layout_of(sb)["layout"], "scrolling", "then the strip")
+    sb.invoke("cycleLayout")
     s = sb.state()
     eq(layout_of(sb, s)["layout"], "dwindle", "round again")
     eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "laid out as before")
@@ -191,6 +193,52 @@ def monocle_layout_shows_one_window_at_a_time(sb):
     eq(s["active"], sb.window("A", s)["id"], "cycling wraps round to A")
     sb.invoke("cyclePrevious")
     eq(sb.state()["active"], sb.window("C", s)["id"], "and back")
+
+
+@test(config={"DefaultLayout": 3, "ColumnWidth": "0.5"})
+def scrolling_layout_shows_whole_columns(sb):
+    """A strip of columns: only whole ones are on screen, focus scrolls the
+    strip, and left/right follow the strip rather than the screen."""
+    three(sb)                                     # C focused, columns A B C
+    s = sb.state()
+    eq(layout_of(sb, s)["layout"], "scrolling", "the strip layout")
+    b, c = sb.geometry("B", s), sb.geometry("C", s)
+    eq((b[0], b[2]), (10, 945), "B fills the left half")
+    eq((c[0], c[2]), (965, 945), "C the right half")
+    eq(sb.geometry("A", s)[0] > 1920, True, "A is parked past the monitor: %r" % (sb.geometry("A", s),))
+    sb.invoke("focusLeft")
+    s = sb.state()
+    eq(s["active"], sb.window("B", s)["id"], "left moves one column along the strip")
+    sb.invoke("focusLeft")
+    s = sb.state()
+    eq(s["active"], sb.window("A", s)["id"], "and again, scrolling A into view")
+    eq(sb.geometry("A", s)[0], 10, "A is now the leftmost column")
+    eq(sb.geometry("C", s)[0] > 1920, True, "C has scrolled out: %r" % (sb.geometry("C", s),))
+    sb.invoke("resizeRight")                       # widen the focused column
+    s = sb.state()
+    eq(sb.geometry("A", s)[2] > 1000, True, "the focused column widened: %r" % (sb.geometry("A", s),))
+    sb.invoke("swapRight")                         # A changes places with B
+    sb.invoke("focusLeft")
+    s = sb.state()
+    eq(s["active"], sb.window("B", s)["id"], "B is now the column before A")
+    eq(sb.geometry("B", s)[0], 10, "and the strip scrolled to it")
+
+
+@test(outputs=2, config={"DefaultLayout": 3, "ColumnWidth": "0.5"})
+def scrolling_columns_never_spill_onto_the_next_monitor(sb):
+    """Parked columns go past every monitor, not onto the one next door."""
+    for t in "ABCD":
+        sb.spawn(t)
+    sb.settle(0.8)
+    s = sb.state()
+    first = sb.window("A", s)["output"]
+    screens = {w["output"] for w in s["windows"].values()}
+    parked = [sb.geometry(t, s) for t in "ABCD" if sb.geometry(t, s)[0] >= 3840]
+    onscreen = [sb.geometry(t, s) for t in "ABCD" if sb.geometry(t, s)[0] < 3840]
+    eq(len(parked) >= 1, True, "some columns are parked: %r" % ([sb.geometry(t, s) for t in "ABCD"],))
+    eq(all(g[0] + g[2] <= 1920 for g in onscreen), True,
+       "nothing on screen crosses onto the second monitor: %r" % (onscreen,))
+    eq(first in screens, True, "the strip stays on its own monitor")
 
 
 @test

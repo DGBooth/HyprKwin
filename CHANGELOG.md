@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+- **Scrolling layout**, as in niri and hyprscrolling: a strip of columns, with
+  the focus scrolling it and the resize keys setting the focused column's
+  width. Left and right follow the strip rather than the screen.
+- Only whole columns are shown. The rest wait past the last monitor, where
+  KWin draws nothing, so a strip never spills onto the screen next door —
+  which a sandbox spike confirmed it otherwise would, since KWin will place a
+  window anywhere you ask, including on the neighbouring monitor.
+- Fixed: a keyboard resize could throw when a window took its new size during
+  the same layout pass.
+
 ## 0.8.1
 
 - **Far fewer offscreen buffers while animating.** Cross-fading a window's
