@@ -169,6 +169,10 @@ def read_config(path, seen=None, variables=None):
     if not path.exists():
         notes.append(("%s: no such file" % path, ""))
         return items, notes
+    if not path.is_file():
+        # "source = conf.d/*" matching a folder as well as the files in it.
+        notes.append(("%s: not a file, skipped" % path, ""))
+        return items, notes
     section = []
 
     def setting(text, origin):
@@ -449,10 +453,12 @@ def dispatcher_action(dispatcher, args, scratchpads):
         if d == "workspace":
             if low in ("e+1", "+1", "next", "m+1", "r+1"):
                 return "nextDesktop"
-            if low in ("e-1", "-1", "prev", "previous", "m-1", "r-1"):
-                return "previousDesktop"
+            # "previous" is the workspace you were last on, not the one
+            # numbered before this.
             if low == "previous":
                 return "formerDesktop"
+            if low in ("e-1", "-1", "prev", "m-1", "r-1"):
+                return "previousDesktop"
         if re.match(r"^\d+$", low):
             n = int(low)
             if not 1 <= n <= 10:

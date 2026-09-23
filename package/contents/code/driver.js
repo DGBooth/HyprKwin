@@ -147,7 +147,7 @@ function createDriver(env) {
             var r = workspaceRules[n];
             if (!r.isDefault) continue;
             if (r.monitor && screenForRule(r.monitor) !== screen) continue;
-            var d = ws.desktops[r.index - 1];
+            var d = ensureDesktop(r.index);
             if (d && !used[d.id]) return d;
         }
         return null;
@@ -462,6 +462,10 @@ function createDriver(env) {
             workspaceRules: ruleText(rc("WorkspaceRuleList", ""), ""),
             submaps: ruleText(rc("SubmapList", ""), ""),
             debug: bool(rc("Debug", false), false),
+            // Also log the state dump; the test sandbox reads it from there.
+            stateToLog: bool(rc("StateToLog", false), false),
+            // Set by tools/install.sh just before it reloads the script.
+            reloadedAt: num(rc("ReloadedAt", 0), 0),
         };
         engine.setConfig(cfg);
         var parsed = R.parseRules(cfg.windowRules + "\n" + R.DEFAULT_RULES.join("\n"));
@@ -755,11 +759,12 @@ function createDriver(env) {
     }
 
     // Whether this window is the one the user was on. KWin hands the focus
-    // to its own pick before it tells us the window has gone, so the one
-    // focused a moment ago counts too.
+    // to its own pick in the same tick as it tells us the window has gone,
+    // so the one focused a moment ago counts too — but only just, or
+    // switching away from a window that then closes would pull focus back.
     function wasFocused(id) {
         if (id === lastActiveId) return true;
-        return id === prevActiveId && Date.now() - lastActivation < 500;
+        return id === prevActiveId && Date.now() - lastActivation < 100;
     }
 
     // Who should have the focus once this window goes: the one taking its
@@ -768,6 +773,9 @@ function createDriver(env) {
     // be anywhere on the screen.
     function successor(st) {
         if (!cfg.focusNeighbourOnClose) return null;
+        // A dialog hands the focus back to the window it belongs to, which
+        // KWin already does; its neighbour in the layout is not the point.
+        if (st.w.transient || st.w.transientFor) return null;
         var next = engine.neighbourOf(st.id);
         if (!next) {
             // Floating windows are not in the layout: fall back to the last
@@ -1247,7 +1255,11 @@ function createDriver(env) {
                 // A window held back mid-slide is drawn where it is going;
                 // the effect slides its border there with the divider.
                 var r = st.hold || w.frameGeometry, b = cfg.borderSize;
-                var outer = { id: "focus-border", x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
+                // The focused window's border reuses one overlay set, so a
+                // focus change is a move rather than new windows; unfocused
+                // borders need one set each or they would overwrite it.
+                var outer = { id: isActive ? "focus-border" : st.id, x: r.x - b, y: r.y - b,
+                              width: r.width + 2 * b, height: r.height + 2 * b, active: isActive };
                 if (!usableRect(outer) || r.width < MIN_DECORATED_SIZE || r.height < MIN_DECORATED_SIZE) {
                     log("skipping border for", w.caption, JSON.stringify(outer));
                     return;
@@ -1532,8 +1544,8 @@ function createDriver(env) {
     // A short message on the monitor in use, the way Plasma announces a
     // volume change. Plasma's own OSD service only takes fixed kinds of
     // message, so HyprKwin draws its own.
-    function announce(text, duration) {
-        if (!cfg.layoutOsd || !env.ui.showOsd) return;
+    function announce(text, duration, always) {
+        if ((!cfg.layoutOsd && !always) || !env.ui.showOsd) return;
         var screen = focusedScreen();
         if (!screen) return;
         env.ui.showOsd(text, workArea(screen, desktopFor(screen)),
@@ -1575,7 +1587,7 @@ function createDriver(env) {
         }
         env.ui.setSubmapBinds(binds);
         log("submap", name, "on");
-        announce(name, 0);
+        announce(name, 0, true);
     }
 
     function leaveSubmap() {
@@ -1932,15 +1944,22 @@ function createDriver(env) {
             // Two workspaces trade monitors, windows and all, the way
             // Hyprland's movecurrentworkspacetomonitor does.
             var back = floatingOn(to);
+            // Each workspace keeps its windows and its layout; only the
+            // monitor changes, so its space is its own desktop on the other
+            // monitor. (Keeping the old space ids left a new window on the
+            // moved workspace in a tree of its own, on top of the others.)
+            var fromDest = spaceFor(dFrom, to), toDest = spaceFor(dTo, from);
             var TMP = "swap|" + from.name;
             engine.moveSpace(fromSpace, TMP);
-            engine.moveSpace(toSpace, fromSpace);
-            engine.moveSpace(TMP, toSpace);
+            engine.moveSpace(toSpace, toDest);
+            engine.moveSpace(TMP, fromDest);
+            carryRuled(fromSpace, fromDest);
+            carryRuled(toSpace, toDest);
             shown[from.name] = dTo.id;
             shown[to.name] = dFrom.id;
             back.forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, from); }); });
             floatingOn(from).forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
-            engine.windows(fromSpace).concat(engine.windows(toSpace)).forEach(function (id) {
+            engine.windows(fromDest).concat(engine.windows(toDest)).forEach(function (id) {
                 if (tracked[id]) syncDesktop(tracked[id]);
             });
             focusScreen(to);
@@ -1953,6 +1972,13 @@ function createDriver(env) {
         moved.forEach(function (id) { if (tracked[id]) syncDesktop(tracked[id]); });
         floatingOn(from).forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
         relayout();
+    }
+
+    // A workspace rule's layout was applied to a space that has moved: it
+    // must not be applied again on top of what the user has since chosen.
+    function carryRuled(from, to) {
+        if (ruledSpaces[from]) ruledSpaces[to] = true;
+        delete ruledSpaces[from];
     }
 
     function focusMonitor(delta) {
@@ -2147,8 +2173,10 @@ function createDriver(env) {
         if (ws.activeWindow && stOf(ws.activeWindow)) engine.focused(idOf(ws.activeWindow));
 
         // Plasma restores the desktop you left; a tiling session normally
-        // wants to start from the first workspace.
-        if (cfg.startOnFirstDesktop && ws.desktops.length) {
+        // wants to start from the first workspace. An upgrade reloading the
+        // script mid-session leaves you where you are.
+        var upgrading = cfg.reloadedAt > 0 && Math.abs(Date.now() / 1000 - cfg.reloadedAt) < 120;
+        if (cfg.startOnFirstDesktop && ws.desktops.length && !upgrading) {
             ws.currentDesktop = ws.desktops[0];
         }
         refreshShown();
@@ -2220,11 +2248,28 @@ function createDriver(env) {
     }
 
     // Restore windows to a plain Plasma state when the script is unloaded.
+    function onSomeScreen(r) {
+        return screens().some(function (s) { return overlaps(r, copyRect(s.geometry)); });
+    }
+
     function stop() {
         stopped = true;
         guarded(function () {
             for (var id in tracked) {
                 var st = tracked[id], w = st.w;
+                // A column the scrolling layout parked past the monitors.
+                var g = copyRect(w.frameGeometry);
+                if (!w.minimized && !onSomeScreen(g)) {
+                    var space = engine.spaceOf(id);
+                    var p = space && !isSpecialSpace(space) ? parseSpace(space) : null;
+                    var screen = (p && p.screen) || w.output || screens()[0];
+                    if (screen) {
+                        var a = workArea(screen, desktopFor(screen));
+                        var width = Math.min(g.width, a.width), height = Math.min(g.height, a.height);
+                        w.frameGeometry = env.rect(Math.round(a.x + (a.width - width) / 2),
+                                                   Math.round(a.y + (a.height - height) / 2), width, height);
+                    }
+                }
                 st.ruleNoBorder = false;
                 setTiledDecoration(st, false);
                 if (st.origOpacity !== undefined) w.opacity = st.origOpacity;

@@ -759,6 +759,15 @@ function createEngine(userConfig) {
                 roots[to] = roots[from];
                 delete roots[from];
                 api.windows(to).forEach(function (w) { spaceOf[w] = to; });
+                // The tree keeps its layout, master settings and scroll
+                // position: they belong to the windows, not the place.
+                // (Not its area: that belongs to the monitor, and the next
+                // layout pass sets it.)
+                [modes, masterOpts, scrollFirst].forEach(function (map) {
+                    if (from in map) map[to] = map[from];
+                    else delete map[to];
+                    delete map[from];
+                });
                 return true;
             }
             var ws = api.windows(from);

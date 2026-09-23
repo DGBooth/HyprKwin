@@ -19,12 +19,10 @@ Management > KWin Scripts > HyprKwin > Window rules, where they can also be
 added, edited and reordered.
 """
 import argparse
-import json
 import os
 import re
 import subprocess
 import sys
-import time
 
 GROUP = "Script-hyprkwin"
 KEY = "WindowRuleList"      # the settings page's list, one rule per item
@@ -76,28 +74,16 @@ def write_rules(rules):
 
 
 def windows():
-    """Ask the running script to dump its state and read it back."""
-    log = os.environ.get("HYPRKWIN_LOG")
-    if log:
-        before = open(log, errors="replace").read().count("HYPRKWIN_STATE")
-    else:
-        before = 0
-    run("qdbus6", "org.kde.kglobalaccel", "/component/kwin",
-        "org.kde.kglobalaccel.Component.invokeShortcut", "HyprKwin dumpState")
-    for _ in range(40):
-        time.sleep(0.1)
-        if log:
-            text = open(log, errors="replace").read()
-            if text.count("HYPRKWIN_STATE") <= before:
-                continue
-        else:
-            text = run("journalctl", "--user", "-b", "--since", "30 seconds ago").stdout
-            if "HYPRKWIN_STATE" not in text:
-                continue
-        line = [l for l in text.splitlines() if "HYPRKWIN_STATE" in l][-1]
-        state = json.loads(line.split("HYPRKWIN_STATE ", 1)[1])
-        return sorted(state["windows"].values(), key=lambda w: (w.get("class", ""), w["caption"]))
-    sys.exit("No answer from HyprKwin. Is it enabled in System Settings > KWin Scripts?")
+    """The windows HyprKwin has open, fresh from the running script."""
+    from importlib.machinery import SourceFileLoader
+    ctl = SourceFileLoader("hyprkwinctl", os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                       "hyprkwinctl")).load_module()
+    try:
+        accel = ctl.Accel()
+    except Exception as e:
+        sys.exit("Cannot reach KDE's shortcut daemon: %s" % e)
+    state = ctl.read_state(accel)
+    return sorted(state["windows"].values(), key=lambda w: (w.get("class", ""), w["caption"]))
 
 
 def cmd_list(args):

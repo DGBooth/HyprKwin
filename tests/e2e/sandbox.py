@@ -30,7 +30,9 @@ class Sandbox:
         # X11 apps (Albert runs as one) need KWin's Xwayland.
         self.xwayland = xwayland
         self.x_display = None
-        self.config = dict(config or {})
+        # The tests read HyprKwin's state from its log; in a real session it
+        # only goes to hyprkwinctl, over D-Bus.
+        self.config = dict({"StateToLog": "true"}, **(config or {}))
         # KWin builds its effect list at startup, so the effect package has to
         # be installed and enabled before the compositor launches.
         self.effect = effect
@@ -182,6 +184,53 @@ class Sandbox:
             self.wait_for(lambda s: any(w["caption"] == title for w in s["windows"].values()), "window %s" % title)
             self.settle()
         return p
+
+    def reload_script(self):
+        """Unload HyprKwin and let KWin load it again, as tools/install.sh does."""
+        self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", "hyprkwin")
+        self._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
+        for _ in range(100):
+            if self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.isScriptLoaded", "hyprkwin",
+                           check=False).strip() == "true":
+                break
+            time.sleep(0.1)
+        time.sleep(0.5)
+
+    def kwin_geometries(self, app_id="hyprkwin.test"):
+        """Where KWin has each test window, read without HyprKwin's help
+        (it may not be running). Starting the probe starts every enabled
+        script, so disable HyprKwin first to measure it stopped."""
+        d = self.base / ("geo-%d" % time.time_ns())
+        d.mkdir(parents=True)
+        (d / "main.qml").write_text("""import QtQuick
+import org.kde.kwin
+Item { Timer { interval: 100; running: true; onTriggered: {
+  for (const w of Workspace.windows) if (w.resourceClass === "%s") {
+    const g = w.frameGeometry;
+    console.warn("HKGEO " + w.caption + "|" + Math.round(g.x) + "|" + Math.round(g.y) + "|" + Math.round(g.width) + "|" + Math.round(g.height));
+  }
+  console.warn("HKGEODONE");
+}}}
+""" % app_id)
+        marker = self.log_path.read_text(errors="replace").count("HKGEODONE")
+        name = "hk-geo-%d" % time.time_ns()
+        self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadDeclarativeScript", str(d / "main.qml"), name)
+        self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
+        for _ in range(60):
+            text = self.log_path.read_text(errors="replace")
+            if text.count("HKGEODONE") > marker:
+                lines = text.splitlines()
+                done = max(i for i, l in enumerate(lines) if "HKGEODONE" in l)
+                start = max([i for i, l in enumerate(lines[:done]) if "HKGEODONE" in l] or [-1])
+                out = {}
+                for l in lines[start + 1:done]:
+                    if "HKGEO " in l:
+                        caption, x, y, w, h = l.split("HKGEO ", 1)[1].split("|")
+                        out[caption] = (int(x), int(y), int(w), int(h))
+                self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", name)
+                return out
+            time.sleep(0.05)
+        raise RuntimeError("geometry probe did not report")
 
     def input(self):
         """Real keyboard/pointer input via KWin's fake-input protocol."""

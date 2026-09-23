@@ -36,6 +36,30 @@
   there, and a window sent to it follows — `default:true` chooses what each
   monitor starts on, and the layout and gaps apply to that workspace alone.
 
+
+### Fixed
+
+- "Draw borders around unfocused tiled windows too" drew a single border —
+  often around an unfocused window, leaving the focused one without any.
+- After swapping workspaces between monitors, a new window on a moved
+  workspace opened on top of the windows already there instead of tiling
+  with them, and the workspace's layout stayed behind on the old monitor.
+- Columns the scrolling layout had parked past the monitors stayed out of
+  reach after HyprKwin was turned off or uninstalled.
+- A submap's name disappeared from the screen after a second, and never
+  showed at all with layout messages turned off.
+- Closing a dialog of a floating window could send the focus to a tiled
+  window instead of back to the window it belonged to.
+- Upgrading with `tools/install.sh` switched you back to workspace 1.
+- `hyprkwinctl` and `hyprkwin-rules.py list` wrote HyprKwin's whole state,
+  window titles included, to the journal on every query. They now receive it
+  over D-Bus, and `hyprkwin-rules.py` can no longer act on a list from up to
+  30 seconds before.
+- The importer stopped with an error when a `source =` pattern matched a
+  folder, and read `workspace, previous` as the workspace numbered before
+  rather than the one you were last on.
+- A `default:true` workspace rule for a workspace that did not exist yet did
+  nothing; a workspace rule's number now has to be a whole number.
 ## 0.9.0
 
 - **The border gradient can turn**, as Hyprland's `borderangle` animation

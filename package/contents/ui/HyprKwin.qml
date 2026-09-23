@@ -30,7 +30,16 @@ Item {
         if (action === "dumpState") {
             const state = driver.state();
             state.effectActive = root.effectActive;
-            console.warn("HYPRKWIN_STATE " + JSON.stringify(state));
+            const text = JSON.stringify(state);
+            // To hyprkwinctl, which owns org.hyprkwin.Ctl while it waits for
+            // an answer. Nobody else is listening, so this goes nowhere
+            // otherwise — unlike the journal, where every window title would
+            // be kept on disk for weeks.
+            stateCall.arguments = [text];
+            stateCall.call();
+            // The test sandbox (and debug logging) read it from the log.
+            const cfg = driver.config();
+            if (cfg.stateToLog || cfg.debug) console.warn("HYPRKWIN_STATE " + text);
             return;
         }
         const fn = driver.actions[action];
@@ -146,6 +155,14 @@ Item {
         running: true
         repeat: true
         onTriggered: configWatch.check()
+    }
+
+    DBusCall {
+        id: stateCall
+        service: "org.hyprkwin.Ctl"
+        path: "/org/hyprkwin/Ctl"
+        dbusInterface: "org.hyprkwin.Ctl"
+        method: "State"
     }
 
     DBusCall {
@@ -271,7 +288,8 @@ Item {
     function showOsd(text, area, duration) {
         if (shuttingDown) return;
         osd.area = area;
-        osd.duration = duration || 1200;
+        // 0 means "until hidden" (a submap), so it must not fall back.
+        osd.duration = duration === undefined || duration === null ? 1200 : duration;
         osd.showMessage(text);
     }
 

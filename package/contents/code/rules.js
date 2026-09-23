@@ -207,7 +207,8 @@ function parseWorkspaceRules(text) {
         line = line.replace(/^workspace\s*=\s*/i, "");
         var parts = line.split(",").map(function (p) { return p.trim(); }).filter(function (p) { return p !== ""; });
         var where = "line " + (lineNo + 1) + ": ";
-        var index = parseInt(parts.shift(), 10);
+        var selector = parts.shift();
+        var index = /^\d+$/.test(selector || "") ? parseInt(selector, 10) : 0;
         if (!(index > 0)) {
             errors.push(where + "a workspace rule starts with a workspace number, e.g. workspace = 3, monitor:DP-2");
             return;

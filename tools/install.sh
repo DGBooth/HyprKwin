@@ -55,7 +55,7 @@ BUILD_ID="$(date +%s%N)"
 printf 'var BUILD_ID = "%s";\n' "$BUILD_ID" > "$INSTALLED/contents/code/build.js"
 # KWin caches a script's code by file path for as long as it runs, so this
 # version also goes into a folder of its own, which the entry point
-# (ui/loader.qml) loads. That is what lets an upgrade apply without logging out.
+# (ui/main.qml) loads. That is what lets an upgrade apply without logging out.
 mkdir -p "$INSTALLED/contents/build-$BUILD_ID"
 cp -r "$INSTALLED/contents/ui" "$INSTALLED/contents/code" "$INSTALLED/contents/build-$BUILD_ID/"
 kwriteconfig6 --file kwinrc --group Script-hyprkwin --key BuildId "$BUILD_ID"
@@ -82,7 +82,9 @@ running_this_build() {
 
 if qdbus6 org.kde.KWin /KWin >/dev/null 2>&1; then
     # Unload first so an upgrade picks up the new code, then let KWin load
-    # every enabled script again.
+    # every enabled script again. ReloadedAt tells the script this is an
+    # upgrade, not a new session, so it does not switch you to workspace 1.
+    kwriteconfig6 --file kwinrc --group Script-hyprkwin --key ReloadedAt "$(date +%s)"
     qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript hyprkwin >/dev/null || true
     qdbus6 org.kde.KWin /KWin org.kde.KWin.reconfigure
     # Effects are not cached the way scripts are: reloading one runs its new code.

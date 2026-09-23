@@ -50,7 +50,9 @@ desktops, activities, window rules, KRunner and System Settings.
 Requires a Plasma 6 Wayland session (developed and tested on Plasma 6.7; X11
 is untested). The helper scripts also need `python3` with dbus-python
 (`python-dbus` on Arch, `python3-dbus` on Debian, Ubuntu and Fedora) and
-`qdbus6`.
+`qdbus6`. `hyprkwinctl`'s queries and `hyprkwin-rules.py list` also need
+PyGObject (`python-gobject` on Arch, `python3-gi` on Debian and Ubuntu,
+`python3-gobject` on Fedora).
 
 1. **Install:**
 
@@ -580,8 +582,10 @@ hyprkwinctl submap resize          # enter a submap, or ask which one is on
 ```
 
 Actions go through KDE's global shortcuts, so anything bindable is runnable.
-The queries ask the running script to log its state and read that back from
-the journal, so they need systemd's journal.
+For the queries, `hyprkwinctl` briefly owns the D-Bus name `org.hyprkwin.Ctl`
+and the running script sends its state there. Nothing is written to the
+journal, so a status bar polling every second leaves no trail of your window
+titles on disk.
 
 ### Importing a hyprland.conf
 

@@ -779,6 +779,115 @@ def closing_a_grouped_window_focuses_the_next_tab(sb):
     eq(active_caption(sb), "C", "the other tab takes over")
 
 
+@test(config={"WindowRuleList": ["float, title:^F$"]})
+def closing_a_dialog_hands_focus_back_to_its_window(sb):
+    """KWin gives the focus back to the window a dialog belongs to; the
+    neighbour rule must not send it off to a tiled window instead."""
+    sb.spawn("A")
+    sb.spawn("F", extra=["--dialog"])
+    sb.wait_for(lambda s: any(w["caption"] == "F dialog" for w in s["windows"].values()), "the dialog")
+    sb.settle(0.5)
+    eq(active_caption(sb), "F dialog", "the dialog has the focus")
+    sb.invoke("close")
+    sb.settle(0.6)
+    eq(active_caption(sb), "F", "focus went back to F, not to A")
+
+
+@test
+def reloading_the_script_stays_on_the_workspace(sb):
+    """tools/install.sh reloads HyprKwin to upgrade it. That is not a new
+    session, so "start on workspace 1" must not apply."""
+    sb.spawn("A")
+    sb.invoke("desktop2")
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "on workspace 2")
+    sb._write_config(sb.env, "Script-hyprkwin", {"ReloadedAt": str(int(time.time()))})
+    sb.reload_script()
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "still on workspace 2 after an upgrade")
+    sb._write_config(sb.env, "Script-hyprkwin", {"ReloadedAt": "0"})
+    sb.reload_script()
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][0], "a fresh start still begins on workspace 1")
+
+
+@test(config={"ShowInactiveBorders": "true", "BorderSize": 4})
+def unfocused_windows_get_borders_too(sb):
+    """Every window its own ring, and the focused one keeps its own. They
+    once shared a single overlay set, which left only the last window drawn
+    with a border — often not the focused one."""
+    three(sb)
+    sb.invoke("focusLeft")                  # A
+    sb.settle(0.6)
+    strips = sb.overlays()
+    eq(len(strips), 12, "four strips for each of the three windows: %r" % (strips,))
+    eq(any(g.startswith("6,") for g in strips), True, "A, the focused window, has its border: %r" % (strips,))
+
+
+@test(config={"DefaultLayout": 3, "ColumnWidth": "0.5"})
+def stopping_brings_parked_columns_back_on_screen(sb):
+    """Columns the scrolling layout parks past the monitors come back when
+    HyprKwin stops, or they would be out of reach."""
+    for t in "ABCD":
+        sb.spawn(t)
+    sb.settle(0.8)
+    s = sb.state()
+    eq(any(sb.geometry(t, s)[0] >= 1920 for t in "ABCD"), True, "some columns are parked")
+    # Turned off the way uninstall.sh does it, so nothing loads it again.
+    sb._write_config(sb.env, "Plugins", {"hyprkwinEnabled": "false"})
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", "hyprkwin")
+    sb._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
+    sb.settle(0.8)
+    geos = sb.kwin_geometries()
+    eq(sorted(geos), list("ABCD"), "all four windows are still there")
+    off = [t for t, g in geos.items() if g[0] >= 1920 or g[0] + g[2] <= 0]
+    eq(off, [], "every window is back on the monitor: %r" % (geos,))
+
+
+@test(config={"StateToLog": "false"})
+def hyprkwinctl_reads_state_over_dbus_not_the_journal(sb):
+    """Window titles must not end up in the journal every time a status bar
+    asks what is open."""
+    import subprocess
+    sb.spawn("A", wait=False)
+    sb.settle(1.5)
+    out = subprocess.run([sys.executable, str(ROOT_DIR / "tools" / "hyprkwinctl"), "windows", "--json"],
+                         env=sb.env, capture_output=True, text=True, timeout=30)
+    eq(out.returncode, 0, "hyprkwinctl answered: %r" % (out.stderr,))
+    eq([w["title"] for w in json.loads(out.stdout)], ["A"], "it sees the window")
+    eq("HYPRKWIN_STATE" in sb.log_path.read_text(errors="replace"), False, "and nothing was logged")
+
+
+@test(outputs=2)
+def a_swapped_workspace_keeps_its_layout_and_tiles_new_windows(sb):
+    """After workspaceToMonitor, each workspace is still itself on its new
+    monitor: its layout goes with it, and a new window tiles with the ones
+    already there instead of opening on top of them."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")       # B to the second monitor (workspace 2)
+    sb.invoke("focusLeft")                  # A, on workspace 1
+    sb.invoke("layoutMaster")
+    sb.invoke("workspaceToMonitorRight")
+    s = sb.state()
+    a = sb.window("A", s)
+    eq(s["layouts"][a["space"]]["layout"], "master", "workspace 1 took its master layout along")
+    eq(a["space"].split("|")[0], s["desktops"][0], "in workspace 1's own space")
+    sb.invoke("focusLeft")                  # B, now on the first monitor
+    sb.spawn("C")
+    s = sb.state()
+    b, c = sb.geometry("B", s), sb.geometry("C", s)
+    eq((b[2], c[2]), (945, 945), "C tiles beside B: %r %r" % (b, c))
+
+
+@test(outputs=2, config={"WorkspaceRuleList": ["3, monitor:1, default:true"]})
+def a_default_workspace_that_does_not_exist_yet_is_made(sb):
+    s = sb.state()
+    outputs = sorted(s["shown"].keys())
+    eq(len(s["desktops"]) >= 3, True, "workspace 3 was created")
+    eq(s["shown"][outputs[1]], s["desktops"][2], "and the second monitor starts on it")
+
+
 @test(outputs=2)
 def multi_monitor(sb):
     sb.spawn("A")
@@ -833,7 +942,7 @@ def take_keys(sb):
                    capture_output=True, check=True)
 
 
-@test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"]})
+@test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"], "LayoutOsd": "false"})
 def submaps_hold_plain_keys_only_while_they_are_on(sb):
     """Hyprland's submaps: a key puts the keyboard into a mode where plain
     keys act until Escape, and they belong to applications again after."""
@@ -848,7 +957,9 @@ def submaps_hold_plain_keys_only_while_they_are_on(sb):
     fi.combo("meta+r")
     sb.settle(0.5)
     eq(sb.state()["submap"], "resize", "in the resize submap")
-    eq(len(osd_boxes(sb)), 1, "and it says so on screen")
+    time.sleep(1.2)                         # longer than a layout message lasts
+    eq(len(osd_boxes(sb)), 1, "and it says so on screen for as long as it is on, "
+                              "even with layout messages turned off")
     fi.combo("left")
     sb.settle(0.6)
     s = sb.state()

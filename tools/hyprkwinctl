@@ -11,20 +11,21 @@
 
 Actions go through KDE's global shortcuts, so anything you can bind to a key
 you can run from here — `hyprkwinctl dispatch focusLeft` is the same as
-pressing the key. Queries ask the running script to log its state and read
-that back from the journal, so they need journalctl (systemd) and HyprKwin
-running with a version that logs it (0.10 and later).
+pressing the key. For the queries, hyprkwinctl briefly owns the D-Bus name
+org.hyprkwin.Ctl and asks the running script to send its state there, so
+they need PyGObject (python-gobject on Arch, python3-gi on Debian and Ubuntu,
+python3-gobject on Fedora) and HyprKwin 0.10 or later.
 """
 import json
-import subprocess
 import sys
 import time
 
-from datetime import datetime
-
-MARKER = "HYPRKWIN_STATE "
 PREFIX = "HyprKwin "
 COMPONENT = "kwin"
+# Where the script sends its state when asked (see HyprKwin.qml).
+BUS_NAME = "org.hyprkwin.Ctl"
+OBJECT_PATH = "/org/hyprkwin/Ctl"
+INTERFACE = "org.hyprkwin.Ctl"
 
 
 def die(message, code=1):
@@ -37,6 +38,13 @@ class Accel:
 
     def __init__(self):
         import dbus
+        try:
+            # Receiving the state needs a main loop; set it up before the
+            # first connection so that connection can use it.
+            from dbus.mainloop.glib import DBusGMainLoop
+            DBusGMainLoop(set_as_default=True)
+        except ImportError:
+            pass
         self.dbus = dbus
         self.bus = dbus.SessionBus()
         obj = self.bus.get_object("org.kde.kglobalaccel", "/kglobalaccel")
@@ -73,27 +81,45 @@ def key_name(keys):
 
 
 def read_state(accel, timeout=4.0):
-    """Ask HyprKwin to log its state, then read it back from the journal."""
-    since = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    accel.invoke("dumpState")
+    """Ask HyprKwin for its state, and wait for it on org.hyprkwin.Ctl."""
+    try:
+        from gi.repository import GLib
+        import dbus.service
+    except ImportError:
+        raise SystemExit(die("The queries need PyGObject: python-gobject on Arch, python3-gi on "
+                             "Debian and Ubuntu, python3-gobject on Fedora."))
+    bus = accel.bus
     end = time.time() + timeout
-    last_error = None
-    while time.time() < end:
+    # Another hyprkwinctl may be waiting for its own answer; take turns. The
+    # name is held for as long as this object lives, so keep it.
+    while True:
         try:
-            out = subprocess.run(["journalctl", "--user", "--since", since, "--output", "cat"],
-                                 capture_output=True, text=True, timeout=10).stdout
-        except FileNotFoundError:
-            raise SystemExit(die("journalctl is not available, so the queries cannot read HyprKwin's state."))
-        for line in reversed(out.splitlines()):
-            if MARKER not in line:
-                continue
-            try:
-                return json.loads(line.split(MARKER, 1)[1])
-            except json.JSONDecodeError as e:
-                last_error = e      # still being written, or cut short
-        time.sleep(0.15)
-    raise SystemExit(die("No answer from HyprKwin%s. Is it running?"
-                         % (" (its state did not come through in one piece)" if last_error else "")))
+            name = dbus.service.BusName(BUS_NAME, bus, do_not_queue=True)
+            break
+        except dbus.exceptions.NameExistsException:
+            if time.time() > end:
+                raise SystemExit(die("Another hyprkwinctl is waiting for HyprKwin; try again."))
+            time.sleep(0.05)
+    loop = GLib.MainLoop()
+    answer = {}
+
+    class Receiver(dbus.service.Object):
+        @dbus.service.method(INTERFACE, in_signature="s", out_signature="")
+        def State(self, text):
+            answer["text"] = str(text)
+            loop.quit()
+
+    receiver = Receiver(bus, OBJECT_PATH)
+    try:
+        accel.invoke("dumpState")
+        GLib.timeout_add(int(max(0.1, end - time.time()) * 1000), loop.quit)
+        loop.run()
+    finally:
+        receiver.remove_from_connection()
+        del name                        # gives the name up again
+    if "text" not in answer:
+        raise SystemExit(die("No answer from HyprKwin. Is it running, and version 0.10 or later?"))
+    return json.loads(answer["text"])
 
 
 def workspace_rows(state):

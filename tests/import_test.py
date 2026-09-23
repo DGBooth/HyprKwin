@@ -162,6 +162,23 @@ bind = $mod CTRL SHIFT, right, movewindow, mon:r
         self.assertIn("already bound", reasons[3])
 
 
+class Fixes(unittest.TestCase):
+    def test_previous_is_the_former_workspace(self):
+        plan = read("bind = SUPER, grave, workspace, previous\nbind = SUPER, comma, workspace, e-1")
+        self.assertEqual([b[0] for b in plan["binds"]], ["formerDesktop", "previousDesktop"])
+
+    def test_a_glob_that_matches_a_folder_skips_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            conf = Path(d) / "hyprland.conf"
+            (Path(d) / "conf.d").mkdir()
+            (Path(d) / "conf.d" / "gaps.conf").write_text("general { gaps_in = 3 }")
+            (Path(d) / "conf.d" / "more").mkdir()
+            conf.write_text("source = conf.d/*")
+            items, notes = imp.read_config(conf)
+            self.assertEqual(imp.translate(items)["settings"], {"GapsIn": "3"})
+            self.assertIn("not a file", notes[0][0])
+
+
 class Files(unittest.TestCase):
     def test_a_missing_file_is_reported_not_fatal(self):
         items, notes = imp.read_config(Path("/nonexistent/hyprland.conf"))

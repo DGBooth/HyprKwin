@@ -479,3 +479,16 @@ Deno.test("the other layouts hand over to the next window along", () => {
     assertEquals(e.neighbourOf("b"), "c");
     assertEquals(e.neighbourOf("c"), "b", "the last one falls back to the one before");
 });
+
+Deno.test("a space moved to an empty one keeps its layout and master settings", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S);
+    e.setLayout(S, "master");
+    e.setMasterCount(S, 1);
+    e.cycleMasterOrientation(S, 1);            // left -> right
+    const T = "d2|out2";
+    assertEquals(e.moveSpace(S, T), true);
+    assertEquals(e.layoutOf(T), "master", "the layout travelled with the windows");
+    assertEquals(e.masterParams(T).orientation, "right");
+    assertEquals(e.layoutOf(S), "dwindle", "and the old place forgot it");
+});

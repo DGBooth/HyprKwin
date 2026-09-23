@@ -111,3 +111,9 @@ Deno.test("a workspace rule says what is wrong with it", () => {
     assertEquals(bad.errors[1].includes("layout:"), true);
     assertEquals(Object.keys(bad.rules), []);
 });
+
+Deno.test("a workspace rule's number is a whole number", () => {
+    const { rules, errors } = R.parseWorkspaceRules("3abc, layout:master");
+    assertEquals(Object.keys(rules), []);
+    assertEquals(errors.length, 1);
+});
