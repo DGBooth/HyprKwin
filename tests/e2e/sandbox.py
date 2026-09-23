@@ -126,6 +126,15 @@ class Sandbox:
             else:
                 raise RuntimeError("Xwayland did not start; see %s" % self.log_path)
         time.sleep(0.3)
+        if self.outputs > 1:
+            # A real setup has a primary monitor, and a new session starts on
+            # it; the virtual outputs come up in no particular order. Make the
+            # left one primary, start the pointer there, and let HyprKwin
+            # start again as a login would.
+            self.output("Virtual-0", "priority.1")
+            self.input().move_to(self.width // 2, self.height // 2)
+            time.sleep(0.2)
+            self.reload_script()
 
     def stop(self):
         for c in self.clients:

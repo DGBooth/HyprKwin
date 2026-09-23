@@ -793,6 +793,28 @@ def closing_a_dialog_hands_focus_back_to_its_window(sb):
     eq(active_caption(sb), "F", "focus went back to F, not to A")
 
 
+@test(outputs=2, config={"Debug": "true"})
+def an_upgrade_leaves_one_copy_running(sb):
+    """Each tools/install.sh upgrade reloads the script. The copy it replaces
+    used to keep running — its signal handlers belong to KWin's shared script
+    engine — until ten of them fought over the windows and, when a second
+    monitor came on, recursed until KWin froze."""
+    sb.spawn("A")
+    for _ in range(3):
+        sb.reload_script()
+    before = sb.log_path.read_text(errors="replace").count("HyprKwin: tile")
+    sb.spawn("B")
+    sb.settle(0.8)
+    tiled = sb.log_path.read_text(errors="replace").count("HyprKwin: tile") - before
+    eq(tiled, 1, "one copy of HyprKwin tiled the new window")
+    outputs = sorted(sb.state()["shown"].keys())
+    sb.output(outputs[1], "disable")
+    sb.settle(1.5)
+    sb.output(outputs[1], "enable")
+    sb.settle(2.0)
+    eq("Maximum call stack" in sb.log_path.read_text(errors="replace"), False, "and a monitor coming on is calm")
+
+
 @test
 def reloading_the_script_stays_on_the_workspace(sb):
     """tools/install.sh reloads HyprKwin to upgrade it. That is not a new

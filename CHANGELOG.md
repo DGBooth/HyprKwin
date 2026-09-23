@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Upgrading left the previous version running.** A script's handlers for
+  KWin's signals belong to KWin's shared script engine, not to the script, so
+  every `tools/install.sh` upgrade added another copy of HyprKwin that went
+  on reacting to every window. After a day of upgrades, ten copies fought
+  over the same windows and, when a second monitor came on, recursed until
+  KWin froze. HyprKwin now disconnects everything it connected when it
+  stops. **Log out once after installing this version** to clear any copies
+  still running from earlier ones.
+- A new session puts the current workspace on the primary monitor, as
+  Hyprland does, instead of whichever monitor KWin reported as active.
+
 ## 0.10.0
 
 - **Named scratchpads**, as in Hyprland's special workspaces. The one on

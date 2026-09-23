@@ -66,6 +66,34 @@ function createDriver(env) {
         return w ? tracked[idOf(w)] : null;
     }
 
+    // Every connection to KWin goes through here. A script's QML goes away
+    // when KWin unloads it, but functions connected to KWin's signals from
+    // JavaScript belong to KWin's shared script engine and would live on:
+    // each upgrade used to leave the previous driver running beside the new
+    // one, all of them fighting over the same windows. stop() undoes these,
+    // and a stopped driver ignores anything already queued.
+    var connections = [];
+    function listen(signal, handler, owner) {
+        var wrapped = function () {
+            if (stopped) return;
+            return handler.apply(null, arguments);
+        };
+        signal.connect(wrapped);
+        connections.push({ signal: signal, handler: wrapped, owner: owner || null });
+    }
+
+    // A window's own connections go with it.
+    function forgetConnections(owner) {
+        connections = connections.filter(function (c) { return c.owner !== owner; });
+    }
+
+    function disconnectAll() {
+        connections.forEach(function (c) {
+            try { c.signal.disconnect(c.handler); } catch (e) { /* the window is gone */ }
+        });
+        connections = [];
+    }
+
     function guarded(fn) {
         syncing++;
         try { fn(); } finally { syncing--; }
@@ -754,6 +782,7 @@ function createDriver(env) {
         if (drag && drag.st === st) drag = null;
         var heir = wasFocused(id) ? successor(st) : null;
         engine.remove(id);
+        forgetConnections(st);
         delete tracked[id];
         if (heir) takeOver(heir);
     }
@@ -794,25 +823,25 @@ function createDriver(env) {
 
     function connectWindow(st) {
         var w = st.w;
-        w.desktopsChanged.connect(function () { onDesktopsChanged(st); });
-        w.outputChanged.connect(function () { onOutputChanged(st); });
-        w.minimizedChanged.connect(function () { onMinimizedChanged(st); });
-        if (w.demandsAttentionChanged) w.demandsAttentionChanged.connect(function () { onDemandsAttention(st); });
-        w.activitiesChanged.connect(schedule);
-        w.fullScreenChanged.connect(function () { st.placed = null; applyOpacity(st); schedule(); });
-        w.maximizedChanged.connect(function () { st.placed = null; schedule(); });
+        listen(w.desktopsChanged, function () { onDesktopsChanged(st); }, st);
+        listen(w.outputChanged, function () { onOutputChanged(st); }, st);
+        listen(w.minimizedChanged, function () { onMinimizedChanged(st); }, st);
+        if (w.demandsAttentionChanged) listen(w.demandsAttentionChanged, function () { onDemandsAttention(st); }, st);
+        listen(w.activitiesChanged, schedule, st);
+        listen(w.fullScreenChanged, function () { st.placed = null; applyOpacity(st); schedule(); }, st);
+        listen(w.maximizedChanged, function () { st.placed = null; schedule(); }, st);
         // Plasma's quick tiling / tile editor would fight our layout: take
         // tiled windows back from KWin's tiles and re-apply our geometry.
-        if (w.tileChanged) w.tileChanged.connect(function () { onKWinTile(st); });
-        if (w.quickTileModeChanged) w.quickTileModeChanged.connect(function () { onKWinTile(st); });
-        w.frameGeometryChanged.connect(function () { onGeometryChanged(st); });
-        w.captionChanged.connect(scheduleDecorations);
+        if (w.tileChanged) listen(w.tileChanged, function () { onKWinTile(st); }, st);
+        if (w.quickTileModeChanged) listen(w.quickTileModeChanged, function () { onKWinTile(st); }, st);
+        listen(w.frameGeometryChanged, function () { onGeometryChanged(st); }, st);
+        listen(w.captionChanged, scheduleDecorations, st);
         // Whether the decoration covers a window decides if we draw a border.
-        if (w.decorationChanged) w.decorationChanged.connect(scheduleDecorations);
-        if (w.clientGeometryChanged) w.clientGeometryChanged.connect(scheduleDecorations);
-        w.interactiveMoveResizeStarted.connect(function () { onDragStart(st); });
-        w.interactiveMoveResizeStepped.connect(function (g) { onDragStep(st, g); });
-        w.interactiveMoveResizeFinished.connect(function () { onDragEnd(st); });
+        if (w.decorationChanged) listen(w.decorationChanged, scheduleDecorations, st);
+        if (w.clientGeometryChanged) listen(w.clientGeometryChanged, scheduleDecorations, st);
+        listen(w.interactiveMoveResizeStarted, function () { onDragStart(st); }, st);
+        listen(w.interactiveMoveResizeStepped, function (g) { onDragStep(st, g); }, st);
+        listen(w.interactiveMoveResizeFinished, function () { onDragEnd(st); }, st);
     }
 
     // ---- reactions to Plasma ---------------------------------------------------
@@ -2179,16 +2208,21 @@ function createDriver(env) {
         if (cfg.startOnFirstDesktop && ws.desktops.length && !upgrading) {
             ws.currentDesktop = ws.desktops[0];
         }
+        // A new session starts with the current workspace on the first
+        // monitor, as Hyprland does, rather than wherever KWin happened to
+        // put the pointer. An upgrade keeps each monitor as it was.
+        var first = screens()[0];
+        if (!upgrading && first && perOutput()) shown[first.name] = ws.currentDesktop.id;
         refreshShown();
         for (var tid in tracked) tracked[tid].desktop = desktopIdFor(tracked[tid].w);
 
-        ws.windowAdded.connect(function (w) {
+        listen(ws.windowAdded, function (w) {
             hideOverlay(w);
             var st = track(w, false);
             if (st) relayout();
             else if (!isOverlay(w)) scheduleDecorations();  // a menu may cover a border
         });
-        ws.windowRemoved.connect(function (w) {
+        listen(ws.windowRemoved, function (w) {
             if (!stOf(w)) {
                 if (!isOverlay(w)) scheduleDecorations();   // a menu closing frees a border
                 return;
@@ -2196,7 +2230,7 @@ function createDriver(env) {
             untrack(w);
             relayout();
         });
-        ws.windowActivated.connect(function (w) {
+        listen(ws.windowActivated, function (w) {
             applyAllOpacity();
             var st = stOf(w);
             if (st) {
@@ -2226,7 +2260,7 @@ function createDriver(env) {
             }
             scheduleDecorations();
         });
-        ws.currentDesktopChanged.connect(function (prev) {
+        listen(ws.currentDesktopChanged, function (prev) {
             if (prev) previousDesktop = prev.id;
             // Plasma switched desktop by itself (pager, its own shortcuts):
             // that applies to the monitor the user is on.
@@ -2239,11 +2273,11 @@ function createDriver(env) {
             }
             schedule();
         });
-        ws.desktopsChanged.connect(schedule);
-        if (ws.stackingOrderChanged) ws.stackingOrderChanged.connect(scheduleDecorations);
-        ws.screensChanged.connect(schedule);
-        ws.currentActivityChanged.connect(schedule);
-        ws.virtualScreenGeometryChanged.connect(schedule);
+        listen(ws.desktopsChanged, schedule);
+        if (ws.stackingOrderChanged) listen(ws.stackingOrderChanged, scheduleDecorations);
+        listen(ws.screensChanged, schedule);
+        listen(ws.currentActivityChanged, schedule);
+        listen(ws.virtualScreenGeometryChanged, schedule);
         relayout();
     }
 
@@ -2254,6 +2288,7 @@ function createDriver(env) {
 
     function stop() {
         stopped = true;
+        disconnectAll();
         guarded(function () {
             for (var id in tracked) {
                 var st = tracked[id], w = st.w;
