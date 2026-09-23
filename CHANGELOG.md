@@ -14,6 +14,10 @@
   still running from earlier ones.
 - A new session puts the current workspace on the primary monitor, as
   Hyprland does, instead of whichever monitor KWin reported as active.
+- Logging in within two minutes of an upgrade was taken for the upgrade
+  itself, so the session started on whatever workspace Plasma restored
+  instead of workspace 1. `tools/install.sh` now removes its marker as soon
+  as the new version has started.
 
 ## 0.10.0
 

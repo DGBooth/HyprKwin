@@ -93,6 +93,11 @@ if qdbus6 org.kde.KWin /KWin >/dev/null 2>&1; then
         qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect hyprkwinanimations >/dev/null || true
     fi
     sleep 1
+    # The marker is for this reload only: once the new copy has started (and
+    # read its settings), take it away, or logging in straight after an
+    # upgrade would look like an upgrade too and skip workspace 1.
+    running_this_build || true
+    kwriteconfig6 --file kwinrc --group Script-hyprkwin --key ReloadedAt --delete
     if [ "$(qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.isScriptLoaded hyprkwin)" != "true" ]; then
         if [ "$ENABLE" = 1 ]; then
             echo "HyprKwin was installed but did not start; check: journalctl --user -b | grep -i hyprkwin"

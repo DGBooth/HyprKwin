@@ -816,6 +816,23 @@ def an_upgrade_leaves_one_copy_running(sb):
 
 
 @test
+def upgrading_with_install_sh_keeps_the_workspace_and_leaves_no_marker(sb):
+    """The real upgrade path. It must not send you to workspace 1 — and the
+    marker that says so must not outlive it, or a login straight after an
+    upgrade would be taken for one too and skip workspace 1."""
+    import subprocess
+    sb.spawn("A")
+    sb.invoke("desktop2")
+    env = dict(sb.env)
+    env["HYPRKWIN_LOG"] = str(sb.log_path)
+    r = subprocess.run([str(ROOT_DIR / "tools" / "install.sh")], env=env, capture_output=True, text=True, timeout=120)
+    eq(r.returncode, 0, "install.sh succeeded: " + (r.stdout + r.stderr)[-300:])
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][1], "still on workspace 2 after the upgrade")
+    eq(read_rules_of(sb, "ReloadedAt"), "", "and the upgrade marker is gone again")
+
+
+@test
 def reloading_the_script_stays_on_the_workspace(sb):
     """tools/install.sh reloads HyprKwin to upgrade it. That is not a new
     session, so "start on workspace 1" must not apply."""
