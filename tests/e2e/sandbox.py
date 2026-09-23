@@ -79,6 +79,12 @@ class Sandbox:
         # once broke the border strips and went unnoticed without one.
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
         self._write_config(env, "Script-hyprkwin", self.config)
+        if "/.." in str(self.config.get("BuildId", "")):
+            # A decoy for the test that BuildId cannot leave the package.
+            decoy = self.base / "data" / "evil" / "ui"
+            decoy.mkdir(parents=True)
+            (decoy / "HyprKwin.qml").write_text(
+                'import QtQuick\nItem { Component.onCompleted: console.warn("HKEVIL") }\n')
         busfile = self.base / "bus"
         displayfile = self.base / "x-display"
         if displayfile.exists():

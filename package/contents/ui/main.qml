@@ -12,7 +12,10 @@ import QtQuick
 import org.kde.kwin
 
 Loader {
-    readonly property string build: String(KWin.readConfig("BuildId", "") || "")
+    // tools/install.sh writes a timestamp; anything else is not ours, and
+    // must not steer the Loader outside the package.
+    readonly property string build: /^[0-9]+$/.test(String(KWin.readConfig("BuildId", "") || ""))
+        ? String(KWin.readConfig("BuildId", "")) : ""
     source: build ? "../build-" + build + "/ui/HyprKwin.qml" : "HyprKwin.qml"
     onStatusChanged: {
         if (status === Loader.Error && source.toString().indexOf("/build-") >= 0) {

@@ -888,6 +888,37 @@ def a_default_workspace_that_does_not_exist_yet_is_made(sb):
     eq(s["shown"][outputs[1]], s["desktops"][2], "and the second monitor starts on it")
 
 
+@test(config={"BuildId": "1/../../../../../evil"})
+def the_build_setting_cannot_load_code_from_outside_the_package(sb):
+    """BuildId picks which installed copy runs. A value that climbs out of
+    the package is ignored, and the packaged copy runs instead."""
+    evil = sb.base / "data" / "evil" / "ui"
+    eq(evil.exists(), True, "the decoy exists where that BuildId points")
+    sb.spawn("A")
+    eq(sb.window("A")["tiled"], True, "HyprKwin itself is running")
+    eq("HKEVIL" in sb.log_path.read_text(errors="replace"), False, "and the decoy never ran")
+
+
+@test(config={"FocusIndicator": 0, "BorderOnUndecorated": "false"})
+def nothing_polls_for_overview_without_overlays(sb):
+    """With nothing drawn over the windows there is nothing to hide from
+    Overview, so HyprKwin does not keep waking KWin up to check for it."""
+    sb.spawn("A")
+    sb.spawn("B")
+    eq(sb.state()["effectCheck"], 0, "no overlays, no checking")
+
+
+@test
+def overview_checks_slow_down_when_idle(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    eq(sb.state()["effectCheck"], 150, "checked closely just after activity")
+    time.sleep(10.5)                       # nothing happens; the state dumps do not count
+    eq(sb.state()["effectCheck"], 500, "and less often once idle")
+    sb.invoke("focusLeft")
+    eq(sb.state()["effectCheck"], 150, "until something happens again")
+
+
 @test(outputs=2)
 def multi_monitor(sb):
     sb.spawn("A")
@@ -1760,9 +1791,11 @@ def rules_added_in_the_settings_page_apply(sb):
     # The page is the only window, so HyprKwin tiles it to fill the screen.
     fi.click(315, 31)                       # the "Window rules" tab
     sb.settle(1.0)
-    fi.click(900, 193)                      # the input line above the list
+    # These two sit just below the tab's help text, so they move whenever it
+    # gains or loses a line; a screenshot of the page shows where they are.
+    fi.click(900, 223)                      # the input line above the list
     fi.type_text("float, title:^Floater$")
-    fi.click(1836, 233)                     # Add
+    fi.click(1836, 263)                     # Add
     sb.settle(0.5)
     fi.click(1681, 1047)                    # OK
     page.wait(timeout=10)

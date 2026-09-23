@@ -505,7 +505,9 @@ tile, class:^(steam)$, title:^Steam$
 | `focusonactivate [on\|off]` | whether it may pull you to it when it asks for attention |
 
 Match on `class:` (the Wayland app id or X11 class) and `title:`, both
-regular expressions, and on `floating:1` or `floating:0`. The first rule that
+regular expressions, and on `floating:1` or `floating:0`. Rules are checked
+inside KWin itself, so keep the patterns simple: a pathological one, with
+nested repeats such as `(a+)+`, can stall the whole desktop while it runs. The first rule that
 matches wins, for each kind of action. `float` is the one you want for apps
 that manage their own windows (virtual machines, games, image editors).
 Dialogs, transient windows, fixed-size windows and Plasma's own system

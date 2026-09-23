@@ -60,6 +60,12 @@
   rather than the one you were last on.
 - A `default:true` workspace rule for a workspace that did not exist yet did
   nothing; a workspace rule's number now has to be a whole number.
+- Checking for Overview and the other fullscreen effects woke KWin up about
+  seven times a second, always. KWin gives scripts no signal for them, so
+  HyprKwin still has to ask — but now only while something of its own is on
+  screen, and twice a second once you have been idle for ten seconds.
+- The installed version is only ever loaded from inside the package, whatever
+  the `BuildId` setting says.
 ## 0.9.0
 
 - **The border gradient can turn**, as Hyprland's `borderangle` animation

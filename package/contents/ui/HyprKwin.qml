@@ -26,10 +26,15 @@ Item {
     readonly property var fullscreenEffects: ["overview", "windowview", "cube", "desktopgrid", "tileseditor", "expo"]
 
     function run(action) {
+        // A status bar asking hyprkwinctl what is open is not the user doing
+        // anything, and must not keep the effect check at its busy rate.
+        if (action !== "dumpState") noteActivity();
         if (!driver) return;
         if (action === "dumpState") {
             const state = driver.state();
             state.effectActive = root.effectActive;
+            // How often Overview & co. are checked for, in ms (0: not at all).
+            state.effectCheck = effectTimer.running ? effectTimer.interval : 0;
             const text = JSON.stringify(state);
             // To hyprkwinctl, which owns org.hyprkwin.Ctl while it waits for
             // an answer. Nobody else is listening, so this goes nowhere
@@ -75,12 +80,35 @@ Item {
         onTriggered: root.driver.checkAreas()
     }
 
+    // Overview and the other fullscreen effects draw their own view of every
+    // window, and our overlays must not float over it. KWin tells scripts
+    // nothing when one starts (the effects API sees it, but an effect cannot
+    // reach a script), so this has to ask. It only asks while there is an
+    // overlay to hide, quickly just after any activity — the hot corner and
+    // gestures always come with some — and less often once things are idle.
+    property int overlaysOnScreen: 0
+    property double lastActivity: Date.now()
+    function noteActivity() {
+        lastActivity = Date.now();
+        if (effectTimer.running && effectTimer.interval > effectTimer.busyInterval) {
+            effectTimer.interval = effectTimer.busyInterval;
+            effectTimer.restart();
+        }
+    }
+
     Timer {
         id: effectTimer
-        interval: 150
-        running: root.driver !== null
+        readonly property int busyInterval: 150
+        readonly property int idleInterval: 500
+        readonly property int busyFor: 10000
+        interval: busyInterval
+        running: root.driver !== null && (root.overlaysOnScreen > 0 || osd.visible || root.effectActive)
         repeat: true
-        onTriggered: root.effectActive = root.fullscreenEffects.some(id => Workspace.isEffectActive(id))
+        onTriggered: {
+            root.effectActive = root.fullscreenEffects.some(id => Workspace.isEffectActive(id));
+            // While one is up, keep watching closely for it to end.
+            interval = root.effectActive || Date.now() - root.lastActivity < busyFor ? busyInterval : idleInterval;
+        }
     }
 
     // Trailing check so the window under the pointer still wins when the
@@ -95,7 +123,10 @@ Item {
 
     Connections {
         target: Workspace
+        // Focus moving (a click, Alt+Tab) is the user at work as well.
+        function onWindowActivated() { root.noteActivity(); }
         function onCursorPosChanged() {
+            root.noteActivity();
             if (!root.driver || !root.driver.config().focusFollowsMouse) return;
             // Act on the first motion event over a new window rather than
             // waiting for the pointer to come to rest.
@@ -225,6 +256,8 @@ Item {
     // window, and focus changes simply hide one and show another.
     property var borderObjects: ({})
     property var groupBarObjects: ({})
+    property int bordersShown: 0
+    property int barsShown: 0
 
     Component { id: borderComponent; Border {} }
     // Declared rather than created on demand: KWin only registers an internal
@@ -256,6 +289,8 @@ Item {
     function syncBorders(list, cfg) {
         style = cfg;
         revision++;
+        bordersShown = list.length;
+        overlaysOnScreen = bordersShown + barsShown;
         const seen = {};
         for (const entry of list) {
             seen[entry.id] = true;
@@ -296,6 +331,8 @@ Item {
     function syncGroupBars(list, cfg) {
         style = cfg;
         revision++;
+        barsShown = list.length;
+        overlaysOnScreen = bordersShown + barsShown;
         const seen = {};
         for (const bar of list) {
             seen[bar.id] = true;
@@ -358,6 +395,7 @@ Item {
         laterTimer.stop();
         decorationTimer.stop();
         areaTimer.stop();
+        effectTimer.stop();
         focusFollowsMouseTimer.stop();
         configWatchTimer.stop();
         hideOverlays();
