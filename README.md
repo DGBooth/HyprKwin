@@ -269,6 +269,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Start each session on workspace 1 | – | on |
 | Every monitor has its own workspaces | one workspace per monitor | on |
 | Go to a window that asks to be activated | `misc:focus_on_activate` | on |
+| Closing a window focuses its neighbour | – | on |
 | Slide the split when resizing from the keyboard | `animation = windows` (for resizes) | on (needs the effect) |
 | Create workspaces on demand | – | on |
 | Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
@@ -316,6 +317,17 @@ other monitors are showing are marked "on all desktops" to keep them up. They
 show as pinned in the task manager and the pager puts everything you can see
 on the current desktop. Turn the setting off to go back to plain Plasma
 behaviour, where a workspace spans every monitor.
+
+### Focus after closing a window
+
+Close a window and the focus goes to the one that takes its place: the other
+side of the split it shared, or the next tab if it was in a group. When two
+windows could take over, the one you used more recently wins.
+
+Plasma on its own picks the window you used longest ago, wherever it is, so
+closing a window on the left can land you in the bottom-right corner. Turn
+"Closing a window focuses the neighbour that takes its place" off in the
+settings to go back to that.
 
 ### Relaunching an app that is already open
 

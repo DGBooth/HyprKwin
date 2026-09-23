@@ -315,6 +315,14 @@ function createEngine(userConfig) {
         };
     }
 
+    // Whichever of these was focused most recently.
+    function mostRecent(ids) {
+        for (var i = 0; i < focusOrder.length; i++) {
+            if (ids.indexOf(focusOrder[i]) >= 0) return focusOrder[i];
+        }
+        return ids.length ? ids[0] : null;
+    }
+
     function autoDir(r) {
         if (!r) return "h";
         return r.width * cfg.splitWidthMultiplier >= r.height ? "h" : "v";
@@ -549,6 +557,33 @@ function createEngine(userConfig) {
                 var j = leaf.wins.indexOf(id);
                 if (j >= 0) leaf.active = j;
             }
+        },
+
+        // The window that takes this one's place when it goes away, the way
+        // Hyprland moves focus to what grows into the gap: another window in
+        // its group, the side of the split it shared (most recently used
+        // window in there), or the next one along in the other layouts.
+        neighbourOf: function (id) {
+            var leaf = leafOf[id];
+            if (!leaf) return null;
+            if (leaf.wins.length > 1) {
+                var j = leaf.wins.indexOf(id);
+                return leaf.wins[(j + 1) % leaf.wins.length];
+            }
+            var space = spaceOf[id];
+            if (api.layoutOf(space) === "dwindle") {
+                var parent = leaf.parent;
+                if (parent) {
+                    var sibling = parent.a === leaf ? parent.b : parent.a;
+                    var ids = leaves(sibling).reduce(function (acc, l) { return acc.concat(l.wins); }, []);
+                    return mostRecent(ids);
+                }
+            }
+            var all = api.windows(space).filter(function (w) { return w !== id; });
+            if (!all.length) return null;
+            var order = api.windows(space);
+            var i = order.indexOf(id);
+            return order[i + 1] || order[i - 1] || all[0];
         },
 
         focusHistory: function () { return focusOrder.slice(); },

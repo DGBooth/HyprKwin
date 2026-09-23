@@ -717,6 +717,68 @@ def a_workspace_rule_sets_the_layout_and_gaps(sb):
     eq(s["layouts"][space]["layout"], "scrolling", "Meta+Shift+J still has the last word")
 
 
+def active_caption(sb, s=None):
+    s = s or sb.state()
+    w = s["windows"].get(s["active"])
+    return w["caption"] if w else None
+
+
+@test
+def closing_a_window_focuses_its_neighbour(sb):
+    """Hyprland hands focus to whatever grows into the gap. KWin would pick
+    the window used longest ago, which can be anywhere on the screen."""
+    three(sb)                       # A left, B top right, C bottom right
+    sb.invoke("focusUp")            # B, then A: B is the most recent of the pair
+    sb.invoke("focusLeft")
+    eq(active_caption(sb), "A", "A focused")
+    sb.invoke("close")
+    sb.settle(0.6)
+    s = sb.state()
+    eq(sorted(w["caption"] for w in s["windows"].values()), ["B", "C"], "A is gone")
+    eq(active_caption(sb, s), "B", "the side of the split A shared, most recently used first")
+    sb.invoke("close")
+    sb.settle(0.6)
+    eq(active_caption(sb), "C", "and then its sibling")
+
+
+@test
+def the_neighbour_wins_over_the_window_used_longest_ago(sb):
+    """The same moves as the test below, with the setting on. KWin would hand
+    the focus to A, right across the screen; B is the window that grows."""
+    three(sb)
+    sb.invoke("focusLeft")          # A
+    sb.invoke("focusRight")         # back to C
+    eq(active_caption(sb), "C", "C focused")
+    sb.invoke("close")
+    sb.settle(0.6)
+    eq(active_caption(sb), "B", "the window taking C's place, not A")
+
+
+@test(config={"FocusNeighbourOnClose": "false"})
+def focus_after_closing_can_be_left_to_plasma(sb):
+    """Turned off, HyprKwin keeps out of it and KWin picks the window used
+    before this one — here A, on the other side of the screen, rather than B,
+    which grows into the gap."""
+    three(sb)                       # A left, B top right, C bottom right
+    sb.invoke("focusLeft")          # A
+    sb.invoke("focusRight")         # back to C
+    eq(active_caption(sb), "C", "C focused")
+    sb.invoke("close")
+    sb.settle(0.6)
+    eq(active_caption(sb), "A", "KWin's choice, not C's neighbour")
+
+
+@test
+def closing_a_grouped_window_focuses_the_next_tab(sb):
+    three(sb)
+    sb.invoke("focusUp")            # B
+    sb.invoke("toggleGroup")        # group B and C
+    sb.settle(0.4)
+    sb.invoke("close")
+    sb.settle(0.6)
+    eq(active_caption(sb), "C", "the other tab takes over")
+
+
 @test(outputs=2)
 def multi_monitor(sb):
     sb.spawn("A")

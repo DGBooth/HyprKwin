@@ -49,6 +49,7 @@
         <entry name="AutoCreateDesktops" type="Bool"><default>true</default></entry>
         <entry name="PerOutputWorkspaces" type="Bool"><default>true</default></entry>
         <entry name="FocusOnActivate" type="Bool"><default>true</default></entry>
+        <entry name="FocusNeighbourOnClose" type="Bool"><default>true</default></entry>
         <entry name="SlideDivider" type="Bool"><default>true</default></entry>
         <entry name="SpecialMargin" type="Int"><default>40</default></entry>
         <entry name="ScratchpadNames" type="StringList"><default></default></entry>

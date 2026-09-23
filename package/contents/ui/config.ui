@@ -361,17 +361,23 @@
          <property name="toolTip"><string>Launching an app that is already open on another workspace switches to it. Chat apps ask for attention the same way when a message arrives; add a rule such as "focusonactivate off, class:^(discord)$" to stop one pulling you over.</string></property>
         </widget>
        </item>
-       <item row="8" column="0">
+       <item row="8" column="1">
+        <widget class="QCheckBox" name="kcfg_FocusNeighbourOnClose">
+         <property name="text"><string>Closing a window focuses the neighbour that takes its place</string></property>
+         <property name="toolTip"><string>As in Hyprland: focus follows the window that grows into the gap — the other side of the split, or the next tab in a group. Off: Plasma decides, which means the window you used longest ago, wherever it happens to be.</string></property>
+        </widget>
+       </item>
+       <item row="9" column="0">
         <widget class="QLabel" name="scratchpadNamesLabel"><property name="text"><string>Extra scratchpads:</string></property></widget>
        </item>
-       <item row="8" column="1">
+       <item row="9" column="1">
         <widget class="KEditListWidget" name="kcfg_ScratchpadNames">
          <property name="kcfg_property" stdset="0"><string>items</string></property>
          <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
          <property name="toolTip"><string>Named scratchpads, as in Hyprland's special workspaces. The first name here is scratchpad 1, the second scratchpad 2, and so on; give them keys in System Settings &gt; Keyboard &gt; Shortcuts &gt; KWin (HyprKwin: Toggle scratchpad 1...). A window goes into one with the matching "Move window to/from scratchpad" key, or a rule such as "workspace special:music, class:^(spotify)$". Only one scratchpad is on screen at a time.</string></property>
         </widget>
        </item>
-       <item row="9" column="1">
+       <item row="10" column="1">
         <widget class="QCheckBox" name="kcfg_Debug">
          <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
         </widget>

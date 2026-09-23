@@ -8,6 +8,12 @@
   `workspace special:music, class:^(spotify)$`. Only one is on screen at a
   time, so opening one puts the other away.
 
+- **Closing a window hands the focus to its neighbour** — the other side of
+  the split it shared, or the next tab in its group — as Hyprland gives focus
+  to whatever grows into the gap. KWin's own choice is the window you used
+  longest ago, wherever it happens to be, which is why focus could jump
+  across the screen. There is a setting to go back to that.
+
 - **Workspace rules**, in Hyprland's syntax and managed in the settings page:
   `workspace = 3, monitor:DP-2, default:true, layout:master, gapsin:0,
   gapsout:0`. A pinned workspace stays on its monitor — switching to it goes

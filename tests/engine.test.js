@@ -454,3 +454,28 @@ Deno.test("scrolling layout: column width, and a wide column taking the view", (
     assertEquals(l.offscreen, []);
     assertEquals(e.moveDivider("b", 0, 100), false, "there is nothing to resize vertically");
 });
+
+Deno.test("closing a window hands over to the one taking its place", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S); e.add("c", S);
+    e.focused("a"); e.focused("b"); e.focused("c");
+    // dwindle: a | (b / c). a's neighbour is the side of the split it shared,
+    // most recently used first.
+    assertEquals(e.neighbourOf("a"), "c");
+    assertEquals(e.neighbourOf("c"), "b", "and c's is its own sibling");
+});
+
+Deno.test("in a group, the next tab takes over", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S);
+    e.joinGroup("b", "a");
+    assertEquals(e.neighbourOf("a"), "b");
+});
+
+Deno.test("the other layouts hand over to the next window along", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S); e.add("c", S);
+    e.setLayout(S, "monocle");
+    assertEquals(e.neighbourOf("b"), "c");
+    assertEquals(e.neighbourOf("c"), "b", "the last one falls back to the one before");
+});

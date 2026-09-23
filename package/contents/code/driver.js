@@ -21,6 +21,9 @@ function createDriver(env) {
     var cfg = {};
     var rules = [];
     var ruleErrors = [];
+    var lastActiveId = null;        // the tracked window that has the focus
+    var prevActiveId = null;        // and the one before it
+    var lastActivation = 0;         // when the focus last moved
     var workspaceRules = {};        // workspace number -> rule
     var ruledSpaces = {};           // spaces whose layout: rule has been applied
     var engine = E.createEngine({});
@@ -438,6 +441,7 @@ function createDriver(env) {
             masterNewIsMaster: bool(rc("MasterNewIsMaster", false), false),
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
+            focusNeighbourOnClose: bool(rc("FocusNeighbourOnClose", true), true),
             layoutOsd: bool(rc("LayoutOsd", true), true),
             // How long that message stays up; not in the settings page.
             osdDuration: Math.max(200, num(rc("OsdDuration", 1200), 1200)),
@@ -739,8 +743,40 @@ function createDriver(env) {
         var st = tracked[id];
         if (!st) return;
         if (drag && drag.st === st) drag = null;
+        var heir = wasFocused(id) ? successor(st) : null;
         engine.remove(id);
         delete tracked[id];
+        if (heir) takeOver(heir);
+    }
+
+    // Whether this window is the one the user was on. KWin hands the focus
+    // to its own pick before it tells us the window has gone, so the one
+    // focused a moment ago counts too.
+    function wasFocused(id) {
+        if (id === lastActiveId) return true;
+        return id === prevActiveId && Date.now() - lastActivation < 500;
+    }
+
+    // Who should have the focus once this window goes: the one taking its
+    // place in the layout, as Hyprland hands focus to whatever grows into the
+    // gap. KWin would otherwise pick the window used longest ago, which can
+    // be anywhere on the screen.
+    function successor(st) {
+        if (!cfg.focusNeighbourOnClose) return null;
+        var next = engine.neighbourOf(st.id);
+        if (!next) {
+            // Floating windows are not in the layout: fall back to the last
+            // window used on the workspace this one was on.
+            var space = spaceOfWindow(st);
+            next = space ? engine.lastFocused(space) : null;
+        }
+        return next && next !== st.id ? next : null;
+    }
+
+    function takeOver(id) {
+        var st = tracked[id];
+        if (!st || st.w.minimized || !kwinVisible(st.w)) return;
+        activate(st.w);
     }
 
     function connectWindow(st) {
@@ -2082,6 +2118,11 @@ function createDriver(env) {
             applyAllOpacity();
             var st = stOf(w);
             if (st) {
+                if (st.id !== lastActiveId) {
+                    prevActiveId = lastActiveId;
+                    lastActiveId = st.id;
+                    lastActivation = Date.now();
+                }
                 var before = engine.groupOf(st.id);
                 engine.focused(st.id);
                 // A strip of columns is laid out around the focused one, so
