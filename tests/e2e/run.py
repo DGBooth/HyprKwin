@@ -833,6 +833,36 @@ def take_keys(sb):
                    capture_output=True, check=True)
 
 
+@test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"]})
+def submaps_hold_plain_keys_only_while_they_are_on(sb):
+    """Hyprland's submaps: a key puts the keyboard into a mode where plain
+    keys act until Escape, and they belong to applications again after."""
+    sb.spawn("A")
+    sb.spawn("B")
+    take_keys(sb)
+    fi = sb.input()
+    fi.combo("left")                        # nothing is in a submap yet
+    sb.settle(0.5)
+    s = sb.state()
+    eq((sb.geometry("A", s), s["submap"]), (LEFT, None), "a plain key does nothing")
+    fi.combo("meta+r")
+    sb.settle(0.5)
+    eq(sb.state()["submap"], "resize", "in the resize submap")
+    eq(len(osd_boxes(sb)), 1, "and it says so on screen")
+    fi.combo("left")
+    sb.settle(0.6)
+    s = sb.state()
+    eq(sb.geometry("A", s), (10, 10, 845, 1060), "Left moves the split while the submap is on")
+    fi.combo("escape")
+    sb.settle(0.5)
+    s = sb.state()
+    eq(s["submap"], None, "Escape leaves it")
+    eq(osd_boxes(sb), [], "the message goes with it")
+    fi.combo("left")
+    sb.settle(0.6)
+    eq(sb.geometry("A", sb.state()), (10, 10, 845, 1060), "and the plain key does nothing again")
+
+
 @test
 def real_keys(sb):
     """Physical key presses (via fake input) after resolving Plasma conflicts."""

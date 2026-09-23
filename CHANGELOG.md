@@ -8,6 +8,16 @@
   `workspace special:music, class:^(spotify)$`. Only one is on screen at a
   time, so opening one puts the other away.
 
+- **Submaps**, as in Hyprland: a key puts the keyboard into a mode where
+  plain keys act until Escape, and the mode's name stays on screen while it
+  is on. The keys inside one are registered with KDE only while it is on, so
+  they belong to applications the rest of the time. They are written a line
+  at a time in the settings page's Submaps tab.
+
+- **`tools/hyprkwinctl`**, a `hyprctl`-style command: run any action, list
+  the actions and their keys, and ask what windows, workspaces, layout or
+  submap are current, as a table or as JSON for a status bar.
+
 - **An importer for an existing `hyprland.conf`**
   (`tools/hyprkwin-import.py`): settings, window rules, workspace rules and
   binds, following `source =` lines and `$variables`. It shows what it would

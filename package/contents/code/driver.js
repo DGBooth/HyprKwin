@@ -17,6 +17,7 @@ function createDriver(env) {
     var ws = env.workspace;
     var E = env.engine;
     var R = env.rules;
+    var SC = env.shortcuts;
 
     var cfg = {};
     var rules = [];
@@ -24,6 +25,8 @@ function createDriver(env) {
     var lastActiveId = null;        // the tracked window that has the focus
     var prevActiveId = null;        // and the one before it
     var lastActivation = 0;         // when the focus last moved
+    var submaps = {};               // name -> {name, key, binds}
+    var activeSubmap = null;        // the submap the keyboard is in, if any
     var workspaceRules = {};        // workspace number -> rule
     var ruledSpaces = {};           // spaces whose layout: rule has been applied
     var engine = E.createEngine({});
@@ -457,6 +460,7 @@ function createDriver(env) {
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: ruleText(rc("WindowRuleList", ""), rc("WindowRules", "")),
             workspaceRules: ruleText(rc("WorkspaceRuleList", ""), ""),
+            submaps: ruleText(rc("SubmapList", ""), ""),
             debug: bool(rc("Debug", false), false),
         };
         engine.setConfig(cfg);
@@ -468,6 +472,7 @@ function createDriver(env) {
         // A changed rule applies again, even to a space that has one already.
         ruledSpaces = {};
         spaces.errors.forEach(function (e) { ruleErrors.push("workspace rule, " + e); });
+        loadSubmaps();
         ruleErrors.forEach(function (e) { env.log("HyprKwin rule error: " + e); });
     }
 
@@ -1527,11 +1532,58 @@ function createDriver(env) {
     // A short message on the monitor in use, the way Plasma announces a
     // volume change. Plasma's own OSD service only takes fixed kinds of
     // message, so HyprKwin draws its own.
-    function announce(text) {
+    function announce(text, duration) {
         if (!cfg.layoutOsd || !env.ui.showOsd) return;
         var screen = focusedScreen();
         if (!screen) return;
-        env.ui.showOsd(text, workArea(screen, desktopFor(screen)), cfg.osdDuration);
+        env.ui.showOsd(text, workArea(screen, desktopFor(screen)),
+                       duration === undefined ? cfg.osdDuration : duration);
+    }
+
+    // ---- submaps -----------------------------------------------------------
+
+    function loadSubmaps() {
+        if (!SC || !SC.parseSubmaps || !env.ui.setSubmaps) return;
+        var parsed = SC.parseSubmaps(cfg.submaps, Object.keys(actions));
+        parsed.errors.forEach(function (e) { ruleErrors.push("submap, " + e); });
+        submaps = {};
+        var entries = [];
+        parsed.submaps.forEach(function (s) {
+            submaps[s.name] = s;
+            entries.push({ name: s.name, key: s.key });
+        });
+        if (activeSubmap && !submaps[activeSubmap]) leaveSubmap();
+        env.ui.setSubmaps(entries);
+    }
+
+    // A submap's keys exist only while it is on, so plain keys such as Left
+    // belong to applications the rest of the time. Escape always leaves, as
+    // Hyprland's "submap reset" does.
+    function toggleSubmap(name) {
+        if (activeSubmap === name) {
+            leaveSubmap();
+            return;
+        }
+        var submap = submaps[name];
+        if (!submap) return;
+        activeSubmap = name;
+        var binds = submap.binds.map(function (b) {
+            return { submap: name, key: b.key, action: b.action };
+        });
+        if (!binds.some(function (b) { return b.key.toLowerCase() === "escape"; })) {
+            binds.push({ submap: name, key: "Escape", action: "leaveSubmap" });
+        }
+        env.ui.setSubmapBinds(binds);
+        log("submap", name, "on");
+        announce(name, 0);
+    }
+
+    function leaveSubmap() {
+        if (!activeSubmap) return;
+        log("submap", activeSubmap, "off");
+        activeSubmap = null;
+        env.ui.setSubmapBinds([]);
+        if (env.ui.hideOsd) env.ui.hideOsd();
     }
 
     function setLayout(mode) {
@@ -2011,6 +2063,8 @@ function createDriver(env) {
         cycleNext: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, 1)); },
         cyclePrevious: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, -1)); },
         retile: function () { reloadConfig(); },
+        leaveSubmap: leaveSubmap,
+        toggleSubmap: toggleSubmap,
     };
     for (var n = 1; n <= 10; n++) {
         (function (i) {
@@ -2214,7 +2268,7 @@ function createDriver(env) {
         state: function () {
             var act = stOf(ws.activeWindow);
             var out = {
-                special: specialShown(), scratchpad: special.name, spaces: {}, windows: {}, active: act ? act.id : null,
+                special: specialShown(), scratchpad: special.name, submap: activeSubmap, spaces: {}, windows: {}, active: act ? act.id : null,
                 desktops: ws.desktops.map(function (d) { return d.id; }), currentDesktop: ws.currentDesktop.id,
                 groupBars: groupBars.map(function (b) { return { id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, tabs: b.tabs.map(function (t) { return t.id; }) }; }),
                 ruleErrors: ruleErrors.slice(),

@@ -20,8 +20,10 @@ jobs:
       # The end-to-end tests need a real KWin, so they only run locally
       # (python3 tests/e2e/run.py). These at least catch files that no longer
       # parse.
-      - name: Unit tests (hyprland.conf importer)
-        run: python3 tests/import_test.py
+      - name: Unit tests (hyprland.conf importer, hyprkwinctl)
+        run: |
+          python3 tests/import_test.py
+          python3 tests/ctl_test.py
 
       - name: Scripts parse
         run: |
@@ -29,6 +31,6 @@ jobs:
             deno eval "new Function(Deno.readTextFileSync('$f'))" || { echo "::error file=$f::does not parse"; exit 1; }
           done
           for f in tools/*.sh; do bash -n "$f"; done
-          python3 -m py_compile tools/*.py tests/*.py tests/e2e/*.py
+          python3 -m py_compile tools/*.py tools/hyprkwinctl tests/*.py tests/e2e/*.py
           for f in package/metadata.json package-effect/metadata.json; do python3 -m json.tool "$f" > /dev/null; done
           python3 -c "import xml.dom.minidom as m; [m.parse(f) for f in ['package/contents/ui/config.ui', 'package/contents/config/main.xml', 'package-effect/contents/ui/config.ui', 'package-effect/contents/config/main.xml']]"

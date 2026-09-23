@@ -42,6 +42,8 @@ desktops, activities, window rules, KRunner and System Settings.
 - **Settings page** in System Settings › Window Management › KWin Scripts.
 - **Importer** for an existing `hyprland.conf`: settings, window and
   workspace rules, and keybindings.
+- **Submaps** — a key enters a mode where plain keys act until Escape — and
+  `hyprkwinctl`, a `hyprctl`-style command for scripts and status bars.
 
 ## Install
 
@@ -541,6 +543,45 @@ workspace = 3, monitor:DP-2, default:true
 The `workspace = ` prefix is optional, so lines can be pasted straight out of
 a `hyprland.conf`. The first rule for a workspace wins on each property, and a
 rule with something wrong with it is reported rather than guessed at.
+
+### Submaps
+
+A submap is a mode: one key puts the keyboard into it, plain keys then do
+something until Escape, and outside it those keys belong to your applications
+again — Hyprland's `submap`. Set them in the settings page's **Submaps** tab,
+one per line: the name, the key that enters it, then each key and what it
+does.
+
+```
+resize = Meta+R, Left: resizeLeft, Right: resizeRight, Up: resizeUp, Down: resizeDown
+layout = Meta+Shift+L, D: layoutDwindle, M: layoutMaster, O: layoutMonocle, S: layoutScrolling
+```
+
+The name shows on screen while you are in one. Escape leaves, and so does the
+key that entered it. The action names are the ones in System Settings >
+Keyboard > Shortcuts > KWin without the "HyprKwin: " part; `hyprkwinctl
+actions` lists them all.
+
+Keys inside a submap are registered with KDE only while the submap is on, so
+they never take a key away from an app the rest of the time.
+
+### Controlling it from a script
+
+`tools/hyprkwinctl` is the equivalent of `hyprctl`, for status bars and
+scripts:
+
+```bash
+hyprkwinctl dispatch focusLeft     # run any action, as if you pressed its key
+hyprkwinctl actions master         # every action, with the key it is on
+hyprkwinctl windows --json         # what HyprKwin is tracking
+hyprkwinctl workspaces             # what each monitor shows, and its layout
+hyprkwinctl layout master          # show or set this workspace's layout
+hyprkwinctl submap resize          # enter a submap, or ask which one is on
+```
+
+Actions go through KDE's global shortcuts, so anything bindable is runnable.
+The queries ask the running script to log its state and read that back from
+the journal, so they need systemd's journal.
 
 ### Importing a hyprland.conf
 

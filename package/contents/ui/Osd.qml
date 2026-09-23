@@ -65,7 +65,9 @@ Window {
             return;
         }
         show();
-        hideTimer.restart();
+        // A duration of zero stays up: that is how a submap says it is on.
+        if (duration > 0) hideTimer.restart();
+        else hideTimer.stop();
     }
 
     Timer {

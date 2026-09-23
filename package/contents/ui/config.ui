@@ -426,6 +426,27 @@ Sizes and positions are pixels or a percentage of the monitor; monitors count fr
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="submapsTab">
+      <attribute name="title"><string>Submaps</string></attribute>
+      <layout class="QVBoxLayout" name="submapsLayout">
+       <item>
+        <widget class="QLabel" name="submapsHelp">
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="textFormat"><enum>Qt::RichText</enum></property>
+         <property name="text"><string>&lt;p&gt;A submap is a mode: one key puts the keyboard into it, and plain keys then do something until you press Escape — Hyprland's &lt;tt&gt;submap&lt;/tt&gt;. One per line: the name, the key that enters it, then each key and what it does.&lt;/p&gt;
+&lt;p&gt;&lt;tt&gt;resize = Meta+R, Left: resizeLeft, Right: resizeRight, Up: resizeUp, Down: resizeDown&lt;/tt&gt;&lt;br/&gt;
+&lt;tt&gt;layout = Meta+Shift+L, D: layoutDwindle, M: layoutMaster, O: layoutMonocle, S: layoutScrolling&lt;/tt&gt;&lt;/p&gt;
+&lt;p&gt;The keys inside a submap only exist while it is on, so they are free for your applications the rest of the time. The name shows on screen while you are in it, and the key that entered it leaves it again. Action names are the ones in System Settings › Keyboard › Shortcuts › KWin, without the "HyprKwin: " part — e.g. focusLeft, swapRight, toggleFloating, masterSwap.&lt;/p&gt;</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="KEditListWidget" name="kcfg_SubmapList">
+         <property name="kcfg_property" stdset="0"><string>items</string></property>
+         <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>

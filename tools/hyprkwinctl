@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+"""Drive HyprKwin from a script or a status bar, the way hyprctl does.
+
+    hyprkwinctl dispatch <action> [...]   run one or more HyprKwin actions
+    hyprkwinctl actions [PATTERN]         every action, with the key it is on
+    hyprkwinctl windows [--json]          the windows HyprKwin is tracking
+    hyprkwinctl workspaces [--json]       what each monitor is showing
+    hyprkwinctl layout [NAME]             show, or set, this workspace's layout
+    hyprkwinctl submap [NAME]             show which submap is on, or enter one
+    hyprkwinctl state                     everything HyprKwin knows, as JSON
+
+Actions go through KDE's global shortcuts, so anything you can bind to a key
+you can run from here — `hyprkwinctl dispatch focusLeft` is the same as
+pressing the key. Queries ask the running script to log its state and read
+that back from the journal, so they need journalctl (systemd) and HyprKwin
+running with a version that logs it (0.10 and later).
+"""
+import json
+import subprocess
+import sys
+import time
+
+from datetime import datetime
+
+MARKER = "HYPRKWIN_STATE "
+PREFIX = "HyprKwin "
+COMPONENT = "kwin"
+
+
+def die(message, code=1):
+    print(message, file=sys.stderr)
+    return code
+
+
+class Accel:
+    """KDE's global shortcut daemon, over D-Bus."""
+
+    def __init__(self):
+        import dbus
+        self.dbus = dbus
+        self.bus = dbus.SessionBus()
+        obj = self.bus.get_object("org.kde.kglobalaccel", "/kglobalaccel")
+        self.iface = dbus.Interface(obj, "org.kde.KGlobalAccel")
+
+    def component(self, name=COMPONENT):
+        path = self.iface.getComponent(name)
+        return self.dbus.Interface(self.bus.get_object("org.kde.kglobalaccel", path),
+                                   "org.kde.kglobalaccel.Component")
+
+    def invoke(self, action):
+        self.component().invokeShortcut(PREFIX + action)
+
+    def shortcuts(self):
+        """HyprKwin's actions: {action: "Meta+Q"}."""
+        out = {}
+        for info in self.component().allShortcutInfos():
+            name = str(info[0])
+            if not name.startswith(PREFIX):
+                continue
+            out[name[len(PREFIX):]] = key_name(info[6])
+        return out
+
+
+def key_name(keys):
+    codes = [int(k) for k in keys if int(k)]
+    if not codes:
+        return ""
+    try:
+        from PySide6.QtGui import QKeySequence
+        return QKeySequence(codes[0]).toString()
+    except Exception:
+        return str(codes[0])
+
+
+def read_state(accel, timeout=4.0):
+    """Ask HyprKwin to log its state, then read it back from the journal."""
+    since = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    accel.invoke("dumpState")
+    end = time.time() + timeout
+    last_error = None
+    while time.time() < end:
+        try:
+            out = subprocess.run(["journalctl", "--user", "--since", since, "--output", "cat"],
+                                 capture_output=True, text=True, timeout=10).stdout
+        except FileNotFoundError:
+            raise SystemExit(die("journalctl is not available, so the queries cannot read HyprKwin's state."))
+        for line in reversed(out.splitlines()):
+            if MARKER not in line:
+                continue
+            try:
+                return json.loads(line.split(MARKER, 1)[1])
+            except json.JSONDecodeError as e:
+                last_error = e      # still being written, or cut short
+        time.sleep(0.15)
+    raise SystemExit(die("No answer from HyprKwin%s. Is it running?"
+                         % (" (its state did not come through in one piece)" if last_error else "")))
+
+
+def workspace_rows(state):
+    """One row per monitor: what it shows and how it is laid out."""
+    desktops = state["desktops"]
+    windows = state["windows"]
+    shown = state.get("shown") or {}
+    if shown:
+        pairs = sorted(shown.items())                   # a workspace per monitor
+    else:
+        # One workspace across every monitor, Plasma's own model.
+        outputs = sorted({w["output"] for w in windows.values() if w["output"]})
+        pairs = [(o, state["currentDesktop"]) for o in outputs or ["?"]]
+    rows = []
+    for output, desktop in pairs:
+        space = "%s|%s" % (desktop, output)
+        mine = [wid for wid, w in windows.items()
+                if not w.get("scratchpad") and w.get("space") == space]
+        rows.append({
+            "monitor": output,
+            "workspace": desktops.index(desktop) + 1 if desktop in desktops else 0,
+            "desktop": desktop,
+            "layout": state["layouts"].get(space, {}).get("layout", state["config"]["defaultLayout"]),
+            "windows": len(mine),
+            "active": state["active"] in mine,
+        })
+    return rows
+
+
+def window_rows(state):
+    rows = []
+    for wid, w in state["windows"].items():
+        rows.append({
+            "id": wid, "title": w["caption"], "class": w["class"],
+            "floating": w["floating"], "tiled": w["tiled"],
+            "scratchpad": w.get("scratchpad"), "minimized": w["minimized"],
+            "monitor": w["output"], "geometry": w["geometry"],
+            "focused": wid == state["active"],
+        })
+    return sorted(rows, key=lambda r: (r["monitor"] or "", r["title"]))
+
+
+def table(rows, columns):
+    if not rows:
+        print("(none)")
+        return
+    widths = [max(len(c[0]), max(len(str(c[1](r))) for r in rows)) for c in columns]
+    print("  ".join(c[0].ljust(w) for c, w in zip(columns, widths)).rstrip())
+    for r in rows:
+        print("  ".join(str(c[1](r)).ljust(w) for c, w in zip(columns, widths)).rstrip())
+
+
+def cmd_dispatch(accel, args):
+    if not args:
+        return die("Which action? 'hyprkwinctl actions' lists them.")
+    known = accel.shortcuts()
+    for action in args:
+        if action not in known:
+            return die("No such action: %s (try 'hyprkwinctl actions %s')" % (action, action[:4]))
+        accel.invoke(action)
+    return 0
+
+
+def cmd_actions(accel, args):
+    pattern = args[0].lower() if args else ""
+    rows = [{"action": a, "key": k} for a, k in sorted(accel.shortcuts().items())
+            if pattern in a.lower()]
+    if not rows:
+        return die("No action matches %r." % pattern)
+    table(rows, [("ACTION", lambda r: r["action"]), ("KEY", lambda r: r["key"] or "-")])
+    return 0
+
+
+def cmd_windows(accel, args):
+    rows = window_rows(read_state(accel))
+    if "--json" in args:
+        print(json.dumps(rows, indent=1))
+        return 0
+    table(rows, [
+        ("MONITOR", lambda r: r["monitor"] or "-"),
+        ("STATE", lambda r: ("scratchpad:" + r["scratchpad"]) if r["scratchpad"]
+         else "minimized" if r["minimized"] else "floating" if r["floating"] else "tiled"),
+        ("FOCUS", lambda r: "*" if r["focused"] else ""),
+        ("CLASS", lambda r: r["class"]),
+        ("TITLE", lambda r: r["title"]),
+    ])
+    return 0
+
+
+def cmd_workspaces(accel, args):
+    rows = workspace_rows(read_state(accel))
+    if "--json" in args:
+        print(json.dumps(rows, indent=1))
+        return 0
+    table(rows, [
+        ("MONITOR", lambda r: r["monitor"]),
+        ("WORKSPACE", lambda r: r["workspace"] or "?"),
+        ("LAYOUT", lambda r: r["layout"]),
+        ("WINDOWS", lambda r: r["windows"]),
+        ("FOCUS", lambda r: "*" if r["active"] else ""),
+    ])
+    return 0
+
+
+def cmd_layout(accel, args):
+    layouts = ["dwindle", "master", "monocle", "scrolling"]
+    if args:
+        name = args[0].lower()
+        if name == "next":
+            accel.invoke("cycleLayout")
+            return 0
+        if name not in layouts:
+            return die("Layouts are: %s (or 'next')." % ", ".join(layouts))
+        accel.invoke("layout" + name.capitalize())
+        return 0
+    state = read_state(accel)
+    for row in workspace_rows(state):
+        if row["active"] or len(state["desktops"]) == 1:
+            print(row["layout"])
+            return 0
+    print(state["config"]["defaultLayout"])
+    return 0
+
+
+def cmd_submap(accel, args):
+    if args:
+        name = args[0]
+        if ("submap " + name) not in accel.shortcuts():
+            return die("No submap called %r. They are set in HyprKwin's settings, Submaps tab." % name)
+        accel.invoke("submap " + name)
+        return 0
+    print(read_state(accel).get("submap") or "")
+    return 0
+
+
+def cmd_state(accel, args):
+    print(json.dumps(read_state(accel), indent=1))
+    return 0
+
+
+def main(argv):
+    commands = {"dispatch": cmd_dispatch, "actions": cmd_actions, "windows": cmd_windows,
+                "workspaces": cmd_workspaces, "layout": cmd_layout, "submap": cmd_submap,
+                "state": cmd_state}
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        return 0
+    fn = commands.get(argv[0])
+    if not fn:
+        return die("Unknown command %r. Try 'hyprkwinctl --help'." % argv[0], 2)
+    try:
+        accel = Accel()
+    except ImportError:
+        return die("This needs dbus-python (python-dbus on Arch, python3-dbus elsewhere).")
+    except Exception as e:
+        return die("Cannot reach KDE's shortcut daemon: %s" % e)
+    return fn(accel, argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

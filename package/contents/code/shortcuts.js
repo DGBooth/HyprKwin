@@ -104,3 +104,75 @@ function shortcutList() {
         return { action: s[0], name: "HyprKwin " + s[0], text: "HyprKwin: " + s[1], key: s[2] };
     });
 }
+
+// ---- submaps -----------------------------------------------------------
+//
+// Hyprland's submaps: a key puts the keyboard into a mode where plain keys do
+// something until Escape. One per line, as the settings page keeps them:
+//
+//   resize = Meta+R, Left: resizeLeft, Right: resizeRight
+//
+// The keys inside a submap are only registered while it is active, so they
+// are free for applications the rest of the time. Escape always leaves, and
+// so does the key that entered.
+
+function parseSubmaps(text, actions) {
+    var submaps = [];
+    var errors = [];
+    var seen = {};
+    String(text || "").split(/\r?\n/).forEach(function (raw, lineNo) {
+        var line = raw.trim();
+        if (!line || line.charAt(0) === "#") return;
+        var where = "line " + (lineNo + 1) + ": ";
+        var eq = line.indexOf("=");
+        if (eq < 0) {
+            errors.push(where + "a submap is 'name = key, key: action, ...'");
+            return;
+        }
+        var name = line.slice(0, eq).trim();
+        var parts = line.slice(eq + 1).split(",").map(function (p) { return p.trim(); }).filter(function (p) { return p; });
+        if (!name || !parts.length) {
+            errors.push(where + "a submap needs a name and the key that enters it");
+            return;
+        }
+        if (seen[name]) {
+            errors.push(where + "there is already a submap called '" + name + "'");
+            return;
+        }
+        var entry = parts.shift();
+        if (entry.indexOf(":") >= 0) {
+            errors.push(where + "the key that enters the submap comes first, e.g. " + name + " = Meta+R, Left: resizeLeft");
+            return;
+        }
+        var binds = [];
+        var ok = true;
+        parts.forEach(function (p) {
+            var at = p.indexOf(":");
+            if (at < 0) {
+                errors.push(where + "'" + p + "' should be a key and an action, e.g. Left: resizeLeft");
+                ok = false;
+                return;
+            }
+            var key = p.slice(0, at).trim(), action = p.slice(at + 1).trim();
+            if (!key || !action) {
+                errors.push(where + "'" + p + "' should be a key and an action, e.g. Left: resizeLeft");
+                ok = false;
+                return;
+            }
+            if (actions && actions.indexOf(action) < 0) {
+                errors.push(where + "there is no action called '" + action + "'");
+                ok = false;
+                return;
+            }
+            binds.push({ key: key, action: action });
+        });
+        if (!ok) return;
+        if (!binds.length) {
+            errors.push(where + "submap '" + name + "' has no keys in it");
+            return;
+        }
+        seen[name] = true;
+        submaps.push({ name: name, key: entry, binds: binds });
+    });
+    return { submaps: submaps, errors: errors };
+}

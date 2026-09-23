@@ -173,6 +173,35 @@ Item {
         }
     }
 
+    // Submaps: the keys that enter one are always live, the keys inside it
+    // only while it is active. A shortcut exists exactly as long as its
+    // handler, so a plain key like Left belongs to applications again the
+    // moment the submap ends.
+    property var submapEntries: []
+    property var submapBinds: []
+
+    Instantiator {
+        model: root.submapEntries
+        delegate: ShortcutHandler {
+            required property var modelData
+            name: "HyprKwin submap " + modelData.name
+            text: "HyprKwin: submap " + modelData.name
+            sequence: modelData.key
+            onActivated: root.driver.actions.toggleSubmap(modelData.name)
+        }
+    }
+
+    Instantiator {
+        model: root.submapBinds
+        delegate: ShortcutHandler {
+            required property var modelData
+            name: "HyprKwin submap " + modelData.submap + " " + modelData.key
+            text: "HyprKwin: " + modelData.submap + " submap, " + modelData.key
+            sequence: modelData.key
+            onActivated: root.run(modelData.action)
+        }
+    }
+
     // One overlay set per window, keyed by window id. Pooling them by index
     // would make the border slide across the screen when focus moves to
     // another window; keyed this way a border only ever follows its own
@@ -272,6 +301,7 @@ Item {
             workspace: Workspace,
             engine: Engine,
             rules: Rules,
+            shortcuts: Shortcuts,
             maximizeArea: KWin.MaximizeArea !== undefined ? KWin.MaximizeArea : 2,
             readConfig: (key, fallback) => KWin.readConfig(key, fallback),
             rect: (x, y, w, h) => Qt.rect(x, y, w, h),
@@ -286,6 +316,9 @@ Item {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
+                hideOsd: () => osd.hide(),
+                setSubmaps: (entries) => { root.submapEntries = entries; },
+                setSubmapBinds: (binds) => { root.submapBinds = binds; },
             },
         });
         driver.start();
