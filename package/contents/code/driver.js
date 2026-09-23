@@ -21,6 +21,8 @@ function createDriver(env) {
     var cfg = {};
     var rules = [];
     var ruleErrors = [];
+    var workspaceRules = {};        // workspace number -> rule
+    var ruledSpaces = {};           // spaces whose layout: rule has been applied
     var engine = E.createEngine({});
     var tracked = {};         // id -> state
     var syncing = 0;          // >0 while we mutate KWin state ourselves
@@ -115,6 +117,36 @@ function createDriver(env) {
         return ws.activeScreen || screens()[0] || null;
     }
 
+    // ---- workspace rules ---------------------------------------------------
+
+    function workspaceNumber(d) {
+        var ds = ws.desktops;
+        for (var i = 0; i < ds.length; i++) if (ds[i] === d) return i + 1;
+        return 0;
+    }
+
+    function workspaceRuleFor(d) {
+        return d ? (workspaceRules[workspaceNumber(d)] || null) : null;
+    }
+
+    // The monitor a workspace rule pins this workspace to, if any.
+    function screenForWorkspace(d) {
+        var r = workspaceRuleFor(d);
+        return r && r.monitor ? screenForRule(r.monitor) : null;
+    }
+
+    // The workspace a monitor starts on, from "default:true".
+    function defaultDesktopFor(screen, used) {
+        for (var n in workspaceRules) {
+            var r = workspaceRules[n];
+            if (!r.isDefault) continue;
+            if (r.monitor && screenForRule(r.monitor) !== screen) continue;
+            var d = ws.desktops[r.index - 1];
+            if (d && !used[d.id]) return d;
+        }
+        return null;
+    }
+
     function desktopFor(screen) {
         if (screen && perOutput()) {
             var d = desktopById(shown[screen.name]);
@@ -124,9 +156,14 @@ function createDriver(env) {
     }
 
     // The first workspace nobody is showing, creating one if we may.
-    function freeDesktop(used) {
+    function freeDesktop(used, screen) {
         var ds = ws.desktops;
-        for (var i = 0; i < ds.length; i++) if (!used[ds[i].id]) return ds[i];
+        for (var i = 0; i < ds.length; i++) {
+            if (used[ds[i].id]) continue;
+            var pinned = screen ? screenForWorkspace(ds[i]) : null;
+            if (pinned && pinned !== screen) continue;
+            return ds[i];
+        }
         if (!cfg.autoCreateDesktops) return null;
         ws.createDesktop(ds.length, "");
         ds = ws.desktops;
@@ -156,7 +193,8 @@ function createDriver(env) {
             if (shown[s.name]) return;
             var d = null;
             if (s === focused || !cfg.perOutputWorkspaces || ss.length < 2) d = used[cur.id] ? null : cur;
-            if (!d) d = freeDesktop(used) || cur;
+            if (!d) d = defaultDesktopFor(s, used);
+            if (!d) d = freeDesktop(used, s) || cur;
             shown[s.name] = d.id;
             used[d.id] = true;
         });
@@ -414,12 +452,18 @@ function createDriver(env) {
             scratchpadNames: nameList(rc("ScratchpadNames", "")),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: ruleText(rc("WindowRuleList", ""), rc("WindowRules", "")),
+            workspaceRules: ruleText(rc("WorkspaceRuleList", ""), ""),
             debug: bool(rc("Debug", false), false),
         };
         engine.setConfig(cfg);
         var parsed = R.parseRules(cfg.windowRules + "\n" + R.DEFAULT_RULES.join("\n"));
         rules = parsed.rules;
         ruleErrors = parsed.errors;
+        var spaces = R.parseWorkspaceRules(cfg.workspaceRules);
+        workspaceRules = spaces.rules;
+        // A changed rule applies again, even to a space that has one already.
+        ruledSpaces = {};
+        spaces.errors.forEach(function (e) { ruleErrors.push("workspace rule, " + e); });
         ruleErrors.forEach(function (e) { env.log("HyprKwin rule error: " + e); });
     }
 
@@ -981,6 +1025,18 @@ function createDriver(env) {
         return vis;
     }
 
+    // What a workspace rule says about how this space is laid out. The
+    // layout is set once, so Meta+Shift+J still has the last word afterwards.
+    function applyWorkspaceRule(vs) {
+        var r = workspaceRuleFor(vs.desktop);
+        var gaps = r && (r.gapsIn !== null || r.gapsOut !== null) ? { inner: r.gapsIn, outer: r.gapsOut } : null;
+        engine.setGaps(vs.space, gaps);
+        if (r && r.layout && !ruledSpaces[vs.space]) {
+            ruledSpaces[vs.space] = true;
+            engine.setLayout(vs.space, r.layout);
+        }
+    }
+
     function relayout() {
         if (stopped) return;
         refreshShown();
@@ -988,6 +1044,7 @@ function createDriver(env) {
         engine.setVisibility(visible);
         var bars = [];
         layoutSpaces().forEach(function (vs) {
+            applyWorkspaceRule(vs);
             var L = engine.layout(vs.space, vs.area);
             for (var id in L.windows) {
                 var st = tracked[id];
@@ -1596,10 +1653,11 @@ function createDriver(env) {
             return;
         }
         var screen = focusedScreen();
-        // Hyprland jumps to the monitor a workspace is already up on rather
-        // than pulling it across.
-        var other = screenShowing(d, screen);
+        // Hyprland jumps to the monitor a workspace is already up on, or the
+        // one its rule pins it to, rather than pulling it across.
+        var other = screenForWorkspace(d) || screenShowing(d, screen);
         if (other !== screen) {
+            if (desktopFor(other) !== d) showDesktop(other, d, true);
             focusScreen(other);
             return;
         }
@@ -1665,7 +1723,7 @@ function createDriver(env) {
         if (st.pinned) unpin(st);
         st.desktop = d.id;
         guarded(function () { w.desktops = [d]; });
-        var screen = screenShowing(d, w.output);
+        var screen = screenForWorkspace(d) || screenShowing(d, w.output);
         if (isTiled(st)) {
             engine.moveToSpace(st.id, spaceFor(d, screen), {});
         } else if (shouldTile(st)) {

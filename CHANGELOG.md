@@ -8,6 +8,12 @@
   `workspace special:music, class:^(spotify)$`. Only one is on screen at a
   time, so opening one puts the other away.
 
+- **Workspace rules**, in Hyprland's syntax and managed in the settings page:
+  `workspace = 3, monitor:DP-2, default:true, layout:master, gapsin:0,
+  gapsout:0`. A pinned workspace stays on its monitor — switching to it goes
+  there, and a window sent to it follows — `default:true` chooses what each
+  monitor starts on, and the layout and gaps apply to that workspace alone.
+
 ## 0.9.0
 
 - **The border gradient can turn**, as Hyprland's `borderangle` animation

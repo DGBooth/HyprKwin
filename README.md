@@ -24,6 +24,8 @@ desktops, activities, window rules, KRunner and System Settings.
   `togglegroup` / `moveintogroup` / `changegroupactive`.
 - **Special workspaces (scratchpads)**: `togglespecialworkspace` and
   `movetoworkspace special`, with up to four more you name yourself.
+- **Workspace rules**: pin a workspace to a monitor, say what each monitor
+  starts on, and give a workspace its own layout and gaps.
 - **Focus indicator** you choose: a Hyprland-style coloured border in the gap,
   optionally with rounded corners, following your colour scheme — or Plasma's
   own window decorations, or nothing.
@@ -274,6 +276,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Hide title bars on floating windows too | – | off |
 | Scratchpad margin | – | 40 px |
 | Extra scratchpads | `special:name` workspaces | none |
+| Workspace rules | `workspace = …` | see [Workspace rules](#workspace-rules) |
 | Window rules | `windowrule = …` | see [Window rules](#window-rules) |
 
 Border colours follow the colour scheme by default: the accent colour marks
@@ -494,6 +497,27 @@ tools/hyprkwin-rules.py tile 3      # always tile it
 tools/hyprkwin-rules.py show        # what is set
 tools/hyprkwin-rules.py remove 2    # drop one
 ```
+
+### Workspace rules
+
+Rules for the workspaces themselves, in Hyprland's own syntax, set in the
+settings page's **Workspace rules** tab:
+
+```
+workspace = 3, monitor:DP-2, default:true
+2, layout:master, gapsin:0, gapsout:0
+```
+
+| Property | Does |
+|---|---|
+| `monitor:N` or `monitor:DP-2` | keep that workspace on that monitor: switching to it goes there, and a window sent to it follows |
+| `default:true` | the workspace that monitor starts the session on |
+| `layout:dwindle\|master\|monocle\|scrolling` | the layout it starts with; `Meta+Shift+J` still changes it afterwards |
+| `gapsin:N`, `gapsout:N` | gaps for that workspace alone |
+
+The `workspace = ` prefix is optional, so lines can be pasted straight out of
+a `hyprland.conf`. The first rule for a workspace wins on each property, and a
+rule with something wrong with it is reported rather than guessed at.
 
 ## How it fits into Plasma
 

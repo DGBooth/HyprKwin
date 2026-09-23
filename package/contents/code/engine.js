@@ -304,6 +304,17 @@ function createEngine(userConfig) {
         return p.factor !== before;
     }
 
+    // Gaps a workspace rule set for one space; anything it leaves out falls
+    // back to the global setting.
+    var spaceGaps = {};
+    function gapsFor(space) {
+        var g = spaceGaps[space] || {};
+        return {
+            inner: g.inner === undefined || g.inner === null ? cfg.gapsIn : g.inner,
+            outer: g.outer === undefined || g.outer === null ? cfg.gapsOut : g.outer,
+        };
+    }
+
     function autoDir(r) {
         if (!r) return "h";
         return r.width * cfg.splitWidthMultiplier >= r.height ? "h" : "v";
@@ -313,7 +324,8 @@ function createEngine(userConfig) {
     function computeRects(space) {
         var area = areas[space] || rect(0, 0, 1920, 1080);
         if (!roots[space]) return;
-        arrange(space, shrink(area, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut, cfg.gapsOut));
+        var gOut = gapsFor(space).outer;
+        arrange(space, shrink(area, gOut, gOut, gOut, gOut));
     }
 
     // A subtree is shown if any window in it is visible. Hidden subtrees
@@ -469,6 +481,12 @@ function createEngine(userConfig) {
     }
 
     var api = {
+        // Gaps for one space, from a workspace rule; null goes back to the
+        // global setting.
+        setGaps: function (space, gaps) {
+            if (gaps) spaceGaps[space] = gaps;
+            else delete spaceGaps[space];
+        },
         config: cfg,
 
         setConfig: function (c) {
@@ -562,8 +580,9 @@ function createEngine(userConfig) {
             var all = leaves(root).filter(shown);
             if (!all.length) return result;
             var only = all.length === 1 && cfg.noGapsWhenOnly;
-            var gIn = only ? 0 : cfg.gapsIn;
-            var gOut = only ? 0 : cfg.gapsOut;
+            var g = gapsFor(space);
+            var gIn = only ? 0 : g.inner;
+            var gOut = only ? 0 : g.outer;
             var inner = shrink(area, gOut, gOut, gOut, gOut);
             arrange(space, inner, result.offscreen);
             var eps = 0.5;

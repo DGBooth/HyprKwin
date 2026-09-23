@@ -386,7 +386,7 @@
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
          <property name="text"><string>&lt;p&gt;Rules decide how windows open, written the way &lt;tt&gt;hyprland.conf&lt;/tt&gt; writes them: an action, then what to match, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;size 800 600, floating:1, class:^(pavucontrol)$&lt;/tt&gt;. The first rule that matches wins, so order matters.&lt;/p&gt;
-&lt;p&gt;&lt;b&gt;Actions:&lt;/b&gt; float · tile · pseudo · fullscreen · maximize · pin · group · special · workspace N [silent] · size W H · move X Y · center · monitor N|name · opacity A [I] · noborder · focusonactivate [on|off]&lt;br/&gt;
+&lt;p&gt;&lt;b&gt;Actions:&lt;/b&gt; float · tile · pseudo · fullscreen · maximize · pin · group · special [name] · workspace N [silent] · workspace special:name · size W H · move X Y · center · monitor N|name · opacity A [I] · noborder · focusonactivate [on|off]&lt;br/&gt;
 &lt;b&gt;Match on:&lt;/b&gt; class:… and title:… (regular expressions), floating:1 or floating:0&lt;br/&gt;
 Sizes and positions are pixels or a percentage of the monitor; monitors count from 0, or use a name such as DP-2.&lt;/p&gt;
 &lt;p&gt;&lt;b&gt;Finding an app's class:&lt;/b&gt; in System Settings › Window Management › Window Rules, add a rule and use &lt;i&gt;Detect Window Properties&lt;/i&gt;, then click the window. Rules apply to windows opened after you press Apply.&lt;/p&gt;</string></property>
@@ -394,6 +394,26 @@ Sizes and positions are pixels or a percentage of the monitor; monitors count fr
        </item>
        <item>
         <widget class="KEditListWidget" name="kcfg_WindowRuleList">
+         <property name="kcfg_property" stdset="0"><string>items</string></property>
+         <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="workspaceRulesTab">
+      <attribute name="title"><string>Workspace rules</string></attribute>
+      <layout class="QVBoxLayout" name="workspaceRulesLayout">
+       <item>
+        <widget class="QLabel" name="workspaceRulesHelp">
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="textFormat"><enum>Qt::RichText</enum></property>
+         <property name="text"><string>&lt;p&gt;Rules for the workspaces themselves, written the way &lt;tt&gt;hyprland.conf&lt;/tt&gt; writes them: the workspace number, then what it should do, e.g. &lt;tt&gt;3, monitor:DP-2, default:true&lt;/tt&gt; or &lt;tt&gt;2, layout:master, gapsin:0, gapsout:0&lt;/tt&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Properties:&lt;/b&gt; monitor:N|name pins the workspace to a monitor, so switching to it goes there · default:true makes it the workspace that monitor starts on · layout:dwindle|master|monocle|scrolling · gapsin:N and gapsout:N set its gaps&lt;/p&gt;
+&lt;p&gt;Monitors count from 0, or use a name such as DP-2 (System Settings › Display and Monitor lists them). A layout set here is the one the workspace starts with; Meta+Shift+J still changes it afterwards.&lt;/p&gt;</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="KEditListWidget" name="kcfg_WorkspaceRuleList">
          <property name="kcfg_property" stdset="0"><string>items</string></property>
          <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
         </widget>

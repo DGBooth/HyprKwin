@@ -52,6 +52,7 @@
         <entry name="SlideDivider" type="Bool"><default>true</default></entry>
         <entry name="SpecialMargin" type="Int"><default>40</default></entry>
         <entry name="ScratchpadNames" type="StringList"><default></default></entry>
+        <entry name="WorkspaceRuleList" type="StringList"><default></default></entry>
         <!-- One rule per item. WindowRules (newline-separated text) is the
              older form, still read so existing configs keep working. -->
         <entry name="WindowRuleList" type="StringList"><default></default></entry>

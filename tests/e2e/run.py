@@ -676,6 +676,47 @@ def settings_apply_without_reconfigure(sb):
         raise AssertionError("config reload loop: %d reloads while idle" % (after - before))
 
 
+@test(outputs=2, config={"WorkspaceRuleList": ["2, monitor:1, default:true"]})
+def a_workspace_rule_pins_a_workspace_to_a_monitor(sb):
+    """Hyprland's workspace rules: monitor: sends a workspace to one screen,
+    and default: says what that screen starts on."""
+    s = sb.state()
+    outputs = sorted(s["shown"].keys())
+    eq(s["shown"][outputs[1]], s["desktops"][1], "the second monitor starts on workspace 2")
+    sb.spawn("A")                      # on workspace 1, the first monitor
+    sb.invoke("desktop2")              # switching to 2 crosses to its monitor
+    sb.spawn("B")
+    s = sb.state()
+    eq(sb.window("B", s)["output"], outputs[1], "B opened on the pinned monitor")
+    eq(sb.window("B", s)["workspace"], s["desktops"][1], "on workspace 2")
+    eq(sb.window("A", s)["output"], outputs[0], "A stayed where it was")
+    # And a window sent to workspace 2 goes there too.
+    sb.invoke("desktop1")
+    sb.invoke("moveToDesktop2")
+    s = sb.state()
+    eq(sb.window("A", s)["output"], outputs[1], "A followed its workspace to the other monitor")
+
+
+@test(config={"WorkspaceRuleList": ["1, layout:monocle", "2, gapsin:0, gapsout:0"]})
+def a_workspace_rule_sets_the_layout_and_gaps(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    s = sb.state()
+    eq((sb.geometry("A", s), sb.geometry("B", s)), (FULL, FULL), "workspace 1 is monocle")
+    sb.invoke("desktop2")
+    sb.spawn("C")
+    sb.spawn("D")
+    s = sb.state()
+    eq((sb.geometry("C", s), sb.geometry("D", s)), ((0, 0, 960, 1080), (960, 0, 960, 1080)),
+       "workspace 2 tiles with no gaps")
+    # The layout is where a rule starts it, not where it is nailed down.
+    sb.invoke("desktop1")
+    sb.invoke("cycleLayout")
+    s = sb.state()
+    space = sb.window("A", s)["space"]
+    eq(s["layouts"][space]["layout"], "scrolling", "Meta+Shift+J still has the last word")
+
+
 @test(outputs=2)
 def multi_monitor(sb):
     sb.spawn("A")
