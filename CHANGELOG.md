@@ -8,6 +8,12 @@
   `workspace special:music, class:^(spotify)$`. Only one is on screen at a
   time, so opening one puts the other away.
 
+- **An importer for an existing `hyprland.conf`**
+  (`tools/hyprkwin-import.py`): settings, window rules, workspace rules and
+  binds, following `source =` lines and `$variables`. It shows what it would
+  change and does nothing until `--apply`, and lists everything it could not
+  translate with the line it came from.
+
 - **Closing a window hands the focus to its neighbour** — the other side of
   the split it shared, or the next tab in its group — as Hyprland gives focus
   to whatever grows into the gap. KWin's own choice is the window you used

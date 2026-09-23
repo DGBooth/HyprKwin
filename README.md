@@ -40,6 +40,8 @@ desktops, activities, window rules, KRunner and System Settings.
 - **Animations**: a companion KWin effect slides and stretches windows into
   their new tile, like Hyprland's `animations { windows }`.
 - **Settings page** in System Settings › Window Management › KWin Scripts.
+- **Importer** for an existing `hyprland.conf`: settings, window and
+  workspace rules, and keybindings.
 
 ## Install
 
@@ -73,6 +75,15 @@ is untested). The helper scripts also need `python3` with dbus-python
 
 3. **Log out and back in** once, so KWin picks up the animations effect (it
    only discovers new effects when it starts).
+
+4. **Coming from Hyprland?** Bring your old config across:
+
+   ```bash
+   tools/hyprkwin-import.py            # reads ~/.config/hypr/hyprland.conf
+   tools/hyprkwin-import.py --apply    # and writes the settings it found
+   ```
+
+   See [Importing a hyprland.conf](#importing-a-hyprlandconf).
 
 To remove it again, see [Uninstall](#uninstall).
 
@@ -530,6 +541,30 @@ workspace = 3, monitor:DP-2, default:true
 The `workspace = ` prefix is optional, so lines can be pasted straight out of
 a `hyprland.conf`. The first rule for a workspace wins on each property, and a
 rule with something wrong with it is reported rather than guessed at.
+
+### Importing a hyprland.conf
+
+`tools/hyprkwin-import.py` reads an existing `hyprland.conf`, follows its
+`source =` lines and `$variables`, and translates what HyprKwin has an
+equivalent for:
+
+- `general`, `decoration`, `dwindle`, `master`, `misc` and `input` settings,
+  including `col.active_border` gradients
+- `windowrule` and `windowrulev2` lines (v1's bare regex becomes `class:`)
+- `workspace = ` rules
+- `bind` lines, for every dispatcher HyprKwin has an action for, including
+  named scratchpads, which take the four numbered slots in the order they
+  appear
+
+It prints what it would do and changes nothing until you add `--apply`;
+`--no-settings`, `--no-rules` and `--no-binds` leave a part alone. Binds go
+through KDE's global shortcuts after snapshotting them, so `tools/uninstall.sh`
+still puts your original keys back.
+
+Everything it cannot translate is listed with the line it came from, rather
+than being guessed at: `exec` binds (a KWin script cannot launch programs),
+mouse binds, submaps, and settings such as blur or shadows that belong to
+Plasma's own effects.
 
 ## How it fits into Plasma
 
