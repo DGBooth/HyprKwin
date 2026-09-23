@@ -7,6 +7,12 @@
 
 var SPECIAL = "special";
 
+// Scratchpads are Hyprland's special workspaces. The unnamed one is called
+// "special"; extra ones are named in the settings page. Only one is ever on
+// screen at a time, as in Hyprland.
+function specialSpace(name) { return SPECIAL + ":" + name; }
+function isSpecialSpace(space) { return String(space).indexOf(SPECIAL + ":") === 0; }
+
 function createDriver(env) {
     var ws = env.workspace;
     var E = env.engine;
@@ -18,7 +24,9 @@ function createDriver(env) {
     var engine = E.createEngine({});
     var tracked = {};         // id -> state
     var syncing = 0;          // >0 while we mutate KWin state ourselves
-    var special = { shown: false, screen: null };
+    // name: the scratchpad currently on screen, or null when none is.
+    var special = { name: null, screen: null };
+    function specialShown() { return special.name !== null; }
     var previousDesktop = null;
     var lastAreas = "";
     var drag = null;          // {st, mode, last}
@@ -100,7 +108,7 @@ function createDriver(env) {
         var act = stOf(ws.activeWindow);
         if (act && !act.special) {
             var space = engine.spaceOf(act.id);
-            var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+            var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
             if (p && p.screen) return p.screen;
             if (act.w.output) return act.w.output;
         }
@@ -183,7 +191,7 @@ function createDriver(env) {
                 // that is on its way to another monitor still reports the old
                 // one until the client has caught up.
                 var space = engine.spaceOf(id);
-                var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+                var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
                 var here = desktopFor((p && p.screen) || w.output);
                 if (mine === here && mine !== cur) {
                     if (!w.onAllDesktops) { w.onAllDesktops = true; changed = true; }
@@ -303,6 +311,17 @@ function createDriver(env) {
         return v || fallback;
     }
 
+    // A StringList setting as plain strings, however KWin hands it over.
+    function nameList(list) {
+        var items = [];
+        if (list && typeof list === "object" && list.length !== undefined) {
+            for (var i = 0; i < list.length; i++) items.push(String(list[i]));
+        } else if (list) {
+            items = splitConfigList(String(list));
+        }
+        return items.map(function (n) { return n.trim(); }).filter(function (n) { return n !== ""; });
+    }
+
     // The settings page keeps rules as a list, one per row; configs from
     // before it did kept them as newline-separated text. Both are read.
     function ruleText(list, legacy) {
@@ -390,6 +409,9 @@ function createDriver(env) {
             // slide takes 180ms).
             slideHold: Math.max(0, num(rc("SlideHold", 220), 220)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
+            // Names for the extra scratchpads, in the order their shortcuts
+            // are numbered. Unnamed slots still work, as "scratchpad N".
+            scratchpadNames: nameList(rc("ScratchpadNames", "")),
             resizeStep: num(rc("ResizeStep", 100), 100),
             windowRules: ruleText(rc("WindowRuleList", ""), rc("WindowRules", "")),
             debug: bool(rc("Debug", false), false),
@@ -448,7 +470,7 @@ function createDriver(env) {
     }
 
     function spaceOfWindow(st) {
-        if (st.special) return SPECIAL;
+        if (st.special) return specialSpace(st.special);
         var w = st.w;
         if (!w.output) return null;
         if (perOutput() && !st.pinned) {
@@ -469,7 +491,7 @@ function createDriver(env) {
         if (!st) return false;
         var w = st.w;
         if (w.minimized) return false;
-        if (st.special) return special.shown;
+        if (st.special) return st.special === special.name;
         return onCurrentActivity(w);
     }
 
@@ -540,7 +562,7 @@ function createDriver(env) {
         var id = idOf(w);
         if (tracked[id]) return tracked[id];
         var st = {
-            w: w, id: id, floating: false, pinned: false, special: false, ruleTile: false,
+            w: w, id: id, floating: false, pinned: false, special: null, ruleTile: false,
             natural: { width: w.width, height: w.height }, placed: null, floatGeom: null,
         };
         tracked[id] = st;
@@ -560,8 +582,8 @@ function createDriver(env) {
             }
         }
         if (rule.special) {
-            st.special = true;
-            guarded(function () { w.onAllDesktops = true; if (!special.shown) w.minimized = true; });
+            st.special = String(rule.special);
+            guarded(function () { w.onAllDesktops = true; if (st.special !== special.name) w.minimized = true; });
         }
         if (rule.pin) pin(st, true);
         if (shouldTile(st)) tile(st, initial ? { target: null } : {});
@@ -764,7 +786,7 @@ function createDriver(env) {
     function focusWindow(st) {
         var w = st.w;
         if (st.special) {
-            if (!special.shown) toggleSpecial();
+            if (st.special !== special.name) toggleSpecial(st.special);
             activate(w);
             return;
         }
@@ -772,7 +794,7 @@ function createDriver(env) {
         if (perOutput() && !st.pinned) {
             var d = desktopById(st.desktop);
             var space = engine.spaceOf(st.id);
-            var p = (space && space !== SPECIAL) ? parseSpace(space) : null;
+            var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
             var screen = (p && p.screen) || w.output;
             // Switch before activating, or KWin would move the desktop itself.
             if (d && screen) showDesktop(screen, d, true);
@@ -793,8 +815,8 @@ function createDriver(env) {
 
     function onMinimizedChanged(st) {
         if (syncing) return;
-        if (st.special && !st.w.minimized && !special.shown) {
-            toggleSpecial();
+        if (st.special && !st.w.minimized && st.special !== special.name) {
+            toggleSpecial(st.special);
             return;
         }
         st.placed = null;
@@ -859,7 +881,7 @@ function createDriver(env) {
     // Make a tiled window's Plasma desktop match the space the engine put it in.
     function syncDesktop(st) {
         var space = engine.spaceOf(st.id);
-        if (!space || space === SPECIAL) return;
+        if (!space || isSpecialSpace(space)) return;
         var p = parseSpace(space);
         if (!p.desktop) return;
         st.desktop = p.desktop.id;
@@ -893,11 +915,11 @@ function createDriver(env) {
             if (!d) return;
             out.push({ space: spaceFor(d, s), screen: s, desktop: d, area: workArea(s, d) });
         });
-        if (special.shown) {
+        if (specialShown()) {
             var s = screenByName(special.screen) || ws.activeScreen;
             var a = workArea(s, desktopFor(s)), m = cfg.specialMargin;
             out.push({
-                space: SPECIAL, screen: s, desktop: desktopFor(s),
+                space: specialSpace(special.name), screen: s, desktop: desktopFor(s),
                 area: { x: a.x + m, y: a.y + m, width: Math.max(100, a.width - 2 * m), height: Math.max(100, a.height - 2 * m) },
             });
         }
@@ -951,7 +973,7 @@ function createDriver(env) {
         var seen = {};
         vis.forEach(function (v) { seen[v.space] = true; v.visible = true; });
         engine.spaces().forEach(function (space) {
-            if (seen[space] || space === SPECIAL) return;
+            if (seen[space] || isSpecialSpace(space)) return;
             var p = parseSpace(space);
             if (!p.desktop || !p.screen) return;
             vis.push({ space: space, screen: p.screen, desktop: p.desktop, area: workArea(p.screen, p.desktop), visible: false });
@@ -984,7 +1006,7 @@ function createDriver(env) {
                 });
             }
             if (!vs.visible) return;
-            if (special.shown && vs.space !== SPECIAL) return;
+            if (specialShown() && vs.space !== specialSpace(special.name)) return;
             L.groups.forEach(function (g) {
                 if (!usableRect(g.rect)) {
                     log("skipping group bar", JSON.stringify(g.rect));
@@ -1115,7 +1137,7 @@ function createDriver(env) {
                 }
                 // The scratchpad floats over everything: its windows are the
                 // only ones worth outlining while it is open.
-                if (special.shown && !st.special) return;
+                if (specialShown() && st.special !== special.name) return;
                 // In decoration mode only fill in for windows the decoration
                 // cannot cover, so the two styles never stack.
                 if (decorationMode && isDecorated(w)) return;
@@ -1175,7 +1197,7 @@ function createDriver(env) {
         for (var id in tracked) {
             var st = tracked[id], w = st.w;
             if (w.minimized || !onCurrentActivity(w) || !onVisibleDesktop(w)) continue;
-            if (st.special && !special.shown) continue;
+            if (st.special && st.special !== special.name) continue;
             var g = engine.groupOf(id);
             if (g && g.wins[g.active] !== id) continue;
             out.push(st);
@@ -1663,9 +1685,13 @@ function createDriver(env) {
         relayout();
     }
 
-    function toggleSpecial() {
-        special.shown = !special.shown;
-        if (special.shown) special.screen = ws.activeScreen ? ws.activeScreen.name : null;
+    // Show the named scratchpad, or put it away when it is already on screen.
+    // Opening one closes whichever was open, the way Hyprland only ever has
+    // one special workspace on screen.
+    function toggleSpecial(name) {
+        name = name || SPECIAL;
+        special.name = special.name === name ? null : name;
+        if (specialShown()) special.screen = ws.activeScreen ? ws.activeScreen.name : null;
         var screen = screenByName(special.screen) || ws.activeScreen;
         var first = null;
         guarded(function () {
@@ -1673,7 +1699,7 @@ function createDriver(env) {
                 var st = tracked[id];
                 if (!st.special) continue;
                 var w = st.w;
-                if (special.shown) {
+                if (st.special === special.name) {
                     w.minimized = false;
                     w.keepAbove = true;
                     if (!isTiled(st) && screen && w.output !== screen) ws.sendClientToScreen(w, screen);
@@ -1682,32 +1708,36 @@ function createDriver(env) {
                 }
             }
         });
-        if (special.shown) {
-            var last = engine.lastFocused(SPECIAL);
+        if (specialShown()) {
+            var last = engine.lastFocused(specialSpace(special.name));
             first = last ? tracked[last] : null;
-            if (!first) for (var id in tracked) if (tracked[id].special) { first = tracked[id]; break; }
+            if (!first) {
+                for (var id in tracked) {
+                    if (tracked[id].special === special.name) { first = tracked[id]; break; }
+                }
+            }
             if (first) activate(first.w);
         }
         relayout();
     }
 
-    function enterSpecial(st) {
+    function enterSpecial(st, name) {
         var w = st.w;
         if (st.pinned) unpin(st);
-        st.special = true;
+        st.special = name || SPECIAL;
         guarded(function () {
             st.prevKeepAbove = w.keepAbove;
             w.onAllDesktops = true;
-            if (special.shown) w.keepAbove = true;
+            if (st.special === special.name) w.keepAbove = true;
             else w.minimized = true;
         });
-        if (isTiled(st)) engine.moveToSpace(st.id, SPECIAL, {});
+        if (isTiled(st)) engine.moveToSpace(st.id, specialSpace(st.special), {});
         else if (shouldTile(st)) tile(st);
     }
 
     function leaveSpecial(st, keepDesktop) {
         var w = st.w;
-        st.special = false;
+        st.special = null;
         var screen = ws.activeScreen || w.output;
         guarded(function () {
             if (!keepDesktop || w.onAllDesktops) {
@@ -1720,11 +1750,23 @@ function createDriver(env) {
         if (isTiled(st)) engine.moveToSpace(st.id, spaceFor(w.desktops[0] || desktopFor(screen), screen), {});
     }
 
-    function toggleActiveSpecial() {
+    // Slot 1 is the first name in the settings page; a slot with no name
+    // still has a scratchpad of its own.
+    function scratchpadName(slot) {
+        return cfg.scratchpadNames[slot - 1] || ("scratchpad " + slot);
+    }
+
+    // Stash the focused window in a scratchpad, or take it out again. A
+    // window already in another scratchpad moves to this one.
+    function toggleActiveSpecial(name) {
         var st = active();
         if (!st) return;
-        if (st.special) leaveSpecial(st, false);
-        else enterSpecial(st);
+        name = name || SPECIAL;
+        if (st.special === name) leaveSpecial(st, false);
+        else {
+            if (st.special) leaveSpecial(st, false);
+            enterSpecial(st, name);
+        }
         relayout();
     }
 
@@ -1825,8 +1867,8 @@ function createDriver(env) {
         nextDesktop: function () { cycleDesktop(1); },
         previousDesktop: function () { cycleDesktop(-1); },
         formerDesktop: goFormerDesktop,
-        toggleSpecial: toggleSpecial,
-        moveToSpecial: toggleActiveSpecial,
+        toggleSpecial: function () { toggleSpecial(SPECIAL); },
+        moveToSpecial: function () { toggleActiveSpecial(SPECIAL); },
         workspaceToMonitorLeft: function () { moveWorkspaceToMonitor("left"); },
         workspaceToMonitorRight: function () { moveWorkspaceToMonitor("right"); },
         workspaceToMonitorUp: function () { moveWorkspaceToMonitor("up"); },
@@ -1883,6 +1925,12 @@ function createDriver(env) {
             actions["moveToDesktopSilent" + i] = function () { moveToDesktop(i, false); };
             if (i <= 5) actions["groupWindow" + i] = function () { groupAction(function (st) { return engine.groupSelect(st.id, i - 1); }); };
         })(n);
+    }
+    for (var k = 1; k <= 4; k++) {
+        (function (slot) {
+            actions["toggleScratchpad" + slot] = function () { toggleSpecial(scratchpadName(slot)); };
+            actions["moveToScratchpad" + slot] = function () { toggleActiveSpecial(scratchpadName(slot)); };
+        })(k);
     }
 
     function intoGroup(dir) {
@@ -2067,7 +2115,7 @@ function createDriver(env) {
         state: function () {
             var act = stOf(ws.activeWindow);
             var out = {
-                special: special.shown, spaces: {}, windows: {}, active: act ? act.id : null,
+                special: specialShown(), scratchpad: special.name, spaces: {}, windows: {}, active: act ? act.id : null,
                 desktops: ws.desktops.map(function (d) { return d.id; }), currentDesktop: ws.currentDesktop.id,
                 groupBars: groupBars.map(function (b) { return { id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, tabs: b.tabs.map(function (t) { return t.id; }) }; }),
                 ruleErrors: ruleErrors.slice(),
@@ -2090,7 +2138,7 @@ function createDriver(env) {
             for (var id in tracked) {
                 var st = tracked[id], g = st.w.frameGeometry;
                 out.windows[id] = {
-                    caption: String(st.w.caption), "class": String(st.w.resourceClass), tiled: isTiled(st), floating: st.floating, special: st.special,
+                    caption: String(st.w.caption), "class": String(st.w.resourceClass), tiled: isTiled(st), floating: st.floating, special: !!st.special, scratchpad: st.special || null,
                     pinned: st.pinned, space: engine.spaceOf(id), geometry: { x: g.x, y: g.y, width: g.width, height: g.height },
                     minimized: st.w.minimized, noBorder: st.w.noBorder, keepAbove: st.w.keepAbove,
                     demandsAttention: !!st.w.demandsAttention, opacity: st.w.opacity,

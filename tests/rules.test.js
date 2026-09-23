@@ -1,7 +1,7 @@
 import { assertEquals } from "./assert.js";
 
 const src = Deno.readTextFileSync(new URL("../package/contents/code/rules.js", import.meta.url));
-const R = new Function(src + "\nreturn { parseRules, matchRules, DEFAULT_RULES };")();
+const R = new Function(src + "\nreturn { parseRules, matchRules, parseWorkspaceRules, DEFAULT_RULES };")();
 
 Deno.test("parses hyprland windowrule lines", () => {
     const { rules, errors } = R.parseRules(`
@@ -85,4 +85,29 @@ Deno.test("bad arguments are reported, not guessed", () => {
     ].join("\n"));
     assertEquals(rules.length, 0);
     assertEquals(errors.length, 7);
+});
+
+Deno.test("workspace rules pin a workspace to a monitor", () => {
+    const { rules, errors } = R.parseWorkspaceRules("workspace = 3, monitor:DP-2, default:true");
+    assertEquals(errors, []);
+    assertEquals(rules[3].monitor, "DP-2");
+    assertEquals(rules[3].isDefault, true);
+});
+
+Deno.test("workspace rules carry a layout and gaps", () => {
+    const { rules, errors } = R.parseWorkspaceRules("2, layout:master, gapsin:0, gaps_out:4\n# a comment");
+    assertEquals(errors, []);
+    assertEquals([rules[2].layout, rules[2].gapsIn, rules[2].gapsOut], ["master", 0, 4]);
+});
+
+Deno.test("several lines for one workspace merge, first wins", () => {
+    const { rules } = R.parseWorkspaceRules("1, layout:master\n1, layout:monocle, gapsin:2");
+    assertEquals([rules[1].layout, rules[1].gapsIn], ["master", 2]);
+});
+
+Deno.test("a workspace rule says what is wrong with it", () => {
+    const bad = R.parseWorkspaceRules("monitor:DP-2\n2, layout:spiral\n3, colour:red");
+    assertEquals(bad.errors.length, 3);
+    assertEquals(bad.errors[1].includes("layout:"), true);
+    assertEquals(Object.keys(bad.rules), []);
 });

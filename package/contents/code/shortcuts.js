@@ -87,6 +87,12 @@ function shortcutList() {
         ["retile", "Reload configuration and retile", ""],
         ["dumpState", "Log internal state (debug)", ""],
     ];
+    // Extra scratchpads, named in HyprKwin's settings. Unbound by default:
+    // Hyprland users pick their own keys for these.
+    for (var n = 1; n <= 4; n++) {
+        list.push(["toggleScratchpad" + n, "Toggle scratchpad " + n + " (named in HyprKwin settings)", ""]);
+        list.push(["moveToScratchpad" + n, "Move window to/from scratchpad " + n, ""]);
+    }
     for (var i = 1; i <= 10; i++) {
         var key = String(i % 10);
         list.push(["desktop" + i, "Switch to workspace " + i, "Meta+" + key]);

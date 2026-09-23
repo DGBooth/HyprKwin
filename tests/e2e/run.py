@@ -116,7 +116,7 @@ def toggle_split_and_resize(sb):
 
 def layout_of(sb, s=None):
     s = s or sb.state()
-    spaces = [v for k, v in s["layouts"].items() if k != "special"]
+    spaces = [v for k, v in s["layouts"].items() if not k.startswith("special")]
     return spaces[0] if len(spaces) == 1 else {k: v for k, v in s["layouts"].items()}
 
 
@@ -491,6 +491,46 @@ def special_workspace(sb):
     c = sb.window("C", s)
     eq((c["special"], c["keepAbove"], c["onAllDesktops"], c["minimized"]), (False, False, False, False), "C restored")
     eq(sb.geometry("C", s), C3, "C tiled again")
+
+
+@test(config={"ScratchpadNames": ["music", "notes"]})
+def scratchpads_can_be_named(sb):
+    """Hyprland's named special workspaces: several scratchpads, each with its
+    own windows, and only one on screen at a time."""
+    three(sb)
+    sb.invoke("moveToScratchpad2")          # C into "notes"
+    sb.invoke("moveToScratchpad1")          # and B, which the focus falls to, into "music"
+    s = sb.state()
+    eq((sb.window("B", s)["scratchpad"], sb.window("C", s)["scratchpad"]), ("music", "notes"), "one each")
+    eq(sb.geometry("A", s), FULL, "A has the workspace to itself")
+    sb.invoke("toggleScratchpad1")
+    s = sb.state()
+    eq(s["scratchpad"], "music", "music is up")
+    eq((sb.window("B", s)["minimized"], sb.window("C", s)["minimized"]), (False, True), "only its own window")
+    # Opening another puts the first one away, as in Hyprland.
+    sb.invoke("toggleScratchpad2")
+    s = sb.state()
+    eq(s["scratchpad"], "notes", "notes replaced it")
+    eq((sb.window("B", s)["minimized"], sb.window("C", s)["minimized"]), (True, False), "they swapped over")
+    sb.invoke("toggleScratchpad2")
+    s = sb.state()
+    eq((s["scratchpad"], s["special"]), (None, False), "and away again")
+    eq(sb.geometry("A", s), FULL, "A still has the workspace")
+
+
+@test(config={"ScratchpadNames": ["music"],
+              "WindowRuleList": ["workspace special:music, title:^B$"]})
+def a_rule_can_name_a_scratchpad(sb):
+    """Hyprland writes these as "workspace special:name"."""
+    sb.spawn("A")
+    sb.spawn("B")
+    s = sb.state()
+    b = sb.window("B", s)
+    eq((b["scratchpad"], b["minimized"]), ("music", True), "B waits in the music scratchpad")
+    eq(sb.geometry("A", s), FULL, "A fills the workspace")
+    sb.invoke("toggleScratchpad1")
+    s = sb.state()
+    eq((s["scratchpad"], sb.window("B", s)["minimized"]), ("music", False), "the key for slot 1 opens it")
 
 
 @test(config={"BorderSize": 4})

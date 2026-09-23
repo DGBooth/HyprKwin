@@ -6,7 +6,8 @@
 //   fullscreen, class:^(steam_app_.*)$
 //
 // Supported actions: float, tile, pseudo, fullscreen, maximize, group,
-// special, pin, workspace <n> [silent], focusonactivate [on|off],
+// special [name], pin, workspace <n> [silent], workspace special[:name],
+// focusonactivate [on|off],
 // size <w> <h>, move <x> <y>, center, monitor <n|name>, opacity <a> [<i>],
 // noborder. Sizes and positions are pixels or a percentage of the monitor.
 // Supported matchers: class, title (initialClass / initialTitle are accepted
@@ -120,7 +121,8 @@ function parseRules(text) {
 }
 
 // Returns the effective rule set for a window:
-// {float: bool|undefined, pseudo, fullscreen, maximize, group, special, pin,
+// {float: bool|undefined, pseudo, fullscreen, maximize, group, pin,
+//  special: scratchpad name|undefined,
 //  workspace: {index, silent}|undefined, focusonactivate: bool|undefined,
 //  size: {width, height}, move: {x, y} (each a {value, percent} length),
 //  center, monitor: string, opacity: {active, inactive}, noborder}
@@ -141,11 +143,21 @@ function matchRules(rules, win) {
         case "tile":
             if (out.float === undefined) out.float = r.action === "float";
             break;
-        case "workspace":
+        case "workspace": {
+            // Hyprland writes a scratchpad as "workspace special:magic".
+            var sp = /^special(?::(.*))?$/i.exec(r.args[0] || "");
+            if (sp) {
+                if (out.special === undefined) out.special = sp[1] || "special";
+                break;
+            }
             if (out.workspace === undefined) {
                 var n = parseInt(r.args[0], 10);
                 if (n > 0) out.workspace = { index: n, silent: r.args[1] === "silent" };
             }
+            break;
+        }
+        case "special":
+            if (out.special === undefined) out.special = String(r.args[0] || "special");
             break;
         case "focusonactivate":
             if (out.focusonactivate === undefined) out.focusonactivate = !/^(off|0|false|no)$/i.test(r.args[0] || "");
@@ -170,4 +182,77 @@ function matchRules(rules, win) {
         }
     }
     return out;
+}
+
+// ---- workspace rules ---------------------------------------------------
+//
+// Hyprland's workspace rules, one per line:
+//
+//   workspace = 3, monitor:DP-2, default:true, layout:master
+//   2, monitor:1, gapsin:0, gapsout:0
+//
+// Supported properties: monitor:<n|name> pins the workspace to a monitor,
+// default:true makes it the one that monitor starts on, layout:<name> gives
+// it a layout, and gapsin/gapsout set its gaps. Lines starting with '#' are
+// comments; the first rule for a workspace wins on each property.
+
+var WORKSPACE_LAYOUTS = ["dwindle", "master", "monocle", "scrolling"];
+
+function parseWorkspaceRules(text) {
+    var rules = {};
+    var errors = [];
+    String(text || "").split(/\r?\n/).forEach(function (raw, lineNo) {
+        var line = raw.trim();
+        if (!line || line.charAt(0) === "#") return;
+        line = line.replace(/^workspace\s*=\s*/i, "");
+        var parts = line.split(",").map(function (p) { return p.trim(); }).filter(function (p) { return p !== ""; });
+        var where = "line " + (lineNo + 1) + ": ";
+        var index = parseInt(parts.shift(), 10);
+        if (!(index > 0)) {
+            errors.push(where + "a workspace rule starts with a workspace number, e.g. workspace = 3, monitor:DP-2");
+            return;
+        }
+        var rule = rules[index] || { index: index, monitor: null, isDefault: false, layout: null, gapsIn: null, gapsOut: null };
+        var ok = true;
+        parts.forEach(function (p) {
+            var m = /^([A-Za-z_]+)\s*:\s*(.*)$/.exec(p);
+            if (!m) {
+                errors.push(where + "'" + p + "' is not a property, e.g. monitor:DP-2");
+                ok = false;
+                return;
+            }
+            var key = m[1].toLowerCase().replace(/_/g, ""), value = m[2].trim();
+            switch (key) {
+            case "monitor":
+                if (!value) { errors.push(where + "monitor: needs a number or a name, e.g. monitor:DP-2"); ok = false; return; }
+                if (rule.monitor === null) rule.monitor = value;
+                break;
+            case "default":
+                if (!/^(1|0|true|false|yes|no)$/i.test(value)) { errors.push(where + "default: takes true or false"); ok = false; return; }
+                rule.isDefault = rule.isDefault || /^(1|true|yes)$/i.test(value);
+                break;
+            case "layout":
+                if (WORKSPACE_LAYOUTS.indexOf(value.toLowerCase()) < 0) {
+                    errors.push(where + "layout: is one of " + WORKSPACE_LAYOUTS.join(", "));
+                    ok = false;
+                    return;
+                }
+                if (rule.layout === null) rule.layout = value.toLowerCase();
+                break;
+            case "gapsin":
+            case "gapsout": {
+                var n = parseInt(value, 10);
+                if (!(n >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
+                var field = key === "gapsin" ? "gapsIn" : "gapsOut";
+                if (rule[field] === null) rule[field] = n;
+                break;
+            }
+            default:
+                errors.push(where + "unknown property '" + m[1] + "'");
+                ok = false;
+            }
+        });
+        if (ok) rules[index] = rule;
+    });
+    return { rules: rules, errors: errors };
 }

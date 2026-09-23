@@ -22,8 +22,8 @@ desktops, activities, window rules, KRunner and System Settings.
   switcher keep working.
 - **Groups (tabbed windows)** with a clickable tab bar, like Hyprland's
   `togglegroup` / `moveintogroup` / `changegroupactive`.
-- **Special workspace (scratchpad)**: `togglespecialworkspace` and
-  `movetoworkspace special`.
+- **Special workspaces (scratchpads)**: `togglespecialworkspace` and
+  `movetoworkspace special`, with up to four more you name yourself.
 - **Focus indicator** you choose: a Hyprland-style coloured border in the gap,
   optionally with rounded corners, following your colour scheme — or Plasma's
   own window decorations, or nothing.
@@ -180,6 +180,7 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | `Meta+Ctrl+Tab` | Former workspace |
 | `Meta+S` | Toggle scratchpad |
 | `Meta+Alt+S` | Move window to / from scratchpad |
+| unbound | Toggle named scratchpad 1–4, and move a window to / from it |
 | `Meta+Ctrl+Shift+Left` / `Right` / `Up` / `Down` | Move window to the monitor in that direction |
 | `Meta+Shift+Alt+Left` / `Right` / `Up` / `Down` | Swap this monitor's workspace with that one's |
 | `Ctrl+Alt+Tab` / `Ctrl+Alt+Shift+Tab` | Focus next / previous monitor |
@@ -272,6 +273,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Tile dialogs and utility windows | `windowrule = tile, …` per app | off |
 | Hide title bars on floating windows too | – | off |
 | Scratchpad margin | – | 40 px |
+| Extra scratchpads | `special:name` workspaces | none |
 | Window rules | `windowrule = …` | see [Window rules](#window-rules) |
 
 Border colours follow the colour scheme by default: the accent colour marks
@@ -364,6 +366,25 @@ on screen naming what it changed to, in the manner of Plasma's own on-screen
 display, framed in the focus border's colours. Turn it off with "Show a
 message when the layout or split changes".
 
+### Scratchpads
+
+`Meta+S` shows and hides the scratchpad, and `Meta+Alt+S` puts the focused
+window into it or takes it back out — Hyprland's `togglespecialworkspace` and
+`movetoworkspace special`.
+
+For more than one, name them in the settings page under **Extra scratchpads**:
+the first name is scratchpad 1, the second scratchpad 2, and so on, up to
+four. Their keys are unbound by default — set them in System Settings >
+Keyboard > Shortcuts > KWin, under "HyprKwin: Toggle scratchpad 1". A window
+goes into one with the matching move key, or with a rule:
+
+```
+workspace special:music, class:^(spotify)$
+```
+
+Only one scratchpad is on screen at a time, as in Hyprland: opening one puts
+the other away.
+
 ### Focus indicator
 
 KWin can only switch a window's *whole* decoration on or off (`noBorder`);
@@ -444,7 +465,8 @@ tile, class:^(steam)$, title:^Steam$
 |---|---|
 | `float` / `tile` | never / always tile the window |
 | `pseudo`, `fullscreen`, `maximize`, `pin`, `group` | open it that way |
-| `special` | send it to the scratchpad |
+| `special [name]` | send it to the scratchpad, or to a named one |
+| `workspace special:name` | the same, in Hyprland's own spelling |
 | `workspace N [silent]` | open it on workspace N (and stay where you are with `silent`) |
 | `size W H`, `move X Y`, `center` | place a floating window; pixels or a percentage of the monitor |
 | `monitor N` or `monitor DP-2` | open it on that monitor (counting from 0, as in Hyprland) |

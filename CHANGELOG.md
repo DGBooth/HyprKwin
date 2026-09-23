@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Named scratchpads**, as in Hyprland's special workspaces. The one on
+  `Meta+S` is joined by up to four more, named in the settings page and
+  reached with their own shortcuts (unbound by default) or a rule such as
+  `workspace special:music, class:^(spotify)$`. Only one is on screen at a
+  time, so opening one puts the other away.
+
 ## 0.9.0
 
 - **The border gradient can turn**, as Hyprland's `borderangle` animation
