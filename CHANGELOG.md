@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
 
 - **Named scratchpads**, as in Hyprland's special workspaces. The one on
   `Meta+S` is joined by up to four more, named in the settings page and
