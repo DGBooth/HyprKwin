@@ -15,7 +15,7 @@ README update and a changelog entry.
 | Scrolling layout, turning border gradient (`borderangle`) | 0.9 |
 | Named scratchpads, workspace rules, focus to the neighbour on close | 0.10 |
 | `hyprland.conf` importer, submaps, `hyprkwinctl` | 0.10 |
-| The pointer follows keyboard focus; zoom (first version); layouts survive logging out; Plasma's own per-screen desktops; zoom icons and Escape; packages and the key check for the store | next release |
+| The pointer follows keyboard focus; zoom (first version); layouts survive logging out; Plasma's own per-screen desktops; zoom icons and Escape; packages and the key check for the store | 0.11 |
 
 Rounded window corners were tried and dropped: every shader applied from a
 scripted effect rendered the window black. The README points to Shape

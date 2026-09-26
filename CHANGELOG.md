@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
 - **Zoom**, after Trellis's fractal workspaces: `Meta+Z` zooms in towards the
   focused window a level of the dwindle layout at a time, so that part fills
   the workspace while the rest waits off screen, and `Meta+Shift+Z` zooms
-  back out. A first version: see the roadmap for what comes next.
+  back out. Tiles too small to use show their app's icon, and clicking one
+  zooms in until the window is big enough; optionally, Escape zooms back out
+  while a zoom lasts.
 - **The pointer follows keyboard focus**, as in Hyprland: after Meta+arrow, a
   monitor switch, focusing the master, cycling or sending a window to another
   monitor, the pointer moves to the focused window — through KWin's own "Move
@@ -20,9 +22,6 @@
   KWin shows each monitor's workspace itself instead of HyprKwin putting
   windows on all desktops, so the pager and Overview agree, and a switch made
   in the pager is followed. Off, nothing changes.
-- **Zoom, continued**: tiles too small to use show their app's icon, and
-  clicking one zooms in until the window is big enough; optionally, Escape
-  zooms back out while a zoom lasts.
 - **Installable without cloning**: every release carries a `.kwinscript` for
   System Settings' "Install from File…" and a `.kwineffect` for the
   animations (`tools/package.sh` builds them). Installed that way, nothing
