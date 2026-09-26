@@ -371,7 +371,11 @@ function createDriver(env) {
                 var space = engine.spaceOf(id);
                 var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
                 var here = desktopFor((p && p.screen) || w.output);
-                if (mine === here && mine !== cur) {
+                // On show on its monitor: on all desktops, even when it is on
+                // Plasma's current one, so that focus crossing to another
+                // monitor (which moves the current desktop) slides nothing.
+                // A real switch on this monitor unpins first (releaseShown).
+                if (mine === here) {
                     if (!w.onAllDesktops) { w.onAllDesktops = true; changed = true; }
                     st.autoPinned = true;
                     continue;
@@ -393,6 +397,29 @@ function createDriver(env) {
         // A window only takes a new size once KWin is actually showing it, so
         // lay out again on the next tick.
         if (changed) schedule();
+    }
+
+    // Before a workspace switch on one monitor in the emulation: its windows,
+    // on all desktops while on show, go back on their own workspace. They are
+    // on the current desktop, so nothing changes on screen, and the switch
+    // then slides them out as Plasma would.
+    function releaseShown(screen) {
+        if (!screen) return;
+        var cur = ws.currentDesktop;
+        guarded(function () {
+            for (var id in tracked) {
+                var st = tracked[id], w = st.w;
+                if (!st.autoPinned || st.special || st.pinned) continue;
+                var space = engine.spaceOf(id);
+                var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
+                if (((p && p.screen) || w.output) !== screen) continue;
+                var mine = desktopById(st.desktop);
+                if (mine !== cur) continue;
+                st.autoPinned = false;
+                w.onAllDesktops = false;
+                w.desktops = [mine];
+            }
+        });
     }
 
     // A monitor went away (or the setting was turned off): windows we had
@@ -2007,6 +2034,7 @@ function createDriver(env) {
         }
         if (native()) pushDesktop(screen, d);
         else if ((focus || screen === focusedScreen()) && d !== ws.currentDesktop) {
+            releaseShown(screen);
             guarded(function () { ws.currentDesktop = d; });
         }
         relayout();

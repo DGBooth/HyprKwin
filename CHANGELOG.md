@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Clicking a window on another monitor played Plasma's desktop-switch
+  animation, sliding the windows on the monitor you left. Without Plasma
+  6.7's per-screen desktops, Plasma has one current desktop, which follows
+  the monitor you are on; the windows on show on each monitor are now kept on
+  all desktops, so nothing moves when it changes. A workspace switch on a
+  monitor still slides that monitor's windows as before.
+
 ## 0.11.1
 
 ### Fixed

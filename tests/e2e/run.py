@@ -2275,6 +2275,57 @@ def focus_across_monitors_carries_the_workspace(sb):
 
 
 @test(outputs=2)
+def focus_crossing_monitors_slides_nothing(sb):
+    """Emulated, Plasma's one current desktop follows the focused monitor, and
+    its desktop-switch animation slides whatever is not on all desktops. So
+    every window on show is already on all of them when focus crosses, and
+    only a real switch on a monitor lets that monitor's windows slide out."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")      # B to the second monitor (workspace 2)
+    s = sb.state()
+    if s["nativeDesktops"]:
+        return                              # KWin switches per screen itself
+    probe = sb.base / "switchprobe.qml"
+    probe.write_text("""import QtQuick
+import org.kde.kwin
+Item {
+    Connections {
+        target: Workspace
+        function onCurrentDesktopChanged() {
+            for (const w of Workspace.windows) if (w.caption === "A" || w.caption === "B")
+                console.warn("SWITCHPROBE", Workspace.currentDesktop.x11DesktopNumber, w.caption, w.onAllDesktops);
+        }
+    }
+}
+""")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadDeclarativeScript", str(probe), "switchprobe")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
+    time.sleep(0.5)
+
+    seen = [0]
+
+    def switches(to):
+        """How each window stood as Plasma's desktop became `to`. KWin can
+        also signal once while the old desktop is still current; those
+        lines carry the old number and are left out."""
+        lines = [l.split("SWITCHPROBE ", 1)[1] for l in sb.log_path.read_text().splitlines() if "SWITCHPROBE" in l]
+        new, seen[0] = lines[seen[0]:], len(lines)
+        return sorted(set(l.split(" ", 1)[1] for l in new if l.split(" ", 1)[0] == str(to)))
+
+    switches(0)
+    sb.invoke("focusLeft")                 # onto A: Plasma's desktop 2 -> 1
+    eq(sb.state()["currentDesktop"], s["desktops"][0], "the current desktop followed the focus")
+    eq(switches(1), ["A true", "B true"], "both monitors' windows stayed put through the switch")
+
+    sb.invoke("desktop3")                  # a real switch on A's monitor
+    s = sb.state()
+    eq(s["currentDesktop"], s["desktops"][2], "switched")
+    eq(switches(3), ["A false", "B true"], "A slides out with its workspace; B stays")
+    eq(sb.window("A", s)["onAllDesktops"], False, "A is hidden on workspace 1")
+
+
+@test(outputs=2)
 def workspaces_trade_places_between_monitors(sb):
     """movecurrentworkspacetomonitor: the two monitors swap workspaces."""
     sb.spawn("A")
