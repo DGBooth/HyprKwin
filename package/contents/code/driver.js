@@ -1385,7 +1385,7 @@ function createDriver(env) {
             return;
         }
         var from = st ? copyRect(st.w.frameGeometry) : { x: ws.cursorPos.x, y: ws.cursorPos.y, width: 1, height: 1 };
-        var cands = visibleWindows().filter(function (c) { return c !== st; })
+        var cands = visibleWindows().filter(function (c) { return c !== st && onSomeScreen(copyRect(c.w.frameGeometry)); })
             .map(function (c) { return { id: c.id, rect: copyRect(c.w.frameGeometry) }; });
         var id = E.pickInDirection(from, cands, dir, engine.focusHistory());
         if (id) activate(tracked[id].w);
@@ -1642,6 +1642,12 @@ function createDriver(env) {
         log("layout", space, "->", mode);
         announce(LAYOUT_LABELS[mode] || mode);
         relayout();
+    }
+
+    // How much of the workspace a zoom leaves on screen.
+    function announceZoom(space) {
+        var z = engine.zoomInfo(space);
+        announce(z ? "Zoom: " + z.shown + " of " + z.total : "Zoomed out");
     }
 
     function masterAction(fn) {
@@ -2115,6 +2121,18 @@ function createDriver(env) {
         masterOrientationPrevious: function () {
             masterAction(function (space) { log("master area", engine.cycleMasterOrientation(space, -1)); });
         },
+        zoomIn: function () {
+            var st = active();
+            if (!st || !isTiled(st) || !engine.zoomIn(st.id)) return;
+            announceZoom(engine.spaceOf(st.id));
+            relayout();
+        },
+        zoomOut: function () {
+            var space = currentSpace();
+            if (!space || !engine.zoomOut(space)) return;
+            announceZoom(space);
+            relayout();
+        },
         cycleNext: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, 1)); },
         cyclePrevious: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, -1)); },
         retile: function () { reloadConfig(); },
@@ -2240,6 +2258,10 @@ function createDriver(env) {
                     lastActivation = Date.now();
                 }
                 var before = engine.groupOf(st.id);
+                if (!engine.inZoom(st.id)) {
+                    engine.zoomReset(engine.spaceOf(st.id));
+                    schedule();
+                }
                 engine.focused(st.id);
                 // A strip of columns is laid out around the focused one, so
                 // moving the focus scrolls it.
@@ -2361,7 +2383,7 @@ function createDriver(env) {
                     engine.spaces().forEach(function (space) {
                         var p = engine.masterParams(space);
                         out[space] = { layout: engine.layoutOf(space), factor: Math.round(p.factor * 1000) / 1000,
-                                       masters: p.count, orientation: p.orientation };
+                                       masters: p.count, orientation: p.orientation, zoom: engine.zoomInfo(space) };
                     });
                     return out;
                 })(),

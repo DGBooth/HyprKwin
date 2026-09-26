@@ -70,6 +70,8 @@ function shortcutList() {
         ["masterCountDecrease", "One fewer master window", "Meta+<"],
         ["masterOrientationNext", "Move the master area round", "Meta+Alt+M"],
         ["masterOrientationPrevious", "Move the master area back", ""],
+        ["zoomIn", "Zoom in towards the focused window", "Meta+Z"],
+        ["zoomOut", "Zoom back out", "Meta+Shift+Z"],
         ["cycleNext", "Focus next window in the layout", ""],
         ["cyclePrevious", "Focus previous window in the layout", ""],
 

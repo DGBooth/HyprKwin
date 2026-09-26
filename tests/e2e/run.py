@@ -833,6 +833,44 @@ def upgrading_with_install_sh_keeps_the_workspace_and_leaves_no_marker(sb):
 
 
 @test
+def zooming_into_part_of_the_layout(sb):
+    """After Trellis: Meta+Z zooms towards the focused window one level at a
+    time, the rest of the workspace waiting off screen, and Meta+Shift+Z
+    zooms back out the same way."""
+    three(sb)                               # A left, B top right, C bottom right (focused)
+    sb.invoke("zoomIn")
+    s = sb.state()
+    eq((sb.geometry("B", s), sb.geometry("C", s)), ((10, 10, 1900, 525), (10, 545, 1900, 525)),
+       "B and C fill the screen, one above the other")
+    eq(sb.geometry("A", s)[0] >= 1920, True, "A waits off screen: %r" % (sb.geometry("A", s),))
+    eq(len(osd_boxes(sb)), 1, "and a message says how much is shown")
+    sb.invoke("zoomIn")
+    s = sb.state()
+    eq(sb.geometry("C", s), FULL, "then C alone")
+    eq(layout_of(sb, s)["zoom"], {"shown": 1, "total": 3}, "one of three shown")
+    sb.invoke("focusUp")
+    eq(active_caption(sb), "C", "nothing off screen can be reached by direction")
+    sb.invoke("zoomOut")
+    sb.invoke("zoomOut")
+    s = sb.state()
+    eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "all the way back out")
+    eq(layout_of(sb, s)["zoom"], None, "no zoom left")
+
+
+@test
+def focusing_a_window_out_of_view_zooms_out(sb):
+    three(sb)
+    sb.invoke("zoomIn")
+    sb.invoke("zoomIn")                     # C alone
+    a = sb.window("A")
+    sb.invoke("Walk Through Windows", raw=True)   # Alt+Tab, to B (used before C)
+    sb.settle(0.6)
+    s = sb.state()
+    eq(layout_of(sb, s)["zoom"], None, "focus went outside the zoom, so it ended")
+    eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "everything back in place")
+
+
+@test
 def reloading_the_script_stays_on_the_workspace(sb):
     """tools/install.sh reloads HyprKwin to upgrade it. That is not a new
     session, so "start on workspace 1" must not apply."""

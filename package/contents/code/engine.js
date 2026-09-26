@@ -140,6 +140,7 @@ function createEngine(userConfig) {
     var modes = {};      // space -> layout, one of LAYOUTS
     var scrollFirst = {};// space -> index of the leftmost column on screen
     var masterOpts = {}; // space -> {factor, count, orientation}
+    var zooms = {};      // space -> the node zoomed into (dwindle only)
     var isVisible = function () { return true; };
     var nextNodeId = 1;
 
@@ -278,6 +279,34 @@ function createEngine(userConfig) {
         });
     }
 
+    // ---- zoom ----------------------------------------------------------------
+    //
+    // After Trellis's fractal workspaces: any part of the dwindle tree can be
+    // zoomed into, so it fills the whole area in the same arrangement while
+    // everything else waits off screen, still running. A zoom that no longer
+    // points into the tree (its windows went, or the layout changed) lapses.
+
+    function shownLeaves(node) {
+        return leaves(node).filter(shown);
+    }
+
+    function zoomOf(space) {
+        var z = zooms[space];
+        if (!z) return null;
+        var top = z;
+        while (top.parent) top = top.parent;
+        if (top !== roots[space] || z === roots[space] || !shown(z) || modeOf(space) !== "dwindle") {
+            delete zooms[space];
+            return null;
+        }
+        return z;
+    }
+
+    function inside(node, ancestor) {
+        for (var n = node; n; n = n.parent) if (n === ancestor) return true;
+        return false;
+    }
+
     // Put every visible leaf of a space where its layout wants it.
     function arrange(space, inner, offscreen) {
         var root = roots[space];
@@ -288,7 +317,18 @@ function createEngine(userConfig) {
         if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
         else if (mode === "master") placeMaster(space, all, inner);
         else if (mode === "scrolling") placeScrolling(space, all, inner, offscreen || []);
-        else place(root, inner);
+        else {
+            var z = zoomOf(space);
+            if (z) {
+                all.forEach(function (leaf) { leaf.rect = null; });
+                place(z, inner);
+                all.forEach(function (leaf) {
+                    if (!leaf.rect && offscreen) leaf.wins.forEach(function (id) { offscreen.push(id); });
+                });
+            } else {
+                place(root, inner);
+            }
+        }
         return all;
     }
 
@@ -415,6 +455,7 @@ function createEngine(userConfig) {
         var split = newSplit(dir, defaultShare());
         var parent = target.parent;
         replaceChild(parent, target, split, space);
+        if (zooms[space] === target) zooms[space] = split;
         if (first) { split.a = leaf; split.b = target; }
         else { split.a = target; split.b = leaf; }
         leaf.parent = split;
@@ -441,6 +482,7 @@ function createEngine(userConfig) {
             return;
         }
         var sibling = parent.a === leaf ? parent.b : parent.a;
+        if (zooms[space] === leaf || zooms[space] === parent) zooms[space] = sibling;
         replaceChild(parent.parent, parent, sibling, space);
     }
 
@@ -584,6 +626,63 @@ function createEngine(userConfig) {
             var order = api.windows(space);
             var i = order.indexOf(id);
             return order[i + 1] || order[i - 1] || all[0];
+        },
+
+        // Zoom one level further in, towards this window: the smallest part
+        // of the tree around it that shows fewer windows than now.
+        zoomIn: function (id) {
+            var leaf = leafOf[id];
+            if (!leaf) return false;
+            var space = spaceOf[id];
+            if (modeOf(space) !== "dwindle") return false;
+            var top = zoomOf(space);
+            if (!top || !inside(leaf, top)) top = roots[space];
+            var path = [];
+            for (var n = leaf; n && n !== top; n = n.parent) path.unshift(n);
+            var now = shownLeaves(top).length;
+            for (var i = 0; i < path.length; i++) {
+                if (shownLeaves(path[i]).length < now) {
+                    zooms[space] = path[i];
+                    return true;
+                }
+            }
+            return false;
+        },
+
+        // One level back out: the next part of the tree up that shows more.
+        zoomOut: function (space) {
+            var z = zoomOf(space);
+            if (!z) return false;
+            var now = shownLeaves(z).length;
+            var p = z.parent;
+            while (p && p !== roots[space] && shownLeaves(p).length === now) p = p.parent;
+            if (!p || p === roots[space]) delete zooms[space];
+            else zooms[space] = p;
+            return true;
+        },
+
+        zoomReset: function (space) {
+            if (!zooms[space]) return false;
+            delete zooms[space];
+            return true;
+        },
+
+        // {shown, total} windows while zoomed in, or null.
+        zoomInfo: function (space) {
+            var z = zoomOf(space);
+            if (!z) return null;
+            var count = function (node) {
+                return shownLeaves(node).reduce(function (n, l) { return n + l.wins.length; }, 0);
+            };
+            return { shown: count(z), total: count(roots[space]) };
+        },
+
+        // Whether a window is on screen as far as the zoom goes.
+        inZoom: function (id) {
+            var leaf = leafOf[id];
+            if (!leaf) return true;
+            var z = zoomOf(spaceOf[id]);
+            return !z || inside(leaf, z);
         },
 
         focusHistory: function () { return focusOrder.slice(); },
@@ -763,7 +862,7 @@ function createEngine(userConfig) {
                 // position: they belong to the windows, not the place.
                 // (Not its area: that belongs to the monitor, and the next
                 // layout pass sets it.)
-                [modes, masterOpts, scrollFirst].forEach(function (map) {
+                [modes, masterOpts, scrollFirst, zooms].forEach(function (map) {
                     if (from in map) map[to] = map[from];
                     else delete map[to];
                     delete map[from];

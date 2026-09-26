@@ -42,6 +42,13 @@ From a comparison with Krohnkite, Polonium, Karousel and KWin's own tiling
    in kwinrc). HyprKwin emulates that by putting windows on all desktops; it
    works alongside the native mode, but should use it when it is on, so the
    pager and Overview show the right desktop on each screen.
+5. **Fractal zoom** (in progress), after [Trellis](https://trellisui.com/):
+   zoom to any part of the dwindle tree so it fills the workspace, one level
+   at a time, while the rest stays alive out of view, then back out the same
+   way. The spike is `Meta+Z` / `Meta+Shift+Z` with a message saying how much
+   of the workspace is shown. Later: tiles too small to use shown as app
+   icons until zoomed into, and a zoom submap where Escape steps out (Escape
+   cannot be a permanent global key).
 
 ## Later
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Zoom**, after Trellis's fractal workspaces: `Meta+Z` zooms in towards the
+  focused window a level of the dwindle layout at a time, so that part fills
+  the workspace while the rest waits off screen, and `Meta+Shift+Z` zooms
+  back out. A first version: see the roadmap for what comes next.
+
 ### Fixed
 
 - **Upgrading left the previous version running.** A script's handlers for

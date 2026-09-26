@@ -492,3 +492,69 @@ Deno.test("a space moved to an empty one keeps its layout and master settings", 
     assertEquals(e.masterParams(T).orientation, "right");
     assertEquals(e.layoutOf(S), "dwindle", "and the old place forgot it");
 });
+
+// a | (b / c): zooming towards c goes to the right half, then to c alone.
+function threeUp() {
+    const e = eng({ gapsIn: 0, gapsOut: 0 });
+    e.add("a", S); e.add("b", S); e.add("c", S);
+    e.focused("c");
+    return e;
+}
+
+Deno.test("zooming in fills the area with the part of the tree around the window", () => {
+    const e = threeUp();
+    assertEquals(e.zoomIn("c"), true);
+    let l = e.layout(S, AREA);
+    assertEquals(l.windows.b, { x: 0, y: 0, width: 1920, height: 540 }, "b takes the top half of the screen");
+    assertEquals(l.windows.c, { x: 0, y: 540, width: 1920, height: 540 });
+    assertEquals(l.offscreen, ["a"], "a waits off screen");
+    assertEquals(e.zoomInfo(S), { shown: 2, total: 3 });
+    assertEquals(e.zoomIn("c"), true);
+    l = e.layout(S, AREA);
+    assertEquals(l.windows.c, AREA, "then c alone");
+    assertEquals(l.offscreen.sort(), ["a", "b"]);
+    assertEquals(e.zoomIn("c"), false, "nothing further in");
+});
+
+Deno.test("zooming out goes back a level at a time", () => {
+    const e = threeUp();
+    e.zoomIn("c"); e.zoomIn("c");
+    assertEquals(e.zoomOut(S), true);
+    assertEquals(e.zoomInfo(S), { shown: 2, total: 3 });
+    assertEquals(e.zoomOut(S), true);
+    assertEquals(e.zoomInfo(S), null, "all the way out");
+    assertEquals(e.layout(S, AREA).offscreen, []);
+    assertEquals(e.zoomOut(S), false);
+});
+
+Deno.test("a window opened while zoomed joins the zoom", () => {
+    const e = threeUp();
+    e.zoomIn("c"); e.zoomIn("c");         // c alone
+    e.add("d", S);                        // splits c, the focused tile
+    const l = e.layout(S, AREA);
+    assertEquals(l.offscreen.sort(), ["a", "b"], "d is on screen beside c");
+    assertEquals(e.zoomInfo(S), { shown: 2, total: 4 });
+});
+
+Deno.test("closing the zoomed window hands the zoom to what takes its place", () => {
+    const e = threeUp();
+    e.zoomIn("c"); e.zoomIn("c");
+    e.remove("c");
+    assertEquals(e.zoomInfo(S), { shown: 1, total: 2 }, "b takes c's place, and the zoom with it");
+    assertEquals(e.layout(S, AREA).windows.b, AREA, "b fills the screen; a still waits off it");
+    const e2 = threeUp();
+    e2.zoomIn("c");                       // the right half: b / c
+    e2.remove("b");
+    assertEquals(e2.inZoom("c"), true);
+    assertEquals(e2.layout(S, AREA).windows.c, AREA, "c alone fills the zoom");
+});
+
+Deno.test("zoom only applies to the dwindle layout", () => {
+    const e = threeUp();
+    e.setLayout(S, "master");
+    assertEquals(e.zoomIn("c"), false);
+    const e2 = threeUp();
+    e2.zoomIn("c");
+    e2.setLayout(S, "monocle");
+    assertEquals(e2.zoomInfo(S), null, "switching layout ends the zoom");
+});

@@ -177,6 +177,7 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 | `Meta+Q` | Close window |
 | `Meta+J` | Toggle window split (dwindle) |
 | `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling) |
+| `Meta+Z` / `Meta+Shift+Z` | Zoom in towards the focused window / back out (dwindle) |
 | `Meta+M` / `Meta+Shift+M` | Swap window with the master / focus the master |
 | `Meta+>` / `Meta+<` | One more / one fewer master window |
 | `Meta+Alt+M` | Move the master area round |
@@ -395,6 +396,17 @@ Changing the layout, or the split direction on `Meta+J`, puts a short message
 on screen naming what it changed to, in the manner of Plasma's own on-screen
 display, framed in the focus border's colours. Turn it off with "Show a
 message when the layout or split changes".
+
+### Zoom
+
+In the dwindle layout, `Meta+Z` zooms in towards the focused window: the
+part of the layout around it — its split, then its split's split, down to the
+window alone — fills the workspace in the same arrangement, a level at a
+time. Everything else waits off screen, still running. `Meta+Shift+Z` zooms
+back out a level at a time, and a message says how much of the workspace is
+on screen. Focusing a window that is out of view (Alt+Tab, a notification)
+zooms out to show it; windows you open while zoomed in join the zoom. The idea
+comes from [Trellis](https://trellisui.com/)'s fractal workspaces.
 
 ### Scratchpads
 
