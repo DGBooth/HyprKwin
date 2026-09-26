@@ -286,6 +286,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Every monitor has its own workspaces | one workspace per monitor | on |
 | Go to a window that asks to be activated | `misc:focus_on_activate` | on |
 | Closing a window focuses its neighbour | – | on |
+| Move the pointer to a window focused from the keyboard | `cursor:no_warps` (inverted) | on |
 | Slide the split when resizing from the keyboard | `animation = windows` (for resizes) | on (needs the effect) |
 | Create workspaces on demand | – | on |
 | Drop a dragged window to re-tile | `dwindle:use_active_for_splits` (roughly) | on |
@@ -333,6 +334,15 @@ other monitors are showing are marked "on all desktops" to keep them up. They
 show as pinned in the task manager and the pager puts everything you can see
 on the current desktop. Turn the setting off to go back to plain Plasma
 behaviour, where a workspace spans every monitor.
+
+### The pointer follows keyboard focus
+
+As in Hyprland, focusing a window from the keyboard — Meta+arrow, a monitor
+switch, focusing the master, cycling, or sending the window to another monitor
+— moves the pointer to it, unless it is already over the window. It is done
+through KWin's own "Move Mouse to Focus" action. Turn off "Move the pointer to
+a window focused from the keyboard" in the settings (Hyprland's
+`cursor:no_warps`, which the importer carries across).
 
 ### Focus after closing a window
 
@@ -650,8 +660,10 @@ Plasma's own effects.
 
 ## Limitations
 
-- KWin scripts cannot move the mouse pointer, so there is no
-  "cursor follows focus" / `cursor:warp_on_change_workspace`.
+- The pointer can only be moved to the focused window (through KWin's own
+  "Move Mouse to Focus" action), so `cursor:warp_on_change_workspace`, which
+  moves it to a workspace even when nothing there has focus, has no
+  equivalent.
 - In the scrolling layout, columns hold a single window; niri's stacking of
   several windows in one column is not there yet.
 - Windows themselves are not rounded, only the border around them

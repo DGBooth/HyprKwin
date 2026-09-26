@@ -188,6 +188,17 @@ Item {
         onTriggered: configWatch.check()
     }
 
+    // KWin's own "Move Mouse to Focus" action: scripts cannot move the
+    // pointer themselves, but they can ask KWin to.
+    DBusCall {
+        id: warpCall
+        service: "org.kde.kglobalaccel"
+        path: "/component/kwin"
+        dbusInterface: "org.kde.kglobalaccel.Component"
+        method: "invokeShortcut"
+        arguments: ["MoveMouseToFocus"]
+    }
+
     DBusCall {
         id: stateCall
         service: "org.hyprkwin.Ctl"
@@ -363,6 +374,7 @@ Item {
             log: msg => console.warn(msg),
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
+            warpPointer: () => warpCall.call(),
             later: ms => {
                 laterTimer.interval = ms;
                 laterTimer.restart();

@@ -857,6 +857,42 @@ def zooming_into_part_of_the_layout(sb):
     eq(layout_of(sb, s)["zoom"], None, "no zoom left")
 
 
+def cursor(sb):
+    c = sb.state()["cursor"]
+    return (round(c["x"]), round(c["y"]))
+
+
+@test
+def the_pointer_follows_keyboard_focus(sb):
+    """Hyprland moves the pointer to a window focused from the keyboard;
+    HyprKwin asks KWin's own "Move Mouse to Focus" action to do it."""
+    sb.spawn("A")
+    sb.spawn("B")                           # A left, B right, B focused
+    fi = sb.input()
+    fi.move_to(300, 540)                    # over A
+    sb.settle(0.3)
+    sb.invoke("focusLeft")                  # to A: the pointer is already there
+    sb.settle(0.4)
+    eq(cursor(sb), (300, 540), "the pointer stays put when it is already over the window")
+    sb.invoke("focusRight")                 # to B
+    sb.settle(0.4)
+    x, y = cursor(sb)
+    eq(965 <= x < 1910 and 10 <= y < 1070, True, "the pointer moved onto B: %r" % ((x, y),))
+
+
+@test(config={"PointerFollowsFocus": "false"})
+def the_pointer_can_stay_put(sb):
+    sb.spawn("A")
+    sb.spawn("B")
+    fi = sb.input()
+    fi.move_to(300, 540)
+    sb.settle(0.3)
+    sb.invoke("focusLeft")
+    sb.invoke("focusRight")
+    sb.settle(0.4)
+    eq(cursor(sb), (300, 540), "cursor:no_warps: the pointer does not move")
+
+
 @test
 def focusing_a_window_out_of_view_zooms_out(sb):
     three(sb)

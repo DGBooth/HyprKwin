@@ -473,6 +473,9 @@ function createDriver(env) {
             perOutputWorkspaces: bool(rc("PerOutputWorkspaces", true), true),
             focusOnActivate: bool(rc("FocusOnActivate", true), true),
             focusNeighbourOnClose: bool(rc("FocusNeighbourOnClose", true), true),
+            // Hyprland moves the pointer to a window focused from the
+            // keyboard, unless cursor:no_warps is set.
+            pointerFollowsFocus: bool(rc("PointerFollowsFocus", true), true),
             layoutOsd: bool(rc("LayoutOsd", true), true),
             // How long that message stays up; not in the settings page.
             osdDuration: Math.max(200, num(rc("OsdDuration", 1200), 1200)),
@@ -1362,6 +1365,15 @@ function createDriver(env) {
         if (w) ws.activeWindow = w;
     }
 
+    // After a focus change made from the keyboard, bring the pointer to the
+    // window, as Hyprland does — unless it is already over it.
+    function warp() {
+        if (!cfg.pointerFollowsFocus || !env.warpPointer) return;
+        var w = ws.activeWindow;
+        if (!w || contains(copyRect(w.frameGeometry), ws.cursorPos)) return;
+        env.warpPointer();
+    }
+
     var screenSlots = {
         left: "slotSwitchToLeftScreen", right: "slotSwitchToRightScreen",
         up: "slotSwitchToAboveScreen", down: "slotSwitchToBelowScreen",
@@ -1440,6 +1452,7 @@ function createDriver(env) {
         }
         activate(st.w);
         relayout();
+        warp();
     }
 
     function swapDirection(dir) {
@@ -2047,10 +2060,10 @@ function createDriver(env) {
         fullscreen: function () { var w = ws.activeWindow; if (w) w.fullScreen = !w.fullScreen; },
         maximize: function () { var w = ws.activeWindow; if (w) w.setMaximize(!isMaximized(w), !isMaximized(w)); },
         pin: togglePin,
-        focusLeft: function () { focusDirection("left"); },
-        focusRight: function () { focusDirection("right"); },
-        focusUp: function () { focusDirection("up"); },
-        focusDown: function () { focusDirection("down"); },
+        focusLeft: function () { focusDirection("left"); warp(); },
+        focusRight: function () { focusDirection("right"); warp(); },
+        focusUp: function () { focusDirection("up"); warp(); },
+        focusDown: function () { focusDirection("down"); warp(); },
         swapLeft: function () { swapDirection("left"); },
         swapRight: function () { swapDirection("right"); },
         swapUp: function () { swapDirection("up"); },
@@ -2084,8 +2097,8 @@ function createDriver(env) {
         windowToMonitorRight: function () { windowToMonitor("right"); },
         windowToMonitorUp: function () { windowToMonitor("up"); },
         windowToMonitorDown: function () { windowToMonitor("down"); },
-        focusNextMonitor: function () { focusMonitor(1); },
-        focusPreviousMonitor: function () { focusMonitor(-1); },
+        focusNextMonitor: function () { focusMonitor(1); warp(); },
+        focusPreviousMonitor: function () { focusMonitor(-1); warp(); },
         toggleGroup: function () { groupAction(function (st) { engine.toggleGroup(st.id); }); },
         leaveGroup: function () { groupAction(function (st) { engine.leaveGroup(st.id); return st.id; }); },
         groupNext: function () { groupAction(function (st) { return engine.groupCycle(st.id, 1); }); },
@@ -2112,6 +2125,7 @@ function createDriver(env) {
         masterFocus: function () {
             var space = currentSpace();
             if (space) focusWindowId(engine.firstMaster(space));
+            warp();
         },
         masterCountIncrease: function () { masterAction(function (space) { return engine.setMasterCount(space, 1); }); },
         masterCountDecrease: function () { masterAction(function (space) { return engine.setMasterCount(space, -1); }); },
@@ -2133,8 +2147,8 @@ function createDriver(env) {
             announceZoom(space);
             relayout();
         },
-        cycleNext: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, 1)); },
-        cyclePrevious: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, -1)); },
+        cycleNext: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, 1)); warp(); },
+        cyclePrevious: function () { var st = active(); if (st) focusWindowId(engine.cycleWindow(st.id, -1)); warp(); },
         retile: function () { reloadConfig(); },
         leaveSubmap: leaveSubmap,
         toggleSubmap: toggleSubmap,

@@ -71,6 +71,11 @@ def as_new_status(v):
     return "true" if v.strip().lower() == "master" else "false"
 
 
+def as_not(v):
+    # cursor:no_warps = true means the pointer does NOT follow focus.
+    return "false" if as_bool(v) == "true" else "true"
+
+
 def as_follow_mouse(v):
     n = int(float(v.split()[0]))
     if n not in (0, 1):
@@ -96,6 +101,7 @@ SETTINGS = {
     "master:new_status": ("MasterNewIsMaster", as_new_status),
     "misc:focus_on_activate": ("FocusOnActivate", as_bool),
     "input:follow_mouse": ("FocusFollowsMouse", as_follow_mouse),
+    "cursor:no_warps": ("PointerFollowsFocus", as_not),
 }
 
 # Window rule actions HyprKwin understands; the rest are reported.

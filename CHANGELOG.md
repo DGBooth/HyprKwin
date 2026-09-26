@@ -6,6 +6,11 @@
   focused window a level of the dwindle layout at a time, so that part fills
   the workspace while the rest waits off screen, and `Meta+Shift+Z` zooms
   back out. A first version: see the roadmap for what comes next.
+- **The pointer follows keyboard focus**, as in Hyprland: after Meta+arrow, a
+  monitor switch, focusing the master, cycling or sending a window to another
+  monitor, the pointer moves to the focused window — through KWin's own "Move
+  Mouse to Focus" action, which the README wrongly said scripts could not
+  reach. On by default; the importer maps `cursor:no_warps`.
 
 ### Fixed
 

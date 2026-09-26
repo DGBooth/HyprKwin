@@ -167,6 +167,10 @@ class Fixes(unittest.TestCase):
         plan = read("bind = SUPER, grave, workspace, previous\nbind = SUPER, comma, workspace, e-1")
         self.assertEqual([b[0] for b in plan["binds"]], ["formerDesktop", "previousDesktop"])
 
+    def test_no_warps_turns_pointer_following_off(self):
+        self.assertEqual(read("cursor { no_warps = true }")["settings"], {"PointerFollowsFocus": "false"})
+        self.assertEqual(read("cursor { no_warps = false }")["settings"], {"PointerFollowsFocus": "true"})
+
     def test_a_glob_that_matches_a_folder_skips_it(self):
         with tempfile.TemporaryDirectory() as d:
             conf = Path(d) / "hyprland.conf"
