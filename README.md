@@ -172,6 +172,11 @@ tools/hyprkwin-shortcuts.py restore   # give them back
 Everything can also be rebound by hand under System Settings › Keyboard ›
 Shortcuts › KWin (all entries start with "HyprKwin:").
 
+`Meta+K` brings up a guide to all of them, as they are bound right now —
+rebound keys, submaps and named scratchpads included, and any key another
+shortcut still holds marked as such. It scrolls with the wheel or the arrow
+and page keys; Escape or `Meta+K` again closes it.
+
 Your own shortcuts are safe either way: before changing anything,
 `install.sh` takes a snapshot of every global shortcut
 (`~/.local/share/hyprkwin/shortcuts-before-hyprkwin.json`, plus a copy of
@@ -184,6 +189,7 @@ them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
 
 | Keys | Action |
 |---|---|
+| `Meta+K` | Show every HyprKwin shortcut, on the keys they have now |
 | `Meta+Q` | Close window |
 | `Meta+J` | Toggle window split (dwindle) |
 | `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling) |

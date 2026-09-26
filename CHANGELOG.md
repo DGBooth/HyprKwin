@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **A keys guide on `Meta+K`**, like Omarchy's: every HyprKwin shortcut, in
+  sections, on the keys it has right now. KDE is asked each time, so a key
+  rebound in System Settings shows as rebound; submaps and named scratchpads
+  are listed too, and a default key another shortcut still holds is marked
+  with who has it. It scrolls with the wheel or the arrow and page keys, and
+  Escape or `Meta+K` closes it.
+
 ## 0.11.2
 
 ### Fixed

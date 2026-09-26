@@ -402,7 +402,7 @@
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
          <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
-         <property name="text"><string>&lt;p&gt;&lt;b&gt;HyprKwin's keys.&lt;/b&gt; KDE gives a key to whichever shortcut claimed it first, and Plasma already uses several of HyprKwin's (Meta+Left, Meta+1…), so those do nothing until they are handed over. Either rebind them in System Settings › Keyboard › Shortcuts, or let HyprKwin move them for you — undoably — by running this in a terminal:&lt;/p&gt;
+         <property name="text"><string>&lt;p&gt;&lt;b&gt;HyprKwin's keys.&lt;/b&gt; Meta+K shows them all, as they are bound now. KDE gives a key to whichever shortcut claimed it first, and Plasma already uses several of HyprKwin's (Meta+Left, Meta+1…), so those do nothing until they are handed over. Either rebind them in System Settings › Keyboard › Shortcuts, or let HyprKwin move them for you — undoably — by running this in a terminal:&lt;/p&gt;
 &lt;p&gt;&lt;tt&gt;python3 ~/.local/share/kwin/scripts/hyprkwin/contents/tools/hyprkwin-shortcuts.py apply&lt;/tt&gt;&lt;/p&gt;
 &lt;p&gt;&lt;tt&gt;check&lt;/tt&gt; instead of &lt;tt&gt;apply&lt;/tt&gt; lists what clashes without changing anything; &lt;tt&gt;restore&lt;/tt&gt; gives the keys back.&lt;/p&gt;</string></property>
         </widget>

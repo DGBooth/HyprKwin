@@ -1175,6 +1175,68 @@ def take_keys(sb):
                    capture_output=True, check=True)
 
 
+def guide_row(s, label):
+    for section in (s["keysGuide"] or []):
+        for row in section["rows"]:
+            if row["label"] == label:
+                return dict(row, section=section["title"])
+    return None
+
+
+def guide_boxes(sb):
+    """Overlay windows the size of the keys guide."""
+    out = []
+    for geom in sb.overlays():
+        pos, size = geom.split(" ")
+        w, h = (int(v) for v in size.split("x"))
+        if w > 500 and h > 300:
+            out.append((w, h))
+    return out
+
+
+@test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft"], "ScratchpadNames": "music"})
+def meta_k_shows_every_shortcut_on_its_real_key(sb):
+    """Meta+K lists HyprKwin's shortcuts with the keys KDE actually has for
+    them, so one rebound in System Settings shows as rebound."""
+    import dbus
+    sb.spawn("A")
+    take_keys(sb)
+    bus = dbus.bus.BusConnection(sb.env["DBUS_SESSION_BUS_ADDRESS"])
+    accel = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/kglobalaccel"), "org.kde.KGlobalAccel")
+    meta_w = 0x10000000 | ord("W")
+    # As System Settings does it: Close window on Meta+W instead of Meta+Q.
+    accel.setShortcut(["kwin", "HyprKwin close", "KWin", "HyprKwin: Close window"],
+                      dbus.Array([meta_w], signature="i"), dbus.UInt32(4))
+    fi = sb.input()
+    fi.combo("meta+k")
+    sb.settle(0.8)
+    s = sb.state()
+    eq(s["keysGuide"] is not None, True, "Meta+K opened the guide")
+    eq(guide_row(s, "Close window"), {"label": "Close window", "keys": ["Meta+W"], "section": "Windows"},
+       "the key it has now, not the default")
+    eq(guide_row(s, "Show keyboard shortcuts")["keys"], ["Meta+K"], "and its own")
+    eq(guide_row(s, "Switch to workspace 1–10")["keys"], ["Meta+1…0"], "workspaces in one row")
+    eq(guide_row(s, "Toggle scratchpad “music”")["section"], "Scratchpads", "named scratchpads by name")
+    eq(guide_row(s, "Enter the resize submap")["keys"], ["Meta+R"], "submaps too")
+    eq(len(guide_boxes(sb)), 1, "it is on screen")
+    sb.screenshot(sb.base / "keys-guide.png")
+
+    fi.combo("escape")
+    sb.settle(0.6)
+    s = sb.state()
+    eq((s["keysGuide"], len(guide_boxes(sb))), (None, 0), "Escape closed it")
+
+    fi.combo("meta+k")
+    sb.settle(0.6)
+    eq(sb.state()["keysGuide"] is not None, True, "open again")
+    fi.combo("meta+k")
+    sb.settle(0.6)
+    eq(sb.state()["keysGuide"], None, "Meta+K closes it too")
+    fi.combo("escape")                      # Escape is the applications' again
+    sb.settle(0.4)
+    eq(sb.state()["keysGuide"], None, "nothing happens")
+
+
 @test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"], "LayoutOsd": "false"})
 def submaps_hold_plain_keys_only_while_they_are_on(sb):
     """Hyprland's submaps: a key puts the keyboard into a mode where plain

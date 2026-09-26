@@ -102,7 +102,7 @@ Item {
         readonly property int idleInterval: 500
         readonly property int busyFor: 10000
         interval: busyInterval
-        running: root.driver !== null && (root.overlaysOnScreen > 0 || osd.visible || root.effectActive)
+        running: root.driver !== null && (root.overlaysOnScreen > 0 || osd.visible || keysGuide.visible || root.effectActive)
         repeat: true
         onTriggered: {
             root.effectActive = root.fullscreenEffects.some(id => Workspace.isEffectActive(id));
@@ -271,6 +271,16 @@ Item {
         call.call();
     }
 
+    // Every KWin shortcut with the keys it has now, for the keys guide:
+    // [name, label, component, …, keys (Qt key numbers), default keys].
+    function shortcutInfos(callback) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.kglobalaccel"; '
+            + 'path: "/component/kwin"; dbusInterface: "org.kde.kglobalaccel.Component"; method: "allShortcutInfos" }', root);
+        call.finished.connect(ret => { callback(ret && ret.length ? ret[0] : []); call.destroy(); });
+        call.failed.connect(() => { callback([]); call.destroy(); });
+        call.call();
+    }
+
     // Registration settles a moment after start: check the keys after that.
     Timer {
         id: keysTimer
@@ -376,6 +386,18 @@ Item {
         gradientAngle: root.style.borderGradientAngle || 0
         spinSpeed: root.style.borderGradientSpin || 0
         thickness: root.style.borderSize || 2
+    }
+    KeysGuide {
+        id: keysGuide
+        overlaysHidden: root.effectActive || root.shuttingDown
+        accentFromTheme: (root.style.activeBorderSource || 0) === 0
+        accentColor: root.style.activeBorderColor || "#33ccff"
+        accentColor2: root.style.activeBorderColor2 || "#00ff99"
+        gradient: root.style.activeBorderSource === 2
+        gradientAngle: root.style.borderGradientAngle || 0
+        thickness: root.style.borderSize || 2
+        // Overview and the like hid it: the guide is over, keys and all.
+        onDismissed: root.run("closeKeys")
     }
     Component { id: groupBarComponent; GroupBar {} }
     Component { id: iconTileComponent; IconTile {} }
@@ -488,6 +510,7 @@ Item {
             scheduleDecorations: () => decorationTimer.restart(),
             warpPointer: () => warpCall.call(),
             keyOwner: (code, callback) => root.keyOwner(code, callback),
+            shortcutInfos: (callback) => root.shortcutInfos(callback),
             store: {
                 load: (callback) => root.storeLoad(callback),
                 save: (text) => root.storeSave(text),
@@ -502,6 +525,9 @@ Item {
                 setIconTiles: (list) => root.syncIconTiles(list),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
                 hideOsd: () => osd.hide(),
+                showKeys: (sections, area) => { if (!root.shuttingDown) keysGuide.open(sections, area); },
+                hideKeys: () => keysGuide.hide(),
+                scrollKeys: (how) => keysGuide.scroll(how),
                 setSubmaps: (entries) => { root.submapEntries = entries; },
                 setSubmapBinds: (binds) => { root.submapBinds = binds; },
             },
@@ -516,6 +542,7 @@ Item {
     // driver closes leftovers at startup and uninstall.sh sweeps them.
     function hideOverlays() {
         osd.hide();
+        keysGuide.hide();
         for (const key in borderObjects) borderObjects[key].hideAll();
         for (const key in groupBarObjects) groupBarObjects[key].hide();
         for (const key in iconTileObjects) iconTileObjects[key].hide();

@@ -1874,6 +1874,7 @@ function createDriver(env) {
             leaveSubmap();
             return;
         }
+        if (keysOpen) closeKeys();
         var submap = submaps[name];
         if (!submap) return;
         activeSubmap = name;
@@ -1895,10 +1896,67 @@ function createDriver(env) {
     function updateZoomKeys() {
         if (!env.ui.setSubmapBinds) return;
         var space = currentSpace();
-        var want = !!(cfg.zoomEscape && !activeSubmap && space && engine.zoomInfo(space));
+        var want = !!(cfg.zoomEscape && !activeSubmap && !keysOpen && space && engine.zoomInfo(space));
         if (want === zoomKeysOn) return;
         zoomKeysOn = want;
         env.ui.setSubmapBinds(want ? [{ submap: "zoom", key: "Escape", action: "zoomOut" }] : []);
+    }
+
+    // ---- the keys guide (Meta+K) --------------------------------------------
+    //
+    // Every HyprKwin shortcut on the key it actually has: KDE is asked each
+    // time, so keys rebound in System Settings show as they are. While it is
+    // up, Escape closes it and the arrow and page keys scroll it — held the
+    // way a submap's keys are, so they are the applications' again after.
+    var keysOpen = false;
+    var keysShown = null;
+    var KEYS_BINDS = [
+        ["Escape", "closeKeys"], ["Up", "keysLineUp"], ["Down", "keysLineDown"],
+        ["PgUp", "keysPageUp"], ["PgDown", "keysPageDown"], ["Home", "keysTop"], ["End", "keysBottom"],
+    ];
+
+    function showKeys() {
+        if (keysOpen) {
+            closeKeys();
+            return;
+        }
+        if (!env.shortcutInfos || !env.ui.showKeys || !SC || !SC.keysGuide) return;
+        env.shortcutInfos(function (infos) {
+            if (stopped || keysOpen) return;
+            var screen = focusedScreen();
+            if (!screen) return;
+            if (activeSubmap) leaveSubmap();
+            var labels = {};
+            for (var slot = 1; slot <= 4; slot++) {
+                var name = cfg.scratchpadNames[slot - 1];
+                if (!name) continue;
+                labels["toggleScratchpad" + slot] = "Toggle scratchpad “" + name + "”";
+                labels["moveToScratchpad" + slot] = "Move window to/from scratchpad “" + name + "”";
+            }
+            var submapList = SC.parseSubmaps ? SC.parseSubmaps(cfg.submaps, Object.keys(actions)).submaps : [];
+            keysShown = SC.keysGuide(infos || [], submapList, keyConflicts || [], labels);
+            keysOpen = true;
+            zoomKeysOn = false;             // the guide's Escape replaces the zoom's
+            env.ui.setSubmapBinds(KEYS_BINDS.map(function (b) {
+                return { submap: "keys", key: b[0], action: b[1] };
+            }));
+            env.ui.showKeys(keysShown, workArea(screen, desktopFor(screen)));
+            log("keys guide on", screen.name);
+        });
+    }
+
+    function closeKeys() {
+        if (!keysOpen) return;
+        keysOpen = false;
+        keysShown = null;
+        if (env.ui.hideKeys) env.ui.hideKeys();
+        env.ui.setSubmapBinds([]);
+        updateZoomKeys();
+        log("keys guide off");
+    }
+
+    function scrollKeys(how) {
+        if (keysOpen && env.ui.scrollKeys) env.ui.scrollKeys(how);
     }
 
     function leaveSubmap() {
@@ -2428,6 +2486,14 @@ function createDriver(env) {
         retile: function () { reloadConfig(); },
         leaveSubmap: leaveSubmap,
         toggleSubmap: toggleSubmap,
+        showKeys: showKeys,
+        closeKeys: closeKeys,
+        keysLineUp: function () { scrollKeys("lineUp"); },
+        keysLineDown: function () { scrollKeys("lineDown"); },
+        keysPageUp: function () { scrollKeys("pageUp"); },
+        keysPageDown: function () { scrollKeys("pageDown"); },
+        keysTop: function () { scrollKeys("top"); },
+        keysBottom: function () { scrollKeys("bottom"); },
     };
     for (var n = 1; n <= 10; n++) {
         (function (i) {
@@ -2545,6 +2611,8 @@ function createDriver(env) {
         });
         listen(ws.windowActivated, function (w) {
             applyAllOpacity();
+            // Going to a window means you are done reading.
+            if (keysOpen && w) closeKeys();
             var st = stOf(w);
             if (st) {
                 if (st.id !== lastActiveId) {
@@ -2693,6 +2761,7 @@ function createDriver(env) {
                 layoutsRestored: layoutsRestored,
                 nativeDesktops: native(),
                 keyConflicts: keyConflicts,
+                keysGuide: keysOpen ? keysShown : null,
                 iconTiles: lastIconTiles,
                 zoomEscape: zoomKeysOn,
             };
