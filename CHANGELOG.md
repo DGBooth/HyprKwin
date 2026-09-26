@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
 - **A keys guide on `Meta+K`**, like Omarchy's: every HyprKwin shortcut, in
   sections, on the keys it has right now. KDE is asked each time, so a key
