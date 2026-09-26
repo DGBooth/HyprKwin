@@ -907,6 +907,36 @@ def focusing_a_window_out_of_view_zooms_out(sb):
 
 
 @test
+def layouts_survive_a_new_session(sb):
+    """A workspace's layout and master settings used to last only for the
+    session. They are kept in ~/.config/hyprkwinrc through Plasma's desktop
+    scripting (a stand-in answers for Plasma here), and read back when
+    HyprKwin next starts."""
+    import subprocess
+    store = sb.base / "saved-layouts.json"
+    fake = subprocess.Popen([sys.executable, str(ROOT_DIR / "tests" / "e2e" / "fakeplasma.py"), str(store)],
+                            env=sb.env, stdout=subprocess.PIPE, text=True)
+    sb.clients.append(fake)
+    fake.stdout.readline()                  # ready
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.wait_for(lambda s: s["layoutsRestored"], "saved layouts read", timeout=12)
+    sb.invoke("layoutMaster")
+    sb.invoke("masterOrientationNext")      # master area on the right
+    time.sleep(2.5)
+    space = sb.window("A")["space"]
+    saved = json.loads(store.read_text())
+    eq((saved[space]["layout"], saved[space]["orientation"]), ("master", "right"), "saved: %r" % (saved,))
+    # A new session: HyprKwin starts again with nothing in memory.
+    sb.reload_script()
+    s = sb.wait_for(lambda s: s["layoutsRestored"], "saved layouts read again", timeout=12)
+    space = sb.window("A", s)["space"]
+    eq((s["layouts"][space]["layout"], s["layouts"][space]["orientation"]), ("master", "right"),
+       "the workspace is back in its master layout, master on the right")
+    eq(json.loads(store.read_text())[space]["layout"], "master", "and starting up did not overwrite it")
+
+
+@test
 def reloading_the_script_stays_on_the_workspace(sb):
     """tools/install.sh reloads HyprKwin to upgrade it. That is not a new
     session, so "start on workspace 1" must not apply."""

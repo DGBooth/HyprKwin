@@ -188,6 +188,77 @@ Item {
         onTriggered: configWatch.check()
     }
 
+    // Layout choices kept from one session to the next, in
+    // ~/.config/hyprkwinrc. A KWin script cannot write files, so this goes
+    // through Plasma's own desktop scripting, which can. At login KWin starts
+    // before Plasma, so loading keeps trying for a minute.
+    readonly property string storeFile: "hyprkwinrc"
+    property var storeLoaded: null        // callback(text | null)
+    property int storeAttempts: 0
+    property string storePending: ""
+
+    function storeLoad(callback) {
+        storeLoaded = callback;
+        storeAttempts = 0;
+        loadCall.call();
+    }
+
+    function storeSave(text) {
+        storePending = text;
+        saveTimer.restart();
+    }
+
+    DBusCall {
+        id: loadCall
+        service: "org.kde.plasmashell"
+        path: "/PlasmaShell"
+        dbusInterface: "org.kde.PlasmaShell"
+        method: "evaluateScript"
+        arguments: ['print(ConfigFile("' + root.storeFile + '", "Layouts").readEntry("state"))']
+        onFinished: (ret) => {
+            if (root.shuttingDown || !root.storeLoaded) return;
+            const cb = root.storeLoaded;
+            root.storeLoaded = null;
+            cb(String(ret && ret.length ? ret[0] : "").trim());
+        }
+        onFailed: {
+            if (root.shuttingDown || !root.storeLoaded) return;
+            if (++root.storeAttempts < 20) {
+                loadRetry.restart();
+            } else {
+                const cb = root.storeLoaded;
+                root.storeLoaded = null;
+                cb(null);                   // no Plasma to ask: start afresh
+            }
+        }
+    }
+
+    Timer {
+        id: loadRetry
+        interval: 3000
+        onTriggered: if (!root.shuttingDown) loadCall.call()
+    }
+
+    DBusCall {
+        id: saveCall
+        service: "org.kde.plasmashell"
+        path: "/PlasmaShell"
+        dbusInterface: "org.kde.PlasmaShell"
+        method: "evaluateScript"
+    }
+
+    Timer {
+        id: saveTimer
+        interval: 1500
+        onTriggered: {
+            // The text is JSON; JSON.stringify makes it a safe string literal
+            // in the script Plasma runs.
+            saveCall.arguments = ['ConfigFile("' + root.storeFile + '", "Layouts").writeEntry("state", '
+                                  + JSON.stringify(root.storePending) + ')'];
+            saveCall.call();
+        }
+    }
+
     // KWin's own "Move Mouse to Focus" action: scripts cannot move the
     // pointer themselves, but they can ask KWin to.
     DBusCall {
@@ -375,6 +446,10 @@ Item {
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
             warpPointer: () => warpCall.call(),
+            store: {
+                load: (callback) => root.storeLoad(callback),
+                save: (text) => root.storeSave(text),
+            },
             later: ms => {
                 laterTimer.interval = ms;
                 laterTimer.restart();
@@ -408,6 +483,7 @@ Item {
         decorationTimer.stop();
         areaTimer.stop();
         effectTimer.stop();
+        loadRetry.stop();
         focusFollowsMouseTimer.stop();
         configWatchTimer.stop();
         hideOverlays();

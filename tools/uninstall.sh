@@ -84,4 +84,5 @@ kwriteconfig6 --file kwinrc --group Script-hyprkwin --key ReloadedAt --delete
 kpackagetool6 --type=KWin/Script --remove hyprkwin
 kpackagetool6 --type=KWin/Effect --remove hyprkwinanimations 2>/dev/null || true
 echo "HyprKwin removed. Its settings remain in ~/.config/kwinrc under [Script-hyprkwin]"
-echo "(and [Effect-hyprkwinanimations], if you changed the animation settings)."
+echo "(and [Effect-hyprkwinanimations], if you changed the animation settings);"
+echo "saved workspace layouts are in ~/.config/hyprkwinrc."

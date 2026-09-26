@@ -11,6 +11,10 @@
   monitor, the pointer moves to the focused window — through KWin's own "Move
   Mouse to Focus" action, which the README wrongly said scripts could not
   reach. On by default; the importer maps `cursor:no_warps`.
+- **Layouts survive logging out.** Each workspace's layout and master
+  settings are saved to `~/.config/hyprkwinrc` and read back at the next
+  login — and across upgrades. A KWin script cannot write files, so this goes
+  through Plasma's own desktop scripting rather than a separate service.
 
 ### Fixed
 

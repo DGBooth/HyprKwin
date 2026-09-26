@@ -28,6 +28,10 @@ function createDriver(env) {
     var submaps = {};               // name -> {name, key, binds}
     var activeSubmap = null;        // the submap the keyboard is in, if any
     var workspaceRules = {};        // workspace number -> rule
+    // Layout choices from earlier sessions. Nothing is saved until they have
+    // been read back, or the first save would wipe them.
+    var layoutsRestored = false;
+    var lastSavedLayouts = null;
     var ruledSpaces = {};           // spaces whose layout: rule has been applied
     var engine = E.createEngine({});
     var tracked = {};         // id -> state
@@ -1162,6 +1166,33 @@ function createDriver(env) {
         });
         groupBars = bars;
         scheduleDecorations();
+        saveLayouts();
+    }
+
+    function saveLayouts() {
+        if (!layoutsRestored || !env.store) return;
+        var text = JSON.stringify(engine.exportSettings());
+        if (text === lastSavedLayouts) return;
+        lastSavedLayouts = text;
+        env.store.save(text);
+    }
+
+    // What the last session chose for each workspace. The choice wins over a
+    // workspace rule's layout, as a Meta+Shift+J in this session would.
+    function restoreLayouts(text) {
+        if (stopped) return;
+        var saved = null;
+        if (text) {
+            try { saved = JSON.parse(text); } catch (e) { log("unreadable saved layouts:", e); }
+        }
+        if (saved && typeof saved === "object") {
+            var n = engine.importSettings(saved);
+            Object.keys(saved).forEach(function (space) { if (saved[space].layout) ruledSpaces[space] = true; });
+            log("restored layouts for", n, "workspaces");
+        }
+        layoutsRestored = true;
+        lastSavedLayouts = JSON.stringify(engine.exportSettings());
+        relayout();
     }
 
     function schedule() {
@@ -2315,6 +2346,8 @@ function createDriver(env) {
         listen(ws.currentActivityChanged, schedule);
         listen(ws.virtualScreenGeometryChanged, schedule);
         relayout();
+        if (env.store) env.store.load(restoreLayouts);
+        else layoutsRestored = true;
     }
 
     // Restore windows to a plain Plasma state when the script is unloaded.
@@ -2402,6 +2435,7 @@ function createDriver(env) {
                     return out;
                 })(),
                 shown: perOutput() ? shown : null,
+                layoutsRestored: layoutsRestored,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });
             for (var id in tracked) {

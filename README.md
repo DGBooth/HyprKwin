@@ -399,8 +399,12 @@ moves the master area round. The resize keys and dragging the edge move the
 boundary between the master area and the stack, exactly as they move a
 dwindle split.
 
-The layout of a workspace lasts as long as the session; the setting decides
-what a workspace starts with.
+Each workspace keeps its layout and master settings from one session to the
+next: HyprKwin saves them in `~/.config/hyprkwinrc` (through Plasma, since a
+KWin script cannot write files itself) and reads them back when you log in.
+The setting decides what a workspace you have never changed starts with, and
+a layout you choose wins over a workspace rule's. Where each window sat is not
+kept — the windows are new each session.
 
 Changing the layout, or the split direction on `Meta+J`, puts a short message
 on screen naming what it changed to, in the manner of Plasma's own on-screen

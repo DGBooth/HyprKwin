@@ -558,3 +558,25 @@ Deno.test("zoom only applies to the dwindle layout", () => {
     e2.setLayout(S, "monocle");
     assertEquals(e2.zoomInfo(S), null, "switching layout ends the zoom");
 });
+
+Deno.test("a workspace's layout choices export and come back in a new engine", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S);
+    e.setLayout(S, "master");
+    e.cycleMasterOrientation(S, 1);            // right
+    e.setLayout("d2|out1", "scrolling");       // chosen on an empty workspace too
+    const saved = JSON.parse(JSON.stringify(e.exportSettings()));
+    const fresh = eng();
+    assertEquals(fresh.importSettings(saved), 2);
+    assertEquals(fresh.layoutOf(S), "master");
+    assertEquals(fresh.masterParams(S).orientation, "right");
+    assertEquals(fresh.layoutOf("d2|out1"), "scrolling");
+});
+
+Deno.test("nonsense in saved settings is ignored", () => {
+    const e = eng();
+    assertEquals(e.importSettings("junk"), 0);
+    e.importSettings({ [S]: { layout: "spiral", factor: "big", orientation: "sideways" } });
+    assertEquals(e.layoutOf(S), "dwindle");
+    assertEquals(e.masterParams(S).orientation, "left");
+});

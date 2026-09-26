@@ -685,6 +685,40 @@ function createEngine(userConfig) {
             return !z || inside(leaf, z);
         },
 
+        // The choices a workspace keeps from one session to the next: its
+        // layout and master settings, by space. (Where windows sit in the
+        // tree does not carry over: windows are new each session.)
+        exportSettings: function () {
+            var out = {};
+            var note = function (space) { return out[space] || (out[space] = {}); };
+            Object.keys(modes).forEach(function (space) { note(space).layout = modes[space]; });
+            Object.keys(masterOpts).forEach(function (space) {
+                var p = masterOpts[space];
+                var o = note(space);
+                o.factor = Math.round(p.factor * 1000) / 1000;
+                o.count = p.count;
+                o.orientation = p.orientation;
+            });
+            return out;
+        },
+
+        importSettings: function (saved) {
+            if (!saved || typeof saved !== "object") return 0;
+            var n = 0;
+            Object.keys(saved).forEach(function (space) {
+                var o = saved[space] || {};
+                if (LAYOUTS.indexOf(o.layout) >= 0) modes[space] = o.layout;
+                if (typeof o.factor === "number" || typeof o.count === "number" || o.orientation) {
+                    var p = masterOf(space);
+                    if (typeof o.factor === "number" && isFinite(o.factor)) p.factor = clamp(o.factor, MIN_SHARE, 1 - MIN_SHARE);
+                    if (typeof o.count === "number" && o.count >= 1) p.count = Math.round(o.count);
+                    if (ORIENTATIONS.indexOf(o.orientation) >= 0) p.orientation = o.orientation;
+                }
+                n++;
+            });
+            return n;
+        },
+
         focusHistory: function () { return focusOrder.slice(); },
 
         lastFocused: function (space) {
