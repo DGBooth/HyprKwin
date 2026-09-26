@@ -2,7 +2,7 @@
 import { assertEquals } from "./assert.js";
 
 const src = Deno.readTextFileSync(new URL("../package/contents/code/shortcuts.js", import.meta.url));
-const S = new Function(src + "\nreturn { shortcutList, parseSubmaps };")();
+const S = new Function(src + "\nreturn { shortcutList, parseSubmaps, keyCode };")();
 
 const ACTIONS = ["resizeLeft", "resizeRight", "toggleFloating"];
 
@@ -43,4 +43,21 @@ Deno.test("two submaps cannot share a name", () => {
         "resize = Meta+R, Left: resizeLeft\nresize = Meta+T, Right: resizeRight", ACTIONS);
     assertEquals(submaps.length, 1);
     assertEquals(errors.length, 1);
+});
+
+Deno.test("key sequences become Qt's key codes", () => {
+    assertEquals(S.keyCode("Meta+Left"), 0x11000012, "what KDE answered for Meta+Left");
+    assertEquals(S.keyCode("Meta+Q"), 0x10000051);
+    assertEquals(S.keyCode("Meta+Shift+Z"), 0x1200005A);
+    assertEquals(S.keyCode("Meta++"), 0x1000002B, "the + key itself");
+    assertEquals(S.keyCode("Meta+!"), 0x10000021);
+    assertEquals(S.keyCode("Meta+Ctrl+Shift+Right"), 0x17000014);
+    assertEquals(S.keyCode("Meta+F5"), 0x11000034);
+    assertEquals(S.keyCode(""), 0);
+    assertEquals(S.keyCode("Hyper+Q"), 0, "unknown modifier: cannot tell");
+});
+
+Deno.test("every default key has a code to check", () => {
+    const missing = S.shortcutList().filter((s) => s.key && !S.keyCode(s.key)).map((s) => s.key);
+    assertEquals(missing, []);
 });

@@ -178,3 +178,35 @@ function parseSubmaps(text, actions) {
     });
     return { submaps: submaps, errors: errors };
 }
+
+// ---- key codes ---------------------------------------------------------
+//
+// Qt's number for a key sequence such as "Meta+Shift+Left", which is what
+// KDE's shortcut service answers questions about. Only the keys HyprKwin's
+// defaults use are known; anything else gives 0, meaning "cannot tell".
+
+var MODIFIER_CODES = { Shift: 0x02000000, Ctrl: 0x04000000, Alt: 0x08000000, Meta: 0x10000000 };
+var KEY_CODES = {
+    Escape: 0x01000000, Esc: 0x01000000, Tab: 0x01000001, Backtab: 0x01000002, Backspace: 0x01000003,
+    Return: 0x01000004, Enter: 0x01000005, Delete: 0x01000007, Home: 0x01000010, End: 0x01000011,
+    Left: 0x01000012, Up: 0x01000013, Right: 0x01000014, Down: 0x01000015, PgUp: 0x01000016, PgDown: 0x01000017,
+    Space: 0x20,
+};
+
+function keyCode(sequence) {
+    var text = String(sequence || "");
+    if (!text) return 0;
+    var code = 0;
+    // The last part is the key; "+" itself can be the key ("Meta++").
+    var key = text.slice(text.lastIndexOf("+", text.length - 2) + 1);
+    var mods = text.slice(0, text.length - key.length).split("+").filter(function (m) { return m; });
+    for (var i = 0; i < mods.length; i++) {
+        if (!MODIFIER_CODES[mods[i]]) return 0;
+        code |= MODIFIER_CODES[mods[i]];
+    }
+    if (KEY_CODES[key] !== undefined) return code | KEY_CODES[key];
+    var f = /^F(\d{1,2})$/.exec(key);
+    if (f) return code | (0x01000030 + parseInt(f[1], 10) - 1);
+    if (key.length === 1) return code | key.toUpperCase().charCodeAt(0);
+    return 0;
+}

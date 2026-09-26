@@ -20,6 +20,16 @@
   KWin shows each monitor's workspace itself instead of HyprKwin putting
   windows on all desktops, so the pager and Overview agree, and a switch made
   in the pager is followed. Off, nothing changes.
+- **Zoom, continued**: tiles too small to use show their app's icon, and
+  clicking one zooms in until the window is big enough; optionally, Escape
+  zooms back out while a zoom lasts.
+- **Installable without cloning**: every release carries a `.kwinscript` for
+  System Settings' "Install from File…" and a `.kwineffect` for the
+  animations (`tools/package.sh` builds them). Installed that way, nothing
+  hands Plasma's keys over, so HyprKwin now checks who owns each of its keys
+  a few seconds after starting and says when some are taken; its settings
+  page gives the one command that hands them over, and the package carries
+  the helper it runs.
 
 ### Fixed
 

@@ -54,6 +54,16 @@ is untested). The helper scripts also need `python3` with dbus-python
 PyGObject (`python-gobject` on Arch, `python3-gi` on Debian and Ubuntu,
 `python3-gobject` on Fedora).
 
+**Without cloning the repository:** download `hyprkwin-<version>.kwinscript`
+(and `hyprkwinanimations-<version>.kwineffect` for animations) from the
+[latest release](https://github.com/DGBooth/HyprKwin/releases/latest), then
+System Settings › Window Management › KWin Scripts › "Install from File…" for
+the script, and `kpackagetool6 --type=KWin/Effect -i <file>` for the effect
+(the Desktop Effects page cannot install from a file). Tick HyprKwin in the
+list. Plasma keeps the keys it already uses until they are handed over:
+HyprKwin says which a few seconds after it starts, and its settings page
+(Behaviour tab) gives the command. The steps below do all of that for you.
+
 1. **Install:**
 
    ```bash
@@ -428,6 +438,12 @@ back out a level at a time, and a message says how much of the workspace is
 on screen. Focusing a window that is out of view (Alt+Tab, a notification)
 zooms out to show it; windows you open while zoomed in join the zoom. The idea
 comes from [Trellis](https://trellisui.com/)'s fractal workspaces.
+
+As in Trellis, a tile too small to use — under 120 pixels either way, which
+you can change on the Layout tab — shows its app's icon instead; click it and
+HyprKwin zooms in until the window is big enough. And if you turn on "While
+zoomed in, Escape zooms back out", Escape steps back out a level at a time;
+it is taken from your apps only while a zoom lasts.
 
 ### Scratchpads
 

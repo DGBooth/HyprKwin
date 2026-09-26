@@ -893,6 +893,37 @@ def the_pointer_can_stay_put(sb):
     eq(cursor(sb), (300, 540), "cursor:no_warps: the pointer does not move")
 
 
+@test(config={"IconBelow": 600})
+def tiles_too_small_show_as_icons(sb):
+    """After Trellis: a tile too small to use shows its app's icon, and
+    clicking it zooms in until the window is big enough."""
+    three(sb)                               # B and C are 525px tall, under 600
+    s = sb.state()
+    ids = {t: sb.window(t, s)["id"] for t in "ABC"}
+    eq(sorted(s["iconTiles"]), sorted([ids["B"], ids["C"]]), "B and C show as icons, A does not")
+    eq("965,10 945x525" in sb.overlays(), True, "an icon lies over B: %r" % (sb.overlays(),))
+    sb.input().click(965 + 470, 10 + 260)   # click B's icon
+    sb.settle(0.8)
+    s = sb.state()
+    eq(s["active"], ids["B"], "B has the focus")
+    eq(sb.geometry("B", s), FULL, "and has been zoomed into until big enough")
+    eq(s["iconTiles"], [], "no icons left on screen")
+
+
+@test(config={"ZoomEscape": "true"})
+def escape_zooms_back_out(sb):
+    three(sb)
+    eq(sb.state()["zoomEscape"], False, "Escape is the apps' until something is zoomed")
+    sb.invoke("zoomIn")
+    eq(sb.state()["zoomEscape"], True, "zoomed in: Escape zooms out")
+    sb.input().combo("escape")
+    sb.settle(0.6)
+    s = sb.state()
+    eq(layout_of(sb, s)["zoom"], None, "Escape zoomed back out")
+    eq(s["zoomEscape"], False, "and gave Escape back")
+    eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "everything back in place")
+
+
 @test
 def focusing_a_window_out_of_view_zooms_out(sb):
     three(sb)
@@ -1174,6 +1205,24 @@ def submaps_hold_plain_keys_only_while_they_are_on(sb):
     fi.combo("left")
     sb.settle(0.6)
     eq(sb.geometry("A", sb.state()), (10, 10, 845, 1060), "and the plain key does nothing again")
+
+
+@test(config={"WarnKeyConflicts": "true"})
+def keys_other_shortcuts_hold_are_reported(sb):
+    """Installed from the store, nothing hands Plasma's keys over. HyprKwin
+    checks who owns each of its keys a few seconds after starting, and says
+    so on screen; once they are handed over, it has nothing to report."""
+    s = sb.wait_for(lambda s: s["keyConflicts"] is not None, "the key check", timeout=15)
+    by_key = {c["key"]: c for c in s["keyConflicts"]}
+    eq("Meta+Left" in by_key, True, "Meta+Left is Plasma's: %r" % (sorted(by_key),))
+    eq(by_key["Meta+Left"]["owner"], "Quick Tile Window to the Left", "and it says whose")
+    eq(by_key["Meta+Left"]["action"], "focusLeft", "and which action goes without")
+    eq("Meta+Q" in by_key, False, "keys nobody else wanted are not reported")
+    eq(len(osd_boxes(sb)), 1, "a message says so on screen")
+    take_keys(sb)
+    sb.reload_script()
+    s = sb.wait_for(lambda s: s["keyConflicts"] is not None, "the key check again", timeout=15)
+    eq(s["keyConflicts"], [], "after handing them over, nothing is left to report")
 
 
 @test

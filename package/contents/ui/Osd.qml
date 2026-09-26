@@ -89,6 +89,7 @@ Window {
             id: label
             anchors.centerIn: parent
             text: osd.text
+            horizontalAlignment: Text.AlignHCenter
             color: Kirigami.Theme.textColor
             font.pointSize: Kirigami.Theme.defaultFont.pointSize + 1
             font.family: Kirigami.Theme.defaultFont.family

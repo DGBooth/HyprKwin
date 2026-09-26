@@ -8,7 +8,7 @@
             }
         ],
         "Category": "Window Management",
-        "Description": "Hyprland-style dwindle tiling with gaps, groups, a scratchpad and Hyprland keybindings",
+        "Description": "Hyprland-style tiling: dwindle, master, monocle and scrolling layouts, workspaces per monitor, scratchpads, window rules and Hyprland's keybindings",
         "EnabledByDefault": false,
         "Icon": "preferences-system-windows-effect-tiling",
         "Id": "hyprkwin",

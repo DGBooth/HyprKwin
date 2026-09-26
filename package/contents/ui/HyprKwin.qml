@@ -259,6 +259,25 @@ Item {
         }
     }
 
+    // Who owns a key, by Qt key code: [component, action, component name,
+    // action name], or an empty list. A KWin script cannot take a key
+    // Plasma already has, so HyprKwin asks, to say which of its are missing.
+    function keyOwner(code, callback) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.kglobalaccel"; '
+            + 'path: "/kglobalaccel"; dbusInterface: "org.kde.KGlobalAccel"; method: "action" }', root);
+        call.arguments = [code];
+        call.finished.connect(ret => { callback(ret && ret.length ? ret[0] : null); call.destroy(); });
+        call.failed.connect(() => { callback(null); call.destroy(); });
+        call.call();
+    }
+
+    // Registration settles a moment after start: check the keys after that.
+    Timer {
+        id: keysTimer
+        interval: 6000
+        onTriggered: if (root.driver && !root.shuttingDown) root.driver.checkKeys()
+    }
+
     // KWin's own "Move Mouse to Focus" action: scripts cannot move the
     // pointer themselves, but they can ask KWin to.
     DBusCall {
@@ -338,6 +357,7 @@ Item {
     // window, and focus changes simply hide one and show another.
     property var borderObjects: ({})
     property var groupBarObjects: ({})
+    property var iconTileObjects: ({})
     property int bordersShown: 0
     property int barsShown: 0
 
@@ -358,6 +378,7 @@ Item {
         thickness: root.style.borderSize || 2
     }
     Component { id: groupBarComponent; GroupBar {} }
+    Component { id: iconTileComponent; IconTile {} }
 
     function dropMissing(map, seen) {
         for (const key in map) {
@@ -410,6 +431,25 @@ Item {
         osd.showMessage(text);
     }
 
+    function syncIconTiles(list) {
+        revision++;
+        const seen = {};
+        for (const tile of list) {
+            seen[tile.id] = true;
+            let icon = iconTileObjects[tile.id];
+            if (!icon) {
+                icon = iconTileComponent.createObject(root, {
+                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+                });
+                icon.opened.connect(id => root.driver.openTile(id));
+                iconTileObjects[tile.id] = icon;
+            }
+            icon.tile = tile;
+            icon.revision = revision;
+        }
+        dropMissing(iconTileObjects, seen);
+    }
+
     function syncGroupBars(list, cfg) {
         style = cfg;
         revision++;
@@ -447,6 +487,7 @@ Item {
             scheduleLayout: () => layoutTimer.restart(),
             scheduleDecorations: () => decorationTimer.restart(),
             warpPointer: () => warpCall.call(),
+            keyOwner: (code, callback) => root.keyOwner(code, callback),
             store: {
                 load: (callback) => root.storeLoad(callback),
                 save: (text) => root.storeSave(text),
@@ -458,6 +499,7 @@ Item {
             ui: {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
+                setIconTiles: (list) => root.syncIconTiles(list),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
                 hideOsd: () => osd.hide(),
                 setSubmaps: (entries) => { root.submapEntries = entries; },
@@ -465,6 +507,7 @@ Item {
             },
         });
         driver.start();
+        keysTimer.start();
     }
 
     // Bindings no longer run once the engine is being torn down, so hide the
@@ -475,6 +518,7 @@ Item {
         osd.hide();
         for (const key in borderObjects) borderObjects[key].hideAll();
         for (const key in groupBarObjects) groupBarObjects[key].hide();
+        for (const key in iconTileObjects) iconTileObjects[key].hide();
     }
 
     Component.onDestruction: {
@@ -485,6 +529,7 @@ Item {
         areaTimer.stop();
         effectTimer.stop();
         loadRetry.stop();
+        keysTimer.stop();
         focusFollowsMouseTimer.stop();
         configWatchTimer.stop();
         hideOverlays();

@@ -582,6 +582,13 @@ function createDriver(env) {
             // Hyprland moves the pointer to a window focused from the
             // keyboard, unless cursor:no_warps is set.
             pointerFollowsFocus: bool(rc("PointerFollowsFocus", true), true),
+            warnKeyConflicts: bool(rc("WarnKeyConflicts", true), true),
+            // Tiles narrower or shorter than this show as their app's icon
+            // until zoomed into (0: never).
+            iconBelow: Math.max(0, num(rc("IconBelow", 120), 120)),
+            // While zoomed in, Escape zooms back out (it is taken from apps
+            // for as long as the zoom lasts).
+            zoomEscape: bool(rc("ZoomEscape", false), false),
             layoutOsd: bool(rc("LayoutOsd", true), true),
             // How long that message stays up; not in the settings page.
             osdDuration: Math.max(200, num(rc("OsdDuration", 1200), 1200)),
@@ -1278,6 +1285,7 @@ function createDriver(env) {
         if (native()) syncWorkspaces();
         scheduleDecorations();
         saveLayouts();
+        updateZoomKeys();
     }
 
     function saveLayouts() {
@@ -1473,6 +1481,48 @@ function createDriver(env) {
         });
         env.ui.setBorders(borders, cfg);
         env.ui.setGroupBars(bars, cfg);
+        var tiles = iconTiles(visible, popups, fullscreenScreens);
+        lastIconTiles = tiles.map(function (t) { return t.id; });
+        if (env.ui.setIconTiles) env.ui.setIconTiles(tiles);
+    }
+
+    // Tiles too small to use, after Trellis: they show as their app's icon
+    // until zoomed into.
+    function tooSmall(r) {
+        return cfg.iconBelow > 0 && r && (r.width < cfg.iconBelow || r.height < cfg.iconBelow);
+    }
+
+    function iconTiles(visible, popups, fullscreenScreens) {
+        var out = [];
+        visible.forEach(function (st) {
+            if (!isTiled(st) || st.w.fullScreen) return;
+            if (specialShown() && st.special !== special.name) return;
+            if (fullscreenScreens[st.w.output ? st.w.output.name : ""]) return;
+            var r = copyRect(st.w.frameGeometry);
+            if (!tooSmall(r) || !usableRect(r) || !onSomeScreen(r)) return;
+            // A menu must never have an icon painted over it.
+            for (var p = 0; p < popups.length; p++) if (overlaps(popups[p], r)) return;
+            out.push({ id: st.id, x: r.x, y: r.y, width: r.width, height: r.height,
+                       caption: String(st.w.caption), icon: st.w.icon });
+        });
+        return out;
+    }
+
+    // An icon was clicked: focus that window and zoom in until it is big
+    // enough to use (or as far as the zoom goes).
+    function openTile(id) {
+        var st = tracked[id];
+        if (!st) return;
+        activate(st.w);
+        var space = engine.spaceOf(id);
+        var zoomed = false;
+        for (var i = 0; i < 20 && engine.zoomIn(id); i++) {
+            zoomed = true;
+            relayout();
+            if (!tooSmall(engine.tileRect(id))) break;
+        }
+        if (zoomed) announceZoom(space);
+        relayout();
     }
 
     // Windows the user can currently see, excluding inactive group members.
@@ -1736,6 +1786,43 @@ function createDriver(env) {
                        duration === undefined ? cfg.osdDuration : duration);
     }
 
+    // ---- keys other shortcuts hold ---------------------------------------------
+    //
+    // KDE gives a key to the first action that claims it, and Plasma already
+    // uses several of HyprKwin's (Meta+Left, Meta+1…). tools/install.sh
+    // offers to move them; installed from the store nothing does, so check
+    // each default key's owner and say when it is not HyprKwin.
+    var keyConflicts = null;
+    var lastIconTiles = [];
+
+    function checkKeys() {
+        if (stopped || !env.keyOwner || !SC || !SC.shortcutList || !SC.keyCode) return;
+        var list = SC.shortcutList().filter(function (s) { return s.key && SC.keyCode(s.key); });
+        var pending = list.length, found = [];
+        if (!pending) return;
+        list.forEach(function (s) {
+            env.keyOwner(SC.keyCode(s.key), function (owner) {
+                // Nobody (or no answer) proves nothing; only another owner counts.
+                if (owner && owner.length >= 2 && String(owner[1]) !== s.name) {
+                    found.push({ key: s.key, action: s.action, owner: String(owner[3] || owner[1]) });
+                }
+                if (--pending === 0) reportKeys(found);
+            });
+        });
+    }
+
+    function reportKeys(found) {
+        if (stopped) return;
+        keyConflicts = found;
+        found.forEach(function (c) {
+            env.log("HyprKwin: " + c.key + " belongs to \"" + c.owner + "\", so " + c.action + " has no key");
+        });
+        if (!found.length || !cfg.warnKeyConflicts) return;
+        var more = found.length > 1 ? " and " + (found.length - 1) + " more" : "";
+        announce(found[0].key + more + " still belong to other shortcuts.\n"
+                 + "HyprKwin's settings (Behaviour tab) say how to hand them over.", 12000, true);
+    }
+
     // ---- submaps -----------------------------------------------------------
 
     function loadSubmaps() {
@@ -1763,6 +1850,7 @@ function createDriver(env) {
         var submap = submaps[name];
         if (!submap) return;
         activeSubmap = name;
+        zoomKeysOn = false;             // a submap's keys replace the zoom's
         var binds = submap.binds.map(function (b) {
             return { submap: name, key: b.key, action: b.action };
         });
@@ -1772,6 +1860,18 @@ function createDriver(env) {
         env.ui.setSubmapBinds(binds);
         log("submap", name, "on");
         announce(name, 0, true);
+    }
+
+    // Escape zooms back out while a zoom lasts, when that is turned on: it
+    // borrows the submap keys, and gives Escape back the moment the zoom ends.
+    var zoomKeysOn = false;
+    function updateZoomKeys() {
+        if (!env.ui.setSubmapBinds) return;
+        var space = currentSpace();
+        var want = !!(cfg.zoomEscape && !activeSubmap && space && engine.zoomInfo(space));
+        if (want === zoomKeysOn) return;
+        zoomKeysOn = want;
+        env.ui.setSubmapBinds(want ? [{ submap: "zoom", key: "Escape", action: "zoomOut" }] : []);
     }
 
     function leaveSubmap() {
@@ -2527,6 +2627,8 @@ function createDriver(env) {
         updateDecorations: updateDecorations,
         checkAreas: checkAreas,
         reloadConfig: reloadConfig,
+        checkKeys: checkKeys,
+        openTile: openTile,
         onCursorMoved: onCursorMoved,
         actions: actions,
         config: function () { return cfg; },
@@ -2562,6 +2664,9 @@ function createDriver(env) {
                 shown: perOutput() ? shown : null,
                 layoutsRestored: layoutsRestored,
                 nativeDesktops: native(),
+                keyConflicts: keyConflicts,
+                iconTiles: lastIconTiles,
+                zoomEscape: zoomKeysOn,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });
             for (var id in tracked) {

@@ -154,6 +154,24 @@
          <property name="toolTip"><string>A short on-screen message naming the new layout, or which way a window just split, on the monitor you are using.</string></property>
         </widget>
        </item>
+       <item row="16" column="0">
+        <widget class="QLabel" name="iconBelowLabel"><property name="text"><string>Show tiles smaller than:</string></property></widget>
+       </item>
+       <item row="16" column="1">
+        <widget class="QSpinBox" name="kcfg_IconBelow">
+         <property name="suffix"><string> px as their app's icon</string></property>
+         <property name="specialValueText"><string>never as icons</string></property>
+         <property name="maximum"><number>1000</number></property>
+         <property name="singleStep"><number>10</number></property>
+         <property name="toolTip"><string>After Trellis: a tile too narrow or short to use shows its app's icon instead, until you zoom into it. Clicking the icon zooms in until the window is big enough.</string></property>
+        </widget>
+       </item>
+       <item row="17" column="1">
+        <widget class="QCheckBox" name="kcfg_ZoomEscape">
+         <property name="text"><string>While zoomed in (Meta+Z), Escape zooms back out</string></property>
+         <property name="toolTip"><string>Escape is taken from your apps for as long as the zoom lasts, and given back the moment you are zoomed all the way out.</string></property>
+        </widget>
+       </item>
        <item row="13" column="1">
         <widget class="QCheckBox" name="kcfg_MasterNewIsMaster">
          <property name="text"><string>New windows become the master</string></property>
@@ -373,17 +391,33 @@
          <property name="toolTip"><string>As Hyprland does unless cursor:no_warps is set: after Meta+arrow, a monitor switch or sending a window to another monitor, the pointer jumps to the focused window. It stays put if it is already over it.</string></property>
         </widget>
        </item>
-       <item row="10" column="0">
+       <item row="10" column="1">
+        <widget class="QCheckBox" name="kcfg_WarnKeyConflicts">
+         <property name="text"><string>Tell me when other shortcuts still hold some of HyprKwin's keys</string></property>
+         <property name="toolTip"><string>Shown a few seconds after HyprKwin starts, and written to the log with every key and who has it.</string></property>
+        </widget>
+       </item>
+       <item row="11" column="1">
+        <widget class="QLabel" name="keysHelp">
+         <property name="wordWrap"><bool>true</bool></property>
+         <property name="textFormat"><enum>Qt::RichText</enum></property>
+         <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
+         <property name="text"><string>&lt;p&gt;&lt;b&gt;HyprKwin's keys.&lt;/b&gt; KDE gives a key to whichever shortcut claimed it first, and Plasma already uses several of HyprKwin's (Meta+Left, Meta+1…), so those do nothing until they are handed over. Either rebind them in System Settings › Keyboard › Shortcuts, or let HyprKwin move them for you — undoably — by running this in a terminal:&lt;/p&gt;
+&lt;p&gt;&lt;tt&gt;python3 ~/.local/share/kwin/scripts/hyprkwin/contents/tools/hyprkwin-shortcuts.py apply&lt;/tt&gt;&lt;/p&gt;
+&lt;p&gt;&lt;tt&gt;check&lt;/tt&gt; instead of &lt;tt&gt;apply&lt;/tt&gt; lists what clashes without changing anything; &lt;tt&gt;restore&lt;/tt&gt; gives the keys back.&lt;/p&gt;</string></property>
+        </widget>
+       </item>
+       <item row="12" column="0">
         <widget class="QLabel" name="scratchpadNamesLabel"><property name="text"><string>Extra scratchpads:</string></property></widget>
        </item>
-       <item row="10" column="1">
+       <item row="12" column="1">
         <widget class="KEditListWidget" name="kcfg_ScratchpadNames">
          <property name="kcfg_property" stdset="0"><string>items</string></property>
          <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
          <property name="toolTip"><string>Named scratchpads, as in Hyprland's special workspaces. The first name here is scratchpad 1, the second scratchpad 2, and so on; give them keys in System Settings &gt; Keyboard &gt; Shortcuts &gt; KWin (HyprKwin: Toggle scratchpad 1...). A window goes into one with the matching "Move window to/from scratchpad" key, or a rule such as "workspace special:music, class:^(spotify)$". Only one scratchpad is on screen at a time.</string></property>
         </widget>
        </item>
-       <item row="11" column="1">
+       <item row="13" column="1">
         <widget class="QCheckBox" name="kcfg_Debug">
          <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
         </widget>

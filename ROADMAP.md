@@ -15,7 +15,7 @@ README update and a changelog entry.
 | Scrolling layout, turning border gradient (`borderangle`) | 0.9 |
 | Named scratchpads, workspace rules, focus to the neighbour on close | 0.10 |
 | `hyprland.conf` importer, submaps, `hyprkwinctl` | 0.10 |
-| The pointer follows keyboard focus; zoom (first version); layouts survive logging out; Plasma's own per-screen desktops | next release |
+| The pointer follows keyboard focus; zoom (first version); layouts survive logging out; Plasma's own per-screen desktops; zoom icons and Escape; packages and the key check for the store | next release |
 
 Rounded window corners were tried and dropped: every shader applied from a
 scripted effect rendered the window black. The README points to Shape
@@ -23,21 +23,9 @@ Corners instead.
 
 ## Next
 
-From a comparison with Krohnkite, Polonium, Karousel and KWin's own tiling
-(September 2026), in order:
-
-1. **On the KDE Store.** Krohnkite has around 100,000 downloads because it
-   is one click away in System Settings' "Get New…". Needs a packaged
-   `.kwinscript` (and `.kwineffect`) attached to every release, a package
-   description that says what HyprKwin is now, and — the hard part — a way
-   for someone who never ran `install.sh` to find out that Plasma still owns
-   keys such as Meta+Left and Meta+1, and free them.
-2. **Fractal zoom**, continued, after [Trellis](https://trellisui.com/):
-   zoom to any part of the dwindle tree so it fills the workspace, one level
-   at a time, while the rest stays alive out of view, then back out the same
-   way. The first version (`Meta+Z` / `Meta+Shift+Z`) is in. Next: tiles
-   too small to use shown as app icons until zoomed into, and a zoom submap
-   where Escape steps out (Escape cannot be a permanent global key).
+- **Publish the KDE Store listing.** The packages, the key check and the
+  listing text (`docs/store-listing.md`) are ready; the listing itself needs
+  the maintainer's KDE Store account.
 
 ## Later
 

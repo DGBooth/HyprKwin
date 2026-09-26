@@ -32,7 +32,9 @@ class Sandbox:
         self.x_display = None
         # The tests read HyprKwin's state from its log; in a real session it
         # only goes to hyprkwinctl, over D-Bus.
-        self.config = dict({"StateToLog": "true"}, **(config or {}))
+        # WarnKeyConflicts: the sandbox has Plasma's clashing keys too, and
+        # the message about them would appear in every test.
+        self.config = dict({"StateToLog": "true", "WarnKeyConflicts": "false"}, **(config or {}))
         # HK_NATIVE=1 runs every test with KWin's native per-screen desktops.
         self.native_desktops = native_desktops or os.environ.get("HK_NATIVE") == "1"
         # KWin builds its effect list at startup, so the effect package has to
