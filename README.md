@@ -335,6 +335,13 @@ show as pinned in the task manager and the pager puts everything you can see
 on the current desktop. Turn the setting off to go back to plain Plasma
 behaviour, where a workspace spans every monitor.
 
+**Plasma 6.7's own per-screen desktops.** If you turn on System Settings ›
+Virtual Desktops › "Switch desktops independently for each screen", HyprKwin
+uses it: KWin itself shows each monitor's workspace, windows stay on their own
+desktop (no longer on all of them), and the pager and Overview show the right
+workspace on each screen. Switching one from the pager works too. Everything
+else behaves the same either way.
+
 ### The pointer follows keyboard focus
 
 As in Hyprland, focusing a window from the keyboard — Meta+arrow, a monitor

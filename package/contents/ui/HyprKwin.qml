@@ -436,6 +436,7 @@ Item {
         console.warn("HYPRKWIN_BUILD " + Build.BUILD_ID);
         driver = Driver.createDriver({
             workspace: Workspace,
+            options: Options,
             engine: Engine,
             rules: Rules,
             shortcuts: Shortcuts,

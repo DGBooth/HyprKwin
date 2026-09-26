@@ -22,7 +22,7 @@ CLIENT = Path(__file__).resolve().parent / "client.py"
 
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
-                 effect=False, effect_config=None, xwayland=False):
+                 effect=False, effect_config=None, xwayland=False, native_desktops=False):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -33,6 +33,8 @@ class Sandbox:
         # The tests read HyprKwin's state from its log; in a real session it
         # only goes to hyprkwinctl, over D-Bus.
         self.config = dict({"StateToLog": "true"}, **(config or {}))
+        # HK_NATIVE=1 runs every test with KWin's native per-screen desktops.
+        self.native_desktops = native_desktops or os.environ.get("HK_NATIVE") == "1"
         # KWin builds its effect list at startup, so the effect package has to
         # be installed and enabled before the compositor launches.
         self.effect = effect
@@ -79,6 +81,9 @@ class Sandbox:
         # once broke the border strips and went unnoticed without one.
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
         self._write_config(env, "Script-hyprkwin", self.config)
+        if self.native_desktops:
+            # Plasma 6.7's own per-screen virtual desktops.
+            self._write_config(env, "Windows", {"PerOutputVirtualDesktops": "true"})
         if "/.." in str(self.config.get("BuildId", "")):
             # A decoy for the test that BuildId cannot leave the package.
             decoy = self.base / "data" / "evil" / "ui"

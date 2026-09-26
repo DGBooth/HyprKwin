@@ -1062,6 +1062,34 @@ def overview_checks_slow_down_when_idle(sb):
     eq(sb.state()["effectCheck"], 150, "until something happens again")
 
 
+@test(outputs=2, native_desktops=True)
+def plasmas_own_per_screen_desktops_are_used(sb):
+    """With Plasma 6.7's "switch desktops independently for each screen" on,
+    HyprKwin lets KWin show each monitor's desktop instead of putting windows
+    on all desktops, and follows a switch made elsewhere (the pager)."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("windowToMonitorRight")       # B to the second monitor, workspace 2
+    s = sb.state()
+    eq(s["nativeDesktops"], True, "HyprKwin noticed the native mode")
+    eq([w["onAllDesktops"] for w in s["windows"].values()], [False, False], "no window is pinned to all desktops")
+    second = sb.window("B", s)["output"]
+    # The pager switches the second monitor to workspace 3.
+    d = sb.base / "pager"
+    d.mkdir()
+    (d / "main.qml").write_text("""import QtQuick
+import org.kde.kwin
+Item { Component.onCompleted: {
+  while (Workspace.desktops.length < 3) Workspace.createDesktop(Workspace.desktops.length, "");
+  const out = Workspace.screens.find(s => s.name === "%s");
+  Workspace.setCurrentDesktopForScreen(Workspace.desktops[2], out);
+}}""" % second)
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadDeclarativeScript", str(d / "main.qml"), "pager")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
+    s = sb.wait_for(lambda s: shown_on(sb, s).get(second) == 3, "HyprKwin followed the pager", timeout=6)
+    eq(shown_on(sb, s)[sb.window("A", s)["output"]], 1, "the first monitor stayed on workspace 1")
+
+
 @test(outputs=2)
 def multi_monitor(sb):
     sb.spawn("A")
@@ -2168,7 +2196,11 @@ def a_second_monitor_gets_its_own_workspace(sb):
     eq(shown_on(sb, s), {first: 1, second: 2}, "nothing moved between monitors")
     eq(sb.geometry("B", s), FULL, "B has the first monitor to itself")
     eq(colour_on(sb, shots / "both.png", "right", (255, 0, 0)), True, "A still up on its own monitor")
-    eq(sb.window("A", s)["onAllDesktops"], True, "A is kept visible there")
+    if not s["nativeDesktops"]:
+        # Emulated, A is kept visible by being on all desktops; natively,
+        # KWin shows each monitor's own desktop and the screenshots below
+        # are the check.
+        eq(sb.window("A", s)["onAllDesktops"], True, "A is kept visible there")
 
     sb.invoke("desktop3")                  # this monitor alone moves on
     s = sb.state()
@@ -2413,7 +2445,8 @@ def main():
         try:
             sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
                               effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
-                              xwayland=opts.get("xwayland", False))
+                              xwayland=opts.get("xwayland", False),
+                              native_desktops=opts.get("native_desktops", False))
             with sandbox as sb:
                 try:
                     t(sb)

@@ -137,9 +137,39 @@ function createDriver(env) {
     // switch here leaves them where they are.
     var shown = {};                 // output name -> desktop id
     var formerShown = {};           // output name -> the desktop before that
+    // Natively: what KWin showed on each screen when HyprKwin last looked or
+    // told it. A difference from this is someone else's doing (the pager);
+    // a difference from `shown` alone is ours, still to be passed on.
+    var kwinShown = {};
+    // The workspace on the monitor in use, while there were several: when
+    // the others go away, that is the one to stay on.
+    var focusedWorkspace = null;
 
     function perOutput() {
         return !!cfg.perOutputWorkspaces && screens().length > 1;
+    }
+
+    // Plasma 6.7 can switch virtual desktops per screen by itself ("Switch
+    // desktops independently for each screen"). When that is on, HyprKwin
+    // hands its per-monitor workspaces to KWin instead of emulating them by
+    // putting windows on all desktops, so the pager and Overview agree.
+    function native() {
+        return perOutput() && !!env.options && !!env.options.perOutputVirtualDesktops &&
+            typeof ws.setCurrentDesktopForScreen === "function";
+    }
+
+    // Show a desktop on one screen: natively just that screen; otherwise by
+    // moving Plasma's one current desktop.
+    function pushDesktop(screen, d) {
+        if (!d) return;
+        if (native()) {
+            if (screen && ws.currentDesktopForScreen(screen) !== d) {
+                guarded(function () { ws.setCurrentDesktopForScreen(d, screen); });
+            }
+            if (screen) kwinShown[screen.name] = d.id;
+        } else if (d !== ws.currentDesktop) {
+            guarded(function () { ws.currentDesktop = d; });
+        }
     }
 
     // The monitor the user is on: where the focused window is, since KWin's
@@ -213,8 +243,33 @@ function createDriver(env) {
     // give a monitor we have not seen before a workspace of its own: a second
     // display comes up on workspace 2, as it would under Hyprland.
     function refreshShown() {
-        var cur = ws.currentDesktop;
         var ss = screens(), live = {}, used = {};
+        if (!perOutput() && focusedWorkspace) {
+            // Down to one monitor: stay on the workspace you were using, as
+            // the emulation always did by moving Plasma's current desktop
+            // with the focus. (Natively the monitor left would otherwise
+            // keep whatever it happened to show.)
+            var keep = desktopById(focusedWorkspace);
+            focusedWorkspace = null;
+            if (keep && keep !== ws.currentDesktop) guarded(function () { ws.currentDesktop = keep; });
+            // Our doing, not the pager's: when the other monitor comes back,
+            // this one returns to its own workspace rather than adopting it.
+            if (keep) ss.forEach(function (s) { kwinShown[s.name] = keep.id; });
+        }
+        var cur = ws.currentDesktop;
+        if (native() && !syncing) {
+            // KWin is the truth for what each screen shows: the pager or
+            // Plasma's own shortcuts may have switched one.
+            ss.forEach(function (s) {
+                var kd = ws.currentDesktopForScreen(s);
+                if (!kd) return;
+                if (kwinShown[s.name] && kwinShown[s.name] !== kd.id && shown[s.name] !== kd.id) {
+                    formerShown[s.name] = shown[s.name];
+                    shown[s.name] = kd.id;
+                }
+                kwinShown[s.name] = kd.id;
+            });
+        }
         // The monitor being used comes first: it keeps its workspace, and
         // holds whatever workspace Plasma is on.
         var focused = focusedScreen();
@@ -236,6 +291,8 @@ function createDriver(env) {
             shown[s.name] = d.id;
             used[d.id] = true;
         });
+        if (native()) ss.forEach(function (s) { pushDesktop(s, desktopById(shown[s.name])); });
+        if (perOutput() && focused) focusedWorkspace = shown[focused.name] || null;
     }
 
     // Put every window on the Plasma desktop that makes it visible where
@@ -247,13 +304,58 @@ function createDriver(env) {
     function kwinVisible(w) {
         if (w.minimized) return false;
         if (w.onAllDesktops) return true;
-        for (var i = 0; i < w.desktops.length; i++) if (w.desktops[i] === ws.currentDesktop) return true;
+        var showing = native() && w.output ? ws.currentDesktopForScreen(w.output) : ws.currentDesktop;
+        for (var i = 0; i < w.desktops.length; i++) if (w.desktops[i] === showing) return true;
         return false;
     }
 
     function syncWorkspaces() {
         if (!perOutput()) {
             releaseAutoPins();
+            return;
+        }
+        if (native()) {
+            // KWin shows each screen's own desktop, so every window simply
+            // lives on its workspace — no pinning to all desktops.
+            var moved = false;
+            guarded(function () {
+                for (var id in tracked) {
+                    var st = tracked[id], w = st.w;
+                    if (st.special || st.pinned || (w.onAllDesktops && !st.autoPinned)) continue;
+                    var d = desktopById(st.desktop);
+                    if (!d) continue;
+                    // A window on its way to another monitor: KWin still
+                    // counts it on the old one for a moment. On neither
+                    // desktop would it be hidden (and lose the focus), so it
+                    // is on all of them until it arrives.
+                    var space = engine.spaceOf(id);
+                    var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
+                    var arrived = !p || !p.screen || !w.output || p.screen === w.output;
+                    if (!arrived) {
+                        if (!w.onAllDesktops) { w.onAllDesktops = true; moved = true; }
+                        st.autoPinned = true;
+                        continue;
+                    }
+                    var landed = st.autoPinned;
+                    if (st.autoPinned) {
+                        st.autoPinned = false;
+                        if (w.onAllDesktops) { w.onAllDesktops = false; moved = true; }
+                    }
+                    if (w.desktops.length !== 1 || w.desktops[0] !== d) {
+                        w.desktops = [d];
+                        moved = true;
+                    }
+                    // Focused while still on its way, it left KWin's active
+                    // screen behind; activating it again now that it is here
+                    // brings the active screen (and so Plasma's current
+                    // desktop, and where new windows open) over with it.
+                    if (landed && w === ws.activeWindow) {
+                        ws.activeWindow = null;
+                        ws.activeWindow = w;
+                    }
+                }
+            });
+            if (moved) schedule();
             return;
         }
         var cur = ws.currentDesktop;
@@ -887,8 +989,12 @@ function createDriver(env) {
         st.output = w.output ? w.output.name : null;
         if (!isTiled(st)) { schedule(); return; }
         // Our own placement landing on another output is already reflected in
-        // the engine; only react to moves made by someone else.
-        if (st.placed && sameRect(w.frameGeometry, st.placed, 2)) return;
+        // the engine; only react to moves made by someone else. (A window
+        // kept on all desktops while it travelled can now settle on its own.)
+        if (st.placed && sameRect(w.frameGeometry, st.placed, 2)) {
+            if (st.autoPinned) schedule();
+            return;
+        }
         var space = spaceOfWindow(st);
         if (space && space !== engine.spaceOf(st.id)) engine.moveToSpace(st.id, space, {});
         schedule();
@@ -1125,7 +1231,11 @@ function createDriver(env) {
     function relayout() {
         if (stopped) return;
         refreshShown();
-        syncWorkspaces();
+        // Natively, a window changes desktop only once it has reached its
+        // monitor (below): switched while still on the old one, it would be
+        // on a desktop that monitor is not showing, and KWin would take the
+        // focus off it.
+        if (!native()) syncWorkspaces();
         engine.setVisibility(visible);
         var bars = [];
         layoutSpaces().forEach(function (vs) {
@@ -1165,6 +1275,7 @@ function createDriver(env) {
             });
         });
         groupBars = bars;
+        if (native()) syncWorkspaces();
         scheduleDecorations();
         saveLayouts();
     }
@@ -1477,7 +1588,7 @@ function createDriver(env) {
         relayout();
         // It was already the active window, so nothing else would bring
         // Plasma's current desktop over to the monitor it just landed on.
-        if (perOutput()) {
+        if (perOutput() && !native()) {
             var d = desktopFor(to);
             if (d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
         }
@@ -1794,7 +1905,8 @@ function createDriver(env) {
             formerShown[screen.name] = shown[screen.name];
             shown[screen.name] = d.id;
         }
-        if ((focus || screen === focusedScreen()) && d !== ws.currentDesktop) {
+        if (native()) pushDesktop(screen, d);
+        else if ((focus || screen === focusedScreen()) && d !== ws.currentDesktop) {
             guarded(function () { ws.currentDesktop = d; });
         }
         relayout();
@@ -1805,7 +1917,7 @@ function createDriver(env) {
     function focusScreen(screen) {
         if (!screen) return;
         var d = desktopFor(screen);
-        if (perOutput() && d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
+        if (perOutput() && !native() && d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
         var id = engine.lastFocused(spaceFor(d, screen));
         if (id && tracked[id] && !tracked[id].w.minimized) {
             activate(tracked[id].w);
@@ -1813,9 +1925,11 @@ function createDriver(env) {
         }
         // Nothing to focus there: nudge KWin's own screen focus across and
         // take the keyboard off whatever is on the other monitor.
+        // (KWin's own idea of the active screen: ours follows the focused
+        // window, which is still on the other monitor.)
         if (ws.slotSwitchToNextScreen) {
             var ss = screens(), guardCount = ss.length;
-            while (guardCount-- > 0 && focusedScreen() !== screen) ws.slotSwitchToNextScreen();
+            while (guardCount-- > 0 && ws.activeScreen !== screen) ws.slotSwitchToNextScreen();
         }
         var act = stOf(ws.activeWindow);
         if (perOutput() && act && desktopById(act.desktop) !== d) {
@@ -2043,6 +2157,9 @@ function createDriver(env) {
             });
             focusScreen(to);
             relayout();
+            // Natively the screens switch desktops before the windows have
+            // moved, which can take the focus away for a moment: give it back.
+            if (native()) focusScreen(to);
             return;
         }
         // Both monitors show the same workspace: merge into the other one.
@@ -2275,7 +2392,12 @@ function createDriver(env) {
         // monitor, as Hyprland does, rather than wherever KWin happened to
         // put the pointer. An upgrade keeps each monitor as it was.
         var first = screens()[0];
-        if (!upgrading && first && perOutput()) shown[first.name] = ws.currentDesktop.id;
+        if (!upgrading && first && perOutput()) {
+            shown[first.name] = ws.currentDesktop.id;
+            // Natively, say so to KWin at once, or the next pass would take
+            // in whatever that screen was showing instead.
+            if (native()) pushDesktop(first, ws.currentDesktop);
+        }
         refreshShown();
         for (var tid in tracked) tracked[tid].desktop = desktopIdFor(tracked[tid].w);
 
@@ -2314,7 +2436,7 @@ function createDriver(env) {
                 if (space && engine.layoutOf(space) === "scrolling") schedule();
                 // The focused monitor is the one Plasma's current desktop
                 // follows, so focus crossing monitors brings it along.
-                if (perOutput() && w.output && !st.special && !st.pinned) {
+                if (perOutput() && !native() && w.output && !st.special && !st.pinned) {
                     // Its own workspace, not the output's: a window that has
                     // just been moved may not have landed yet.
                     var d = desktopById(st.desktop) || desktopFor(w.output);
@@ -2331,7 +2453,7 @@ function createDriver(env) {
             if (prev) previousDesktop = prev.id;
             // Plasma switched desktop by itself (pager, its own shortcuts):
             // that applies to the monitor the user is on.
-            if (!syncing && perOutput()) {
+            if (!syncing && perOutput() && !native()) {
                 var screen = focusedScreen();
                 if (screen && shown[screen.name] !== ws.currentDesktop.id) {
                     formerShown[screen.name] = shown[screen.name];
@@ -2345,6 +2467,9 @@ function createDriver(env) {
         listen(ws.screensChanged, schedule);
         listen(ws.currentActivityChanged, schedule);
         listen(ws.virtualScreenGeometryChanged, schedule);
+        if (env.options && env.options.perOutputVirtualDesktopsChanged) {
+            listen(env.options.perOutputVirtualDesktopsChanged, schedule);
+        }
         relayout();
         if (env.store) env.store.load(restoreLayouts);
         else layoutsRestored = true;
@@ -2436,6 +2561,7 @@ function createDriver(env) {
                 })(),
                 shown: perOutput() ? shown : null,
                 layoutsRestored: layoutsRestored,
+                nativeDesktops: native(),
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });
             for (var id in tracked) {

@@ -15,7 +15,7 @@ README update and a changelog entry.
 | Scrolling layout, turning border gradient (`borderangle`) | 0.9 |
 | Named scratchpads, workspace rules, focus to the neighbour on close | 0.10 |
 | `hyprland.conf` importer, submaps, `hyprkwinctl` | 0.10 |
-| The pointer follows keyboard focus; zoom (first version); layouts survive logging out | next release |
+| The pointer follows keyboard focus; zoom (first version); layouts survive logging out; Plasma's own per-screen desktops | next release |
 
 Rounded window corners were tried and dropped: every shader applied from a
 scripted effect rendered the window black. The README points to Shape
@@ -32,12 +32,7 @@ From a comparison with Krohnkite, Polonium, Karousel and KWin's own tiling
    description that says what HyprKwin is now, and — the hard part — a way
    for someone who never ran `install.sh` to find out that Plasma still owns
    keys such as Meta+Left and Meta+1, and free them.
-2. **Native per-screen virtual desktops.** Plasma 6.7 can switch desktops
-   per screen by itself (Virtual Desktops settings, `PerOutputVirtualDesktops`
-   in kwinrc). HyprKwin emulates that by putting windows on all desktops; it
-   works alongside the native mode, but should use it when it is on, so the
-   pager and Overview show the right desktop on each screen.
-3. **Fractal zoom**, continued, after [Trellis](https://trellisui.com/):
+2. **Fractal zoom**, continued, after [Trellis](https://trellisui.com/):
    zoom to any part of the dwindle tree so it fills the workspace, one level
    at a time, while the rest stays alive out of view, then back out the same
    way. The first version (`Meta+Z` / `Meta+Shift+Z`) is in. Next: tiles

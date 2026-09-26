@@ -15,6 +15,11 @@
   settings are saved to `~/.config/hyprkwinrc` and read back at the next
   login — and across upgrades. A KWin script cannot write files, so this goes
   through Plasma's own desktop scripting rather than a separate service.
+- **Plasma 6.7's per-screen virtual desktops are used when they are on**
+  (Virtual Desktops › "Switch desktops independently for each screen"):
+  KWin shows each monitor's workspace itself instead of HyprKwin putting
+  windows on all desktops, so the pager and Overview agree, and a switch made
+  in the pager is followed. Off, nothing changes.
 
 ### Fixed
 
