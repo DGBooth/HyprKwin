@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The animations effect's settings did not open from Desktop Effects
+  ("Could not find plugin kwin/effects/configs/kwin/effects/configs/…"). The
+  Desktop Effects page adds that folder to the module name itself, unlike the
+  KWin Scripts page, so the effect now gives the bare name.
+
 ## 0.11.0
 
 - **Zoom**, after Trellis's fractal workspaces: `Meta+Z` zooms in towards the
