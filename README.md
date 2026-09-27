@@ -58,7 +58,7 @@ is untested). The helper scripts also need `python3` with dbus-python
 PyGObject (`python-gobject` on Arch, `python3-gi` on Debian and Ubuntu,
 `python3-gobject` on Fedora).
 
-**From the KDE Store (no terminal needed):**
+**From the KDE Store:**
 
 1. System Settings › Window Management › KWin Scripts › "Get New…", search
    for **HyprKwin** ([store page](https://www.opendesktop.org/p/2375015/)),
