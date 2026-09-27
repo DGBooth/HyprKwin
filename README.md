@@ -4,6 +4,10 @@ Hyprland-style dwindle tiling for KDE Plasma 6, implemented as a KWin script.
 You keep all of Plasma: panels, widgets, the task manager, Overview, virtual
 desktops, activities, window rules, KRunner and System Settings.
 
+On the KDE Store: [HyprKwin](https://www.opendesktop.org/p/2375015/) and
+[HyprKwin animations](https://www.opendesktop.org/p/2375020/) — both install
+from System Settings' "Get New…".
+
 ![Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7](docs/screenshot.png)
 
 *Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7
@@ -54,15 +58,30 @@ is untested). The helper scripts also need `python3` with dbus-python
 PyGObject (`python-gobject` on Arch, `python3-gi` on Debian and Ubuntu,
 `python3-gobject` on Fedora).
 
-**Without cloning the repository:** download `hyprkwin-<version>.kwinscript`
-(and `hyprkwinanimations-<version>.kwineffect` for animations) from the
+**From the KDE Store (no terminal needed):**
+
+1. System Settings › Window Management › KWin Scripts › "Get New…", search
+   for **HyprKwin** ([store page](https://www.opendesktop.org/p/2375015/)),
+   install it, and tick it in the list.
+2. For animations: Desktop Effects › "Get New…", search for **HyprKwin
+   animations** ([store page](https://www.opendesktop.org/p/2375020/)),
+   install it, log out and back in once (KWin only finds a new effect at
+   startup), and tick it.
+3. Plasma keeps the keys it already uses (Meta+Left, Meta+1…) until they are
+   handed over: HyprKwin says which a few seconds after it starts, and its
+   settings page (Behaviour tab) gives the one command that does it.
+
+Updates arrive through the same "Get New…" dialogs.
+
+**From a release file:** download `hyprkwin-<version>.kwinscript` (and
+`hyprkwinanimations-<version>.kwineffect`) from the
 [latest release](https://github.com/DGBooth/HyprKwin/releases/latest), then
-System Settings › Window Management › KWin Scripts › "Install from File…" for
-the script, and `kpackagetool6 --type=KWin/Effect -i <file>` for the effect
-(the Desktop Effects page cannot install from a file). Tick HyprKwin in the
-list. Plasma keeps the keys it already uses until they are handed over:
-HyprKwin says which a few seconds after it starts, and its settings page
-(Behaviour tab) gives the command. The steps below do all of that for you.
+KWin Scripts › "Install from File…" for the script, and
+`kpackagetool6 --type=KWin/Effect -i <file>` for the effect (the Desktop
+Effects page cannot install from a file).
+
+**From the repository:** the steps below install both, hand the keys over and
+back up your shortcuts first.
 
 1. **Install:**
 

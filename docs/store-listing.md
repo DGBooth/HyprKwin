@@ -1,6 +1,7 @@
-# KDE Store listing (draft)
+# KDE Store listing
 
-Two products, created by the maintainer at <https://store.kde.org>:
+Two products, live at <https://www.opendesktop.org/p/2375015/> (HyprKwin) and
+<https://www.opendesktop.org/p/2375020/> (HyprKwin animations):
 
 | Product | Category | File to upload |
 |---|---|---|
