@@ -1175,6 +1175,30 @@ def take_keys(sb):
                    capture_output=True, check=True)
 
 
+@test(xwayland=True)
+def a_tiled_window_the_app_moves_goes_back_to_its_tile(sb):
+    """Steam re-centres its Settings window just after it opens. Tiled, it
+    goes back to its tile, as in Hyprland — not left floating over the other
+    window with its own tile standing empty."""
+    sb.spawn("A")
+    sb.spawn("B", x11=True, extra=("--move-to", "300,200"))
+    time.sleep(2.5)                          # it has moved itself, and been put back
+    s = sb.state()
+    eq((sb.geometry("A", s), sb.geometry("B", s)), (LEFT, RIGHT), "B is back in its tile")
+
+
+@test(xwayland=True)
+def an_app_that_keeps_moving_its_window_gets_its_way(sb):
+    """A window the app moves again and again is not fought over forever."""
+    sb.spawn("A")
+    sb.spawn("B", x11=True, extra=("--move-to", "300,200", "--move-times", "12"))
+    time.sleep(7)
+    s = sb.state()
+    eq(sb.geometry("A", s), LEFT, "A keeps its tile")
+    eq(sb.geometry("B", s)[0], 300, "B left where the app insists on")
+    eq(sb.window("B", s)["tiled"], True, "still tiled: its tile comes back when it is moved in")
+
+
 def guide_row(s, label):
     for section in (s["keysGuide"] or []):
         for row in section["rows"]:

@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--menu", action="store_true", help="open a context menu on right-click")
     ap.add_argument("--activate-on", help="ask to be activated when this file appears (like a relaunched single-instance app)")
     ap.add_argument("--tool", action="store_true", help="a frameless tool window, the way launchers such as Albert open")
+    ap.add_argument("--move-to", help="X,Y: move itself there a moment after opening, as Steam does (X11 only)")
+    ap.add_argument("--move-times", type=int, default=1, help="how many times to repeat --move-to, 400 ms apart")
     args = ap.parse_args()
 
     QGuiApplication.setDesktopFileName(args.app_id)
@@ -64,6 +66,17 @@ def main():
         d.setWindowTitle(args.title + " dialog")
         d.resize(300, 200)
         d.show()
+    if args.move_to:
+        from PySide6.QtCore import QTimer
+        x, y = (int(v) for v in args.move_to.split(","))
+        left = [args.move_times]
+
+        def move():
+            win.move(x, y)
+            left[0] -= 1
+            if left[0] > 0:
+                QTimer.singleShot(400, move)
+        QTimer.singleShot(1500, move)
     if args.activate_on:
         import os
         from PySide6.QtCore import QTimer

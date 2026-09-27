@@ -1137,6 +1137,28 @@ function createDriver(env) {
         if (syncing || drag) return;
         var w = st.w;
         if (!isTiled(st) && !w.fullScreen && !isMaximized(w) && !w.minimized) st.floatGeom = copyRect(w.frameGeometry);
+        if (isTiled(st)) snapBack(st);
+    }
+
+    // A tiled window the app moved by itself (Steam re-centres its Settings
+    // window just after it opens) goes back to its tile, as in Hyprland;
+    // otherwise its tile stays empty while it sits wherever the app put it.
+    // Only moves count: a window that refuses a size keeps its place, and
+    // apply() already leaves those alone. An app that keeps moving the window
+    // back gets its way after a few tries rather than a tug of war.
+    function snapBack(st) {
+        var w = st.w, p = st.placed, g = w.frameGeometry;
+        if (!p || w.fullScreen || isMaximized(w) || w.minimized || w.move || w.resize) return;
+        if (Math.abs(g.x - p.x) <= 2 && Math.abs(g.y - p.y) <= 2) return;
+        var now = Date.now();
+        if (!st.snaps || now - st.snaps.since > 3000) st.snaps = { since: now, count: 0 };
+        if (++st.snaps.count > 4) {
+            if (st.snaps.count === 5) log("giving up moving", w.caption, "back into its tile");
+            return;
+        }
+        log("moved itself:", w.caption, "back into its tile");
+        st.placed = null;
+        schedule();
     }
 
     function onDragStart(st) {

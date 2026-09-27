@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A tiled window the app moved by itself stayed where the app put it**,
+  with its tile left empty beside the other windows. Steam does this to its
+  Settings and Friends windows just after they open. As in Hyprland, it now
+  goes back to its tile; an app that keeps moving it gets its way after a
+  few tries rather than a tug of war. To have such windows float instead,
+  add a rule, e.g. `float, class:^(steam)$, title:^(?!Steam$)` floats every
+  Steam window but the main one.
+
 ## 0.12.1
 
 ### Fixed
