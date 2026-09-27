@@ -12,6 +12,9 @@ Both files are attached to every GitHub release (built by
 update, upload the new file; Plasma offers "Update" when the version in
 `metadata.json` is higher. Licence: GPL-3.0-or-later. Screenshots:
 `docs/screenshot.png` (first, it is the thumbnail) and `docs/zoom.png`.
+Logo: `docs/logo.png` (from `docs/logo.svg`), for both products. Tags:
+`tiling hyprland kwin kwin-script window-manager wayland plasma6 dwindle
+keyboard` (the effect: `kwin-effect animation` instead of `kwin-script`).
 
 Create the animations listing too: the Desktop Effects page has no "Install
 from File…", so the store's "Get New…" is the only way to install the effect

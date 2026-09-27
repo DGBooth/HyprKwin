@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#33ccff"/>
+      <stop offset="1" stop-color="#00ff99"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#252a33"/>
+      <stop offset="1" stop-color="#1a1e24"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#bg)"/>
+  <!-- A dwindle layout: half, then a quarter, then two eighths. -->
+  <g fill="#2e3440" stroke="#4c566a" stroke-width="8">
+    <rect x="276" y="76" width="160" height="170" rx="22"/>
+    <rect x="276" y="266" width="70" height="170" rx="22"/>
+    <rect x="366" y="266" width="70" height="170" rx="22"/>
+  </g>
+  <!-- The focused window, in col.active_border's gradient. -->
+  <rect x="76" y="76" width="180" height="360" rx="22" fill="#2e3440" stroke="url(#g)" stroke-width="14"/>
+  <rect x="100" y="104" width="64" height="10" rx="5" fill="url(#g)" opacity="0.9"/>
+  <rect x="100" y="130" width="120" height="10" rx="5" fill="#4c566a"/>
+  <rect x="100" y="156" width="96" height="10" rx="5" fill="#4c566a"/>
+</svg>
