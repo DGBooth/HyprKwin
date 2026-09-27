@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Two monitors could end up showing two workspaces on one and nothing on
+  the other** ([#1](https://github.com/DGBooth/HyprKwin/issues/1)).
+  Switching, from one monitor, to a workspace the other monitor had shown
+  earlier put that workspace on this monitor but left its windows behind on
+  the other — where, without Plasma's per-screen desktops, they were drawn
+  over the workspace that monitor was showing. Now, as in Hyprland, going to
+  a workspace that is not on screen goes to the monitor its windows are on;
+  and a workspace put on a monitor any other way (the pager, a monitor
+  coming or going) brings its windows along.
+
 ## 0.12.0
 
 - **A keys guide on `Meta+K`**, like Omarchy's: every HyprKwin shortcut, in

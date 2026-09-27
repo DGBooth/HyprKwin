@@ -2280,6 +2280,71 @@ def colour_on(sb, path, half, rgb, tol=40):
 
 
 @test(outputs=2)
+def a_hidden_workspace_is_never_drawn_over_another(sb):
+    """Issue #1: workspace 1 on the left, 2 on the right, 3 on the left, then
+    workspace 1 asked for from the right. Workspace 1 still lives on the left
+    monitor, so as in Hyprland the left monitor shows it again and the focus
+    goes there — never workspaces 1 and 3 on one monitor with the right one
+    left empty."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    s = sb.state()
+    left = [n for n, d in shown_on(sb, s).items() if d == 1][0]     # the one on workspace 1
+    right = [n for n in s["shown"] if n != left][0]
+    sb.invoke("desktop1")
+    sb.spawn("A", color="#ff0000")          # workspace 1, left
+    sb.invoke("focusNextMonitor")
+    sb.invoke("desktop2")
+    sb.spawn("B", color="#00ff00")          # workspace 2, right
+    sb.invoke("focusNextMonitor")
+    sb.invoke("desktop3")
+    sb.spawn("C", color="#0000ff")          # workspace 3, left
+    s = sb.state()
+    eq((sb.window("A", s)["output"], sb.window("B", s)["output"], sb.window("C", s)["output"]),
+       (left, right, left), "set up as in the issue")
+    eq(shown_on(sb, s), {left: 3, right: 2}, "left on 3, right on 2")
+    sb.invoke("focusNextMonitor")
+    sb.invoke("desktop1")
+    s = sb.state()
+    print("  shown", shown_on(sb, s), "active", s["active"],
+          {c: (sb.window(c, s)["output"], sb.window(c, s)["onAllDesktops"]) for c in "ABC"})
+    eq(shown_on(sb, s), {left: 1, right: 2}, "the left monitor went back to workspace 1")
+    eq(s["active"], sb.window("A", s)["id"], "and the focus with it")
+    eq(colour_on(sb, shots / "issue1.png", "left", (255, 0, 0)), True, "A on the left")
+    eq(colour_on(sb, shots / "issue1.png", "left", (0, 0, 255)), False, "C hidden with workspace 3")
+    eq(colour_on(sb, shots / "issue1.png", "right", (0, 255, 0)), True, "B still on the right")
+
+
+@test(outputs=2)
+def a_workspace_shown_elsewhere_brings_its_windows(sb):
+    """The pager puts the monitor you are on on workspace 1 while its window
+    is on the other monitor: the window comes across with it, rather than
+    staying behind, hidden (or drawn over workspace 3, emulated)."""
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    s = sb.state()
+    left = [n for n, d in shown_on(sb, s).items() if d == 1][0]
+    right = [n for n in s["shown"] if n != left][0]
+    sb.invoke("desktop1")
+    sb.spawn("A", color="#ff0000")          # workspace 1, left
+    sb.invoke("desktop3")
+    sb.spawn("C", color="#0000ff")          # workspace 3, left
+    sb.invoke("focusNextMonitor")           # the right monitor, on workspace 2
+    s = sb.state()
+    eq(shown_on(sb, s), {left: 3, right: 2}, "set up")
+    # As the pager does it.
+    sb._qdbus("org.kde.KWin", "/VirtualDesktopManager", "org.freedesktop.DBus.Properties.Set",
+              "org.kde.KWin.VirtualDesktopManager", "current", s["desktops"][0])
+    sb.settle(1.0)
+    s = sb.state()
+    eq(shown_on(sb, s), {left: 3, right: 1}, "the right monitor is on workspace 1")
+    eq(sb.window("A", s)["output"], right, "A came with it")
+    eq(colour_on(sb, shots / "pager.png", "right", (255, 0, 0)), True, "A on the right")
+    eq(colour_on(sb, shots / "pager.png", "left", (255, 0, 0)), False, "and not on the left")
+    eq(colour_on(sb, shots / "pager.png", "left", (0, 0, 255)), True, "C still up on the left")
+
+
+@test(outputs=2)
 def a_second_monitor_gets_its_own_workspace(sb):
     """Hyprland gives each monitor its own workspaces: the second display
     comes up on workspace 2, and switching workspace here leaves it alone."""

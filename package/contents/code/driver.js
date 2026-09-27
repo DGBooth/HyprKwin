@@ -293,6 +293,41 @@ function createDriver(env) {
         });
         if (native()) ss.forEach(function (s) { pushDesktop(s, desktopById(shown[s.name])); });
         if (perOutput() && focused) focusedWorkspace = shown[focused.name] || null;
+        if (perOutput()) gatherShown(ss);
+    }
+
+    // A workspace on show brings its windows with it. A workspace's windows
+    // live on the monitor it was last shown on; shown on another one instead
+    // (the pager, a monitor coming or going), they would stay behind, hidden
+    // there — or, emulated, drawn over that monitor's own workspace, since
+    // theirs is now Plasma's current desktop (issue #1).
+    function gatherShown(ss) {
+        var showing = {};
+        ss.forEach(function (s) { if (shown[s.name]) showing[shown[s.name]] = s; });
+        ss.forEach(function (from) {
+            var here = desktopById(shown[from.name]);
+            for (var id in showing) {
+                var to = showing[id];
+                if (to === from) continue;
+                var d = desktopById(id);
+                if (!d || d === here) continue;
+                var space = spaceFor(d, from);
+                var moved = engine.windows(space);
+                var floating = [];
+                for (var wid in tracked) {
+                    var st = tracked[wid];
+                    if (st.desktop === d.id && !isTiled(st) && !st.pinned && !st.special && st.w.output === from) floating.push(st);
+                }
+                if (!moved.length && !floating.length) continue;
+                log("workspace", d.id, "shown on", to.name, "- its windows follow from", from.name);
+                if (moved.length) {
+                    engine.moveSpace(space, spaceFor(d, to));
+                    carryRuled(space, spaceFor(d, to));
+                    moved.forEach(function (wid) { if (tracked[wid]) syncDesktop(tracked[wid]); });
+                }
+                floating.forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
+            }
+        });
     }
 
     // Put every window on the Plasma desktop that makes it visible where
@@ -2133,8 +2168,9 @@ function createDriver(env) {
         }
         var screen = focusedScreen();
         // Hyprland jumps to the monitor a workspace is already up on, or the
-        // one its rule pins it to, rather than pulling it across.
-        var other = screenForWorkspace(d) || screenShowing(d, screen);
+        // one its rule pins it to, or — hidden — the one its windows are on,
+        // rather than pulling it across.
+        var other = screenForWorkspace(d) || screenShowing(d, null) || screenHolding(d, screen) || screen;
         if (other !== screen) {
             if (desktopFor(other) !== d) showDesktop(other, d, true);
             focusScreen(other);
@@ -2184,8 +2220,20 @@ function createDriver(env) {
     }
 
     // The screen on which `desktop` is currently shown, if desktops are per screen.
+    // The monitor a hidden workspace's windows are on: this one if any are,
+    // otherwise the one with most of them.
+    function screenHolding(desktop, prefer) {
+        if (prefer && engine.windows(spaceFor(desktop, prefer)).length) return prefer;
+        var best = null, most = 0;
+        screens().forEach(function (s) {
+            var n = engine.windows(spaceFor(desktop, s)).length;
+            if (n > most) { most = n; best = s; }
+        });
+        return best;
+    }
+
     function screenShowing(desktop, fallback) {
-        if (desktopFor(fallback) === desktop) return fallback;
+        if (fallback && desktopFor(fallback) === desktop) return fallback;
         var ss = screens();
         for (var i = 0; i < ss.length; i++) if (desktopFor(ss[i]) === desktop) return ss[i];
         return fallback;
