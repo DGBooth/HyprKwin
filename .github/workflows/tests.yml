@@ -17,9 +17,9 @@ jobs:
       - name: Unit tests (layout engine, window rules)
         run: deno test --allow-read tests/
 
-      # The end-to-end tests need a real KWin, so they only run locally
-      # (python3 tests/e2e/run.py). These at least catch files that no longer
-      # parse.
+      # The end-to-end tests need a real KWin: they run locally
+      # (python3 tests/e2e/run.py) and, for Plasma 6.6, in the job below.
+      # These at least catch files that no longer parse.
       - name: Unit tests (hyprland.conf importer, hyprkwinctl)
         run: |
           python3 tests/import_test.py
@@ -34,3 +34,22 @@ jobs:
           python3 -m py_compile tools/*.py tools/hyprkwinctl tests/*.py tests/e2e/*.py
           for f in package/metadata.json package-effect/metadata.json; do python3 -m json.tool "$f" > /dev/null; done
           python3 -c "import xml.dom.minidom as m; [m.parse(f) for f in ['package/contents/ui/config.ui', 'package/contents/config/main.xml', 'package-effect/contents/ui/config.ui', 'package-effect/contents/config/main.xml']]"
+
+  # The whole end-to-end suite against Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04
+  # LTS ships it), nested on KWin's virtual backend in a container.
+  e2e-plasma-6_6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: End-to-end tests (Plasma 6.6)
+        run: HK_ARTIFACTS=artifacts tools/test-plasma-6.6.sh
+
+      - name: Screenshots and KWin logs of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-plasma-6.6-failures
+          path: artifacts/
+          if-no-files-found: ignore

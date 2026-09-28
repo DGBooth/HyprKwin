@@ -5,6 +5,8 @@
     python3 tests/e2e/run.py swap group # tests whose name contains a word
 """
 import json
+import os
+import re
 import shutil
 import sys
 import time
@@ -2686,12 +2688,32 @@ def plasma_shell(sb):
     sb.wait_for(lambda s: not s["effectActive"], "overlays back after Overview")
 
 
+def kwin_version():
+    """KWin's version as a tuple, e.g. (6, 6, 6); (0,) if it cannot tell."""
+    import subprocess
+    try:
+        out = subprocess.run(["kwin_wayland", "--version"], capture_output=True, text=True).stdout
+        return tuple(int(v) for v in re.search(r"(\d+)\.(\d+)\.(\d+)", out).groups())
+    except Exception:
+        return (0,)
+
+
 def main():
-    words = sys.argv[1:]
+    words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]
-    failed = []
+    failed, skipped = [], []
+    # Plasma's own per-screen desktops arrived in 6.7; before that HyprKwin
+    # emulates them, which every other test covers.
+    per_screen = kwin_version() >= (6, 7)
+    print("KWin %s" % ".".join(map(str, kwin_version())))
+    if os.environ.get("HK_NATIVE") == "1" and not per_screen:
+        sys.exit("HK_NATIVE=1 needs KWin 6.7 or later")
     for t in selected:
         opts = t.opts
+        if opts.get("native_desktops") and not per_screen:
+            skipped.append(t.__name__)
+            print("SKIP %-32s needs KWin 6.7's per-screen desktops" % t.__name__)
+            continue
         start = time.time()
         try:
             sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
@@ -2723,7 +2745,8 @@ def main():
             print("FAIL %-32s %s" % (t.__name__, e))
             if "-v" in sys.argv or len(selected) == 1:
                 traceback.print_exc()
-    print("\n%d passed, %d failed" % (len(selected) - len(failed), len(failed)))
+    print("\n%d passed, %d failed" % (len(selected) - len(failed) - len(skipped), len(failed))
+          + (", %d skipped" % len(skipped) if skipped else ""))
     sys.exit(1 if failed else 0)
 
 

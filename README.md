@@ -771,6 +771,16 @@ python3 tests/e2e/run.py            # everything
 python3 tests/e2e/run.py groups     # tests whose name contains "groups"
 ```
 
+The same suite runs against Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04 LTS
+ships it) in a container, whatever Plasma your machine has, and in CI on
+every push. It needs Docker or podman; the tests for Plasma 6.7's
+per-screen desktops are skipped there.
+
+```bash
+tools/test-plasma-6.6.sh            # everything, on Plasma 6.6
+tools/test-plasma-6.6.sh groups     # some of it
+```
+
 The screenshot at the top is staged in the same nested KWin, with real apps
 and a real Plasma panel, so it can be retaken when the UI changes:
 `python3 tools/readme-screenshot.py` (needs Alacritty, Gwenview and fastfetch).
