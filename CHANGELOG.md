@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A window could keep its old size when its workspace came back: resized
+  just before its workspace was hidden (sending the window beside it to
+  another workspace and following it), it could be hidden before taking the
+  new size, and nothing sent it again. Rare with a GPU; every time when KWin
+  draws without one.
+
 ## 0.13.0
 
 - **Plasma 6.6 is supported**, and HyprKwin now says so (the packages asked

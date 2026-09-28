@@ -1272,6 +1272,10 @@ function createDriver(env) {
             st.placedHidden = false;
             if (!sameRect(w.frameGeometry, r)) st.placed = null;
         }
+        // Hidden before it took the size it was just given (its workspace
+        // went away straight after, as when a window is sent elsewhere and
+        // followed): KWin may keep the old one, so send it again on return.
+        if (!shown && st.placed && sameRect(st.placed, r) && !sameRect(w.frameGeometry, r)) st.placedHidden = true;
         // Only push geometry when our target changes, so windows that refuse
         // a size (minimum size hints) don't cause a resize loop.
         if (st.placed && sameRect(st.placed, r)) return;

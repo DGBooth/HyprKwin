@@ -26,8 +26,10 @@ fi
 # KWin's virtual backend composites with OpenGL only given a GPU render node;
 # without one, the tests that take screenshots or use the effect say SKIP.
 # Only a node Mesa drives will do: the image has no NVIDIA libraries.
+# HK_NO_GPU=1 leaves it out, as CI has to.
 GPU=()
 for node in /dev/dri/renderD*; do
+    [ -z "${HK_NO_GPU:-}" ] || break
     [ -e "$node" ] || continue
     driver=$(basename "$(readlink -f "/sys/class/drm/$(basename "$node")/device/driver")")
     if [ "$driver" != nvidia ]; then GPU=(--device "$node"); break; fi

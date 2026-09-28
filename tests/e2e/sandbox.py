@@ -87,6 +87,10 @@ class Sandbox:
             "KWIN_SCREENSHOT_NO_PERMISSION_CHECKS": "1",
             # lets tests use org_kde_kwin_fake_input (see fakeinput.py)
             "KWIN_WAYLAND_NO_PERMISSION_CHECKS": "1",
+            # Keep everything the tests start (KWin, a nested plasmashell and
+            # its volume applet) away from this machine's sound server.
+            "PIPEWIRE_RUNTIME_DIR": str(self.base / "no-audio"),
+            "PULSE_SERVER": "unix:" + str(self.base / "no-audio" / "native"),
         })
         env.pop("QT_QPA_PLATFORM", None)
         subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(PACKAGE)], env=env,

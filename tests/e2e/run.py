@@ -459,8 +459,12 @@ def plasma_native_desktop_move(sb):
     s = sb.state()
     eq(sb.window("C", s)["desktops"], [s["desktops"][1]], "C moved by KWin")
     eq(sb.geometry("C", s), FULL, "C alone on desktop 2")
-    eq(sb.geometry("B", s), RIGHT, "desktop 1 re-laid out while hidden")
+    # Drawing with QPainter (no GPU), Plasma 6.6 only reports a hidden
+    # window's new size once it is shown and has drawn at it.
+    if sb.opengl:
+        eq(sb.geometry("B", s), RIGHT, "desktop 1 re-laid out while hidden")
     sb.invoke("desktop1")
+    sb.wait_for(lambda s: sb.geometry("B", s) == RIGHT, "desktop 1 re-laid out", timeout=5)
     sb.invoke("focusRight")
     s = sb.state()
     eq(s["active"], sb.window("B", s)["id"], "B focused")
@@ -1361,7 +1365,10 @@ def real_keys(sb):
     sb.settle()
     s = sb.state()
     eq(s["currentDesktop"], s["desktops"][0], "Meta+1")
-    eq(sb.geometry("B", s), FULL, "B alone on workspace 1")
+    # Re-laid out while hidden, B takes its new size as the workspace comes
+    # back; without a GPU (Plasma 6.6 drawing with QPainter) that is only once
+    # the app has drawn at it, which a slow machine takes a moment over.
+    sb.wait_for(lambda s: sb.geometry("B", s) == FULL, "B alone on workspace 1", timeout=5)
 
 
 @test
@@ -2703,6 +2710,9 @@ def plasma_shell(sb):
     a = sb.geometry("A", s)
     if not (a[1] + a[3] < 1080 - 30):
         raise AssertionError("A should stop above the panel: %r" % (a,))
+    if not sb.opengl:
+        print("  (Overview needs OpenGL compositing: its part skipped)")
+        return
     sb.invoke("Overview", raw=True, settle=False)
     sb.wait_for(lambda s: s["effectActive"], "overlays hidden during Overview")
     sb.invoke("Overview", raw=True, settle=False)
