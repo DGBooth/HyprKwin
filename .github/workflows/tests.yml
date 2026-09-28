@@ -24,6 +24,7 @@ jobs:
         run: |
           python3 tests/import_test.py
           python3 tests/ctl_test.py
+          python3 tests/shortcuts_tool_test.py
 
       - name: Scripts parse
         run: |

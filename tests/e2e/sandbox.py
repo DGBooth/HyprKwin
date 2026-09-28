@@ -20,6 +20,10 @@ EFFECT_PACKAGE = ROOT / "package-effect"
 CLIENT = Path(__file__).resolve().parent / "client.py"
 
 
+class Skip(Exception):
+    """This test cannot run here (not a failure): say why, and move on."""
+
+
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
                  effect=False, effect_config=None, xwayland=False, native_desktops=False):
@@ -49,15 +53,29 @@ class Sandbox:
     # -- lifecycle -----------------------------------------------------------
 
     def __enter__(self):
-        self.start()
+        # A KWin left running by a start that failed half way would take the
+        # socket and runtime folder from every test after it.
+        try:
+            self.start()
+        except BaseException:
+            self.stop()
+            raise
         return self
 
     def __exit__(self, *exc):
         self.stop()
 
     def start(self):
-        if self.base.exists():
-            shutil.rmtree(self.base)
+        # The previous KWin may still be writing its config as it exits.
+        for attempt in range(20):
+            try:
+                if self.base.exists():
+                    shutil.rmtree(self.base)
+                break
+            except OSError:
+                if attempt == 19:
+                    raise
+                time.sleep(0.25)
         (self.base / "config").mkdir(parents=True)
         (self.base / "data").mkdir(parents=True)
         self.log_path = self.base / "kwin.log"
@@ -124,6 +142,13 @@ class Sandbox:
             time.sleep(0.1)
         else:
             raise RuntimeError("HyprKwin did not load; see %s" % self.log_path)
+        # The script's entry point loads even when HyprKwin.qml cannot (a QML
+        # module missing), and then nothing works; say so rather than fail on
+        # every state dump.
+        time.sleep(0.3)
+        broken = re.search(r"contents/ui/\w+\.qml:\d+:\d+: .*", self.log_path.read_text(errors="replace"))
+        if broken:
+            raise RuntimeError("HyprKwin's QML did not load: %s" % broken.group(0).split("/contents/")[-1])
         if self.xwayland:
             for _ in range(100):
                 if displayfile.exists() and displayfile.read_text().strip():
@@ -153,6 +178,7 @@ class Sandbox:
                 self.proc.wait(5)
             except subprocess.TimeoutExpired:
                 os.killpg(self.proc.pid, signal.SIGKILL)
+                self.proc.wait(5)
         self.exit_code = self.proc.returncode if self.proc else None
 
     def crashed(self):
@@ -176,6 +202,16 @@ class Sandbox:
         self._write_config(self.env, "Script-hyprkwin", values)
         self._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure")
         time.sleep(0.5)
+
+    @property
+    def opengl(self):
+        """Whether KWin composites with OpenGL. On its virtual backend that
+        needs a GPU render node; without one (a container, CI) it draws with
+        QPainter, which offers neither screenshots nor effects."""
+        if getattr(self, "_opengl", None) is None:
+            info = self._qdbus("org.kde.KWin", "/KWin", "org.kde.KWin.supportInformation", check=False)
+            self._opengl = bool(re.search(r"Compositing Type:\s*OpenGL", info))
+        return self._opengl
 
     def _qdbus(self, *args, check=True):
         r = subprocess.run(["qdbus6", *args], env=self.env, capture_output=True, text=True)
@@ -371,10 +407,32 @@ Item { Timer { interval: 100; running: true; onTriggered: {
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def screenshot(self, path):
-        env = dict(self.env)
-        env["WAYLAND_DISPLAY"] = self.socket
-        subprocess.run(["spectacle", "-b", "-n", "-f", "-o", str(path)], env=env, timeout=20,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        """The whole workspace as a PNG, straight from KWin's ScreenShot2
+        interface (what Spectacle uses underneath; Spectacle itself stalls in
+        a container)."""
+        if not self.opengl:
+            raise Skip("screenshots need OpenGL compositing (no GPU here)")
+        import dbus
+        from PIL import Image
+        bus = dbus.bus.BusConnection(self.env["DBUS_SESSION_BUS_ADDRESS"])
+        shot = dbus.Interface(bus.get_object("org.kde.KWin", "/org/kde/KWin/ScreenShot2"),
+                              "org.kde.KWin.ScreenShot2")
+        read, write = os.pipe()
+        try:
+            info = shot.CaptureWorkspace(dbus.Dictionary({}, signature="sv"), dbus.types.UnixFd(write),
+                                         timeout=20)
+        finally:
+            os.close(write)                 # KWin has its own copy; this one would stop EOF
+        data = b""
+        with os.fdopen(read, "rb") as f:
+            while chunk := f.read(1 << 20):
+                data += chunk
+        width, height, stride, fmt = (int(info[k]) for k in ("width", "height", "stride", "format"))
+        # QImage formats: 4-6 are 32-bit BGRA in memory, 16-18 RGBA.
+        mode = {4: "BGRX", 5: "BGRA", 6: "BGRA", 16: "RGBX", 17: "RGBA", 18: "RGBA"}.get(fmt)
+        if not mode:
+            raise RuntimeError("unexpected screenshot format %d" % fmt)
+        Image.frombuffer("RGBA", (width, height), data, "raw", mode, stride, 1).convert("RGB").save(path)
 
     def errors(self):
         text = self.log_path.read_text(errors="replace")

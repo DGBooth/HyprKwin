@@ -528,7 +528,12 @@ Item {
                 showKeys: (sections, area) => { if (!root.shuttingDown) keysGuide.open(sections, area); },
                 hideKeys: () => keysGuide.hide(),
                 scrollKeys: (how) => keysGuide.scroll(how),
-                setSubmaps: (entries) => { root.submapEntries = entries; },
+                // Only when they change: a shortcut destroyed and made again
+                // straight away can end up inactive in Plasma 6.6, listed on
+                // its key but deaf to it.
+                setSubmaps: (entries) => {
+                    if (JSON.stringify(entries) !== JSON.stringify(root.submapEntries)) root.submapEntries = entries;
+                },
                 setSubmapBinds: (binds) => { root.submapBinds = binds; },
             },
         });

@@ -9,15 +9,25 @@ FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        kwin-wayland kwin-common xwayland kglobalacceld \
+        kwin-wayland kwin-common xwayland kglobalacceld qt6-wayland kwin-style-breeze \
         qml6-module-org-kde-kirigami qml6-module-qtquick-shapes qml6-module-qtquick-controls \
         qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtquick-templates \
+        qml6-module-qtcore qml6-module-qt-labs-folderlistmodel \
         libgl1-mesa-dri libegl-mesa0 mesa-libgallium \
-        dbus dbus-bin dbus-daemon qdbus-qt6 kpackagetool6 libkf6config-bin libkscreen-bin kde-spectacle \
+        dbus dbus-bin dbus-daemon qdbus-qt6 kpackagetool6 libkf6config-bin libkscreen-bin \
         python3 python3-dbus python3-gi python3-pil \
         python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets \
-        fonts-dejavu-core ca-certificates \
+        fonts-dejavu-core ca-certificates libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
+
+# kwin_wayland is installed with CAP_SYS_NICE, for real-time scheduling. A
+# container's default capabilities leave that out, and the kernel then refuses
+# to run the file at all ("Operation not permitted"); the tests don't need it.
+RUN setcap -r /usr/bin/kwin_wayland
+
+# Where Xwayland puts its socket; a booted system makes it, a container doesn't,
+# and an ordinary user cannot.
+RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
 # The tests call qdbus6; Ubuntu may only ship it under Qt's own bin folder.
 RUN command -v qdbus6 >/dev/null || ln -s /usr/lib/qt6/bin/qdbus /usr/local/bin/qdbus6

@@ -51,8 +51,11 @@ from System Settings' "Get New…".
 
 ## Install
 
-Requires a Plasma 6 Wayland session (developed and tested on Plasma 6.7; X11
-is untested). The helper scripts also need `python3` with dbus-python
+Requires a Plasma 6 Wayland session (developed on Plasma 6.7, and tested on
+6.6 too; X11 is untested). A full Plasma install has everything HyprKwin
+needs; a minimal one also needs Qt's `QtCore` and `Qt.labs.folderlistmodel`
+QML modules (`qml6-module-qtcore` and `qml6-module-qt-labs-folderlistmodel` on
+Debian and Ubuntu, part of `qt6-declarative` on Arch). The helper scripts also need `python3` with dbus-python
 (`python-dbus` on Arch, `python3-dbus` on Debian, Ubuntu and Fedora) and
 `qdbus6`. `hyprkwinctl`'s queries and `hyprkwin-rules.py list` also need
 PyGObject (`python-gobject` on Arch, `python3-gi` on Debian and Ubuntu,
@@ -763,8 +766,10 @@ End-to-end tests start a private `kwin_wayland --virtual` (own D-Bus session
 and config dir, nothing touches your desktop), install the package into it
 and drive it with real key presses and mouse drags through KWin's
 fake-input protocol. One test also runs a real `plasmashell`. They need
-`python3` with PySide6, dbus-python and Pillow, plus `spectacle` (for
-screenshots) and `kscreen-doctor` (for plugging monitors in and out).
+`python3` with PySide6, dbus-python and Pillow, plus `kscreen-doctor` (for
+plugging monitors in and out). Screenshots come straight from KWin, and
+need a GPU: without one, the tests that take them (or use the animations
+effect) say SKIP.
 
 ```bash
 python3 tests/e2e/run.py            # everything
@@ -774,7 +779,9 @@ python3 tests/e2e/run.py groups     # tests whose name contains "groups"
 The same suite runs against Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04 LTS
 ships it) in a container, whatever Plasma your machine has, and in CI on
 every push. It needs Docker or podman; the tests for Plasma 6.7's
-per-screen desktops are skipped there.
+per-screen desktops are skipped there. Locally the container is given the
+first GPU render node that Mesa drives (an Intel or AMD GPU, not NVIDIA's),
+so the screenshot and effect tests run too; CI has no GPU and skips them.
 
 ```bash
 tools/test-plasma-6.6.sh            # everything, on Plasma 6.6

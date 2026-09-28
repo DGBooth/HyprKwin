@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+- **Tested on Plasma 6.6** as well as 6.7: the whole end-to-end suite runs
+  against KWin 6.6.6 (as Ubuntu 26.04 LTS ships it) in a container, locally
+  with `tools/test-plasma-6.6.sh` and in CI on every push. Plasma 6.7's own
+  per-screen desktops are the one thing 6.6 lacks; there HyprKwin gives each
+  monitor its workspaces itself, as it always has.
+
+### Fixed
+
+These showed up on Plasma 6.6:
+
+- A submap's key could do nothing, though System Settings listed it. Every
+  settings reload made the submap shortcuts afresh, and 6.6 can leave a
+  shortcut made again straight away deaf to its key; they are now only made
+  again when the submaps change.
+- Uninstalling left Plasma's shortcuts that HyprKwin had taken keys from with
+  no key at all, when there was no backup to reinstate (an install from the
+  KDE Store) or with `--keep-shortcuts`: the keys were given back while
+  HyprKwin still held them, which 6.6 refuses.
+- `hyprkwin-shortcuts.py check` and `apply` found no clashing keys. 6.6 records
+  an action whose key was already taken with no key at all, so the tool now
+  knows HyprKwin's default keys itself.
+
 ## 0.12.2
 
 ### Fixed

@@ -15,7 +15,7 @@ import traceback
 from pathlib import Path
 
 from fakeinput import BTN_RIGHT
-from sandbox import Sandbox
+from sandbox import Sandbox, Skip
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -1229,16 +1229,29 @@ def meta_k_shows_every_shortcut_on_its_real_key(sb):
     take_keys(sb)
     bus = dbus.bus.BusConnection(sb.env["DBUS_SESSION_BUS_ADDRESS"])
     accel = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/kglobalaccel"), "org.kde.KGlobalAccel")
-    meta_w = 0x10000000 | ord("W")
-    # As System Settings does it: Close window on Meta+W instead of Meta+Q.
-    accel.setShortcut(["kwin", "HyprKwin close", "KWin", "HyprKwin: Close window"],
-                      dbus.Array([meta_w], signature="i"), dbus.UInt32(4))
+    # A key nothing else has: Plasma 6.6 leaves an action with no key at all
+    # when given one another shortcut holds (Meta+W is the Overview's).
+    meta_w = 0x10000000 | 0x08000000 | ord("W")
+    # As System Settings does it: Close window on Meta+Alt+W instead of Meta+Q.
+    accel.setForeignShortcut(["kwin", "HyprKwin close", "KWin", "HyprKwin: Close window"],
+                             dbus.Array([meta_w], signature="i"))
+    # Plasma 6.6 passes the change on to KWin, which registers the shortcut
+    # again, so the key comes, goes for a moment and comes back: wait until it
+    # has held for half a second, as a person would before looking.
+    comp = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/component/kwin"), "org.kde.kglobalaccel.Component")
+    held = 0
+    for _ in range(80):
+        bound = any(str(i[0]) == "HyprKwin close" and meta_w in [int(k) for k in i[6]] for i in comp.allShortcutInfos())
+        held = held + 1 if bound else 0
+        if held >= 10:
+            break
+        time.sleep(0.05)
     fi = sb.input()
     fi.combo("meta+k")
     sb.settle(0.8)
     s = sb.state()
     eq(s["keysGuide"] is not None, True, "Meta+K opened the guide")
-    eq(guide_row(s, "Close window"), {"label": "Close window", "keys": ["Meta+W"], "section": "Windows"},
+    eq(guide_row(s, "Close window"), {"label": "Close window", "keys": ["Meta+Alt+W"], "section": "Windows"},
        "the key it has now, not the default")
     eq(guide_row(s, "Show keyboard shortcuts")["keys"], ["Meta+K"], "and its own")
     eq(guide_row(s, "Switch to workspace 1–10")["keys"], ["Meta+1…0"], "workspaces in one row")
@@ -1915,7 +1928,12 @@ def windows_animate_to_their_new_tile(sb):
     start = red_x_range(sb, shots / "start.png")
     eq(start[0] < 100, True, "A is on the left before the swap: %r" % (start,))
     sb.invoke("swapLeft", settle=False)
-    frames = [red_x_range(sb, shots / ("f%d.png" % i)) for i in range(3)]
+    # A few tenths of a second apart: screenshots are quick, and the first one
+    # could otherwise come before the slide has moved a pixel.
+    frames = []
+    for i in range(3):
+        time.sleep(0.4)
+        frames.append(red_x_range(sb, shots / ("f%d.png" % i)))
     if not all(frames):
         raise AssertionError("lost track of the window: %r" % (frames,))
     lefts = [f[0] for f in frames]
@@ -2224,6 +2242,9 @@ def launchers_do_not_get_a_border(sb):
     would outline the invisible part."""
     sb.spawn("A")
     sb.spawn("Launcher", extra=["--tool"], size="800x230", x11=True)
+    # Where it ends up, not where it first appears: through Xwayland it can
+    # still be placed a moment after, and the click would land on A.
+    sb.settle(1.0)
     g = sb.window("Launcher")["geometry"]
     sb.input().click(g["x"] + g["width"] // 2, g["y"] + g["height"] // 2)   # start typing in it
     sb.settle(0.6)
@@ -2722,10 +2743,14 @@ def main():
                               native_desktops=opts.get("native_desktops", False))
             with sandbox as sb:
                 try:
+                    if opts.get("effect") and not sb.opengl:
+                        raise Skip("the effect needs OpenGL compositing (no GPU here)")
                     t(sb)
                     errs = [e for e in sb.errors() if "bluez" not in e]
                     if errs:
                         raise AssertionError("script errors:\n  " + "\n  ".join(errs[:10]))
+                except Skip:
+                    raise
                 except Exception:
                     shot = sb.base.parent / ("hyprkwin-fail-%s.png" % t.__name__)
                     try:
@@ -2740,6 +2765,9 @@ def main():
             if sandbox.crashed():
                 raise AssertionError("KWin crashed (KCrash in %s)" % sandbox.log_path)
             print("PASS %-32s %.1fs" % (t.__name__, time.time() - start))
+        except Skip as e:
+            skipped.append(t.__name__)
+            print("SKIP %-32s %s" % (t.__name__, e))
         except Exception as e:
             failed.append(t.__name__)
             print("FAIL %-32s %s" % (t.__name__, e))

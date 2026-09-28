@@ -15,13 +15,6 @@ KEEP=0
 ACCEL=0
 qdbus6 org.kde.kglobalaccel /kglobalaccel >/dev/null 2>&1 && ACCEL=1
 
-# Without a backup to reinstate (or when keeping later changes), undo just
-# the moves 'apply' logged.
-if [ "$ACCEL" = 1 ] && [ -f "$DATA/shortcut-changes.json" ] &&
-   { [ "$KEEP" = 1 ] || [ ! -f "$DATA/shortcuts-before-hyprkwin.json" ]; }; then
-    python3 "$TOOL" restore
-fi
-
 kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinEnabled false
 kwriteconfig6 --file kwinrc --group Plugins --key hyprkwinanimationsEnabled false
 if qdbus6 org.kde.KWin /KWin >/dev/null 2>&1; then
@@ -46,8 +39,8 @@ QML
     rm -rf "$tmp"
 fi
 
-# Forget HyprKwin's own shortcuts (Plasma's were restored above). With the
-# script unloaded nothing re-registers them.
+# Forget HyprKwin's own shortcuts. With the script unloaded nothing
+# re-registers them.
 removed=0
 if qdbus6 org.kde.kglobalaccel /kglobalaccel >/dev/null 2>&1; then
     while IFS= read -r action; do
@@ -68,9 +61,14 @@ fi
 echo "Removed $removed HyprKwin shortcuts."
 
 # With HyprKwin's own shortcuts gone their keys are free again: put every
-# shortcut back as it was before HyprKwin was installed.
+# shortcut back as it was before HyprKwin was installed, or, without a backup
+# (or keeping later changes), undo just the moves 'apply' logged. Not before:
+# Plasma 6.6 refuses to give a key back to its owner while HyprKwin still
+# holds it, and the owner is left with none.
 if [ "$ACCEL" = 1 ] && [ "$KEEP" = 0 ] && [ -f "$DATA/shortcuts-before-hyprkwin.json" ]; then
     python3 "$TOOL" reinstate
+elif [ "$ACCEL" = 1 ] && [ -f "$DATA/shortcut-changes.json" ]; then
+    python3 "$TOOL" restore
 elif [ "$ACCEL" = 0 ] && { [ -f "$DATA/shortcuts-before-hyprkwin.json" ] || [ -f "$DATA/shortcut-changes.json" ]; }; then
     echo "Plasma is not running, so your other shortcuts were left as they are."
     if [ -f "$DATA/shortcuts-before-hyprkwin.json" ] && [ "$KEEP" = 0 ]; then

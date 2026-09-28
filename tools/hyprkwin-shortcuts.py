@@ -92,14 +92,86 @@ def same(a, b):
     return a["component"] == b["component"] and a["name"] == b["name"]
 
 
+# ---- HyprKwin's own default keys -------------------------------------------
+#
+# Read from shortcuts.js, beside this file in the repository (tools/ next to
+# package/) or in the installed package (contents/tools/ next to
+# contents/code/). KDE cannot always say which key HyprKwin asked for: Plasma
+# 6.6 records an action whose key was already taken with no key at all.
+
+MODIFIER_CODES = {"Shift": 0x02000000, "Ctrl": 0x04000000, "Alt": 0x08000000, "Meta": 0x10000000}
+KEY_CODES = {
+    "Escape": 0x01000000, "Esc": 0x01000000, "Tab": 0x01000001, "Backtab": 0x01000002, "Backspace": 0x01000003,
+    "Return": 0x01000004, "Enter": 0x01000005, "Delete": 0x01000007, "Home": 0x01000010, "End": 0x01000011,
+    "Left": 0x01000012, "Up": 0x01000013, "Right": 0x01000014, "Down": 0x01000015, "PgUp": 0x01000016,
+    "PgDown": 0x01000017, "Space": 0x20,
+}
+
+
+def key_code(text):
+    """Qt's number for "Meta+Shift+Left", as keyCode() in shortcuts.js; 0 if unknown."""
+    if not text:
+        return 0
+    cut = text.rfind("+", 0, len(text) - 1)   # "+" itself can be the key: "Meta++"
+    key = text[cut + 1:]
+    code = 0
+    for mod in filter(None, text[:cut + 1].split("+")):
+        if mod not in MODIFIER_CODES:
+            return 0
+        code |= MODIFIER_CODES[mod]
+    if key in KEY_CODES:
+        return code | KEY_CODES[key]
+    if len(key) > 1 and key[0] == "F" and key[1:].isdigit():
+        return code | (0x01000030 + int(key[1:]) - 1)
+    return code | ord(key.upper()) if len(key) == 1 else 0
+
+
+def shortcuts_file():
+    here = Path(__file__).resolve().parent
+    for candidate in (here.parent / "package/contents/code/shortcuts.js",
+                      here.parent / "code/shortcuts.js",
+                      DATA.parent / "kwin/scripts/hyprkwin/contents/code/shortcuts.js"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def default_keys():
+    """{"HyprKwin close": key code, ...} for every action with a default key."""
+    import re
+    path = shortcuts_file()
+    if not path:
+        return {}
+    src = path.read_text()
+    out = {}
+    for action, key in re.findall(r'\[\s*"(\w+)",\s*"(?:[^"\\]|\\.)*",\s*"([^"]*)"\s*\]', src):
+        if key:
+            out[PREFIX + action] = key_code(key)
+    # The numbered ones are built in a loop there; the same loop here.
+    shifted = "!@#$%^&*()"
+    for i in range(1, 11):
+        digit = str(i % 10)
+        out[PREFIX + "desktop%d" % i] = key_code("Meta+" + digit)
+        out[PREFIX + "moveToDesktop%d" % i] = key_code("Meta+" + shifted[i - 1])
+        out[PREFIX + "moveToDesktopSilent%d" % i] = key_code("Meta+Alt+" + shifted[i - 1])
+        if i <= 5:
+            out[PREFIX + "groupWindow%d" % i] = key_code("Meta+Alt+" + digit)
+    return {k: v for k, v in out.items() if v}
+
+
 # HyprKwin registers its keys as active keys; kglobalaccel lets several
 # actions list the same key, but only the one registered first receives it.
+# Where KDE has no key for one of HyprKwin's actions at all, its default is
+# what it asked for.
 def conflicts(accel):
     found = []
+    defaults = default_keys()
     for info in accel.infos():
-        if not info["name"].startswith(PREFIX) or not info["keys"]:
+        if not info["name"].startswith(PREFIX):
             continue
-        key = info["keys"][0]
+        key = info["keys"][0] if info["keys"] else defaults.get(info["name"])
+        if not key:
+            continue
         holders = [o for o in accel.owners(key) if not same(o, info)]
         if holders:
             found.append((info, key, holders))

@@ -23,7 +23,20 @@ if [ -n "${HK_ARTIFACTS:-}" ]; then
     chmod 777 "$HK_ARTIFACTS"       # the container's user is not this one
     ARTIFACTS=(-v "$(cd "$HK_ARTIFACTS" && pwd):/artifacts")
 fi
-exec "$ENGINE" run --rm -v "$ROOT:/src:ro" "${ARTIFACTS[@]}" "$IMAGE" bash -c '
+# KWin's virtual backend composites with OpenGL only given a GPU render node;
+# without one, the tests that take screenshots or use the effect say SKIP.
+# Only a node Mesa drives will do: the image has no NVIDIA libraries.
+GPU=()
+for node in /dev/dri/renderD*; do
+    [ -e "$node" ] || continue
+    driver=$(basename "$(readlink -f "/sys/class/drm/$(basename "$node")/device/driver")")
+    if [ "$driver" != nvidia ]; then GPU=(--device "$node"); break; fi
+done
+
+# --init reaps what the tests leave behind; with no core files, a crash in
+# the container fails its test without landing in this machine's crash
+# records (systemd-coredump sees the container's processes too).
+exec "$ENGINE" run --rm --init --ulimit core=0 "${GPU[@]}" -v "$ROOT:/src:ro" "${ARTIFACTS[@]}" "$IMAGE" bash -c '
     python3 tests/e2e/run.py "$@"; status=$?
     [ -d /artifacts ] && cp "$XDG_RUNTIME_DIR"/hyprkwin-fail-* /artifacts/ 2>/dev/null
     exit $status' run "$@"
