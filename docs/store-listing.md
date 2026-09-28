@@ -51,7 +51,8 @@ tells you which, and its settings page (Behaviour tab) has a one-line command
 to hand them over — undoably. Install "HyprKwin animations" too for windows
 that slide into place.
 
-Requires Plasma 6.7 on Wayland. Source, issues and the full manual:
+Requires Plasma 6.6 or later on Wayland (Plasma 6.7's per-screen desktops
+are used when they are on). Source, issues and the full manual:
 <https://github.com/DGBooth/HyprKwin>
 
 ---

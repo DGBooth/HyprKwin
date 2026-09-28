@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
-- **Tested on Plasma 6.6** as well as 6.7: the whole end-to-end suite runs
-  against KWin 6.6.6 (as Ubuntu 26.04 LTS ships it) in a container, locally
-  with `tools/test-plasma-6.6.sh` and in CI on every push. Plasma 6.7's own
+- **Plasma 6.6 is supported**, and HyprKwin now says so (the packages asked
+  for 6.7 before). It is tested on 6.6 as well as 6.7: the whole end-to-end
+  suite runs against KWin 6.6.6 (as Ubuntu 26.04 LTS ships it) in a
+  container, locally with `tools/test-plasma-6.6.sh` and in CI on every push. Plasma 6.7's own
   per-screen desktops are the one thing 6.6 lacks; there HyprKwin gives each
   monitor its workspaces itself, as it always has.
 

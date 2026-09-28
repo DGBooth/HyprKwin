@@ -14,12 +14,12 @@
         "Id": "hyprkwin",
         "License": "GPL-3.0-or-later",
         "Name": "HyprKwin",
-        "Version": "0.12.2",
+        "Version": "0.13.0",
         "Website": "https://github.com/DGBooth/HyprKwin"
     },
     "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
     "X-KDE-PluginKeyword": "hyprkwin",
     "X-Plasma-API": "declarativescript",
-    "X-Plasma-API-Minimum-Version": "6.7",
+    "X-Plasma-API-Minimum-Version": "6.6",
     "X-Plasma-MainScript": "ui/main.qml"
 }

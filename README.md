@@ -51,8 +51,9 @@ from System Settings' "Get New…".
 
 ## Install
 
-Requires a Plasma 6 Wayland session (developed on Plasma 6.7, and tested on
-6.6 too; X11 is untested). A full Plasma install has everything HyprKwin
+Requires Plasma 6.6 or later on Wayland (developed on 6.7, and tested on both;
+X11 is untested). Plasma 6.7's own per-screen desktops are used when they are
+on; on 6.6, HyprKwin gives each monitor its own workspaces itself. A full Plasma install has everything HyprKwin
 needs; a minimal one also needs Qt's `QtCore` and `Qt.labs.folderlistmodel`
 QML modules (`qml6-module-qtcore` and `qml6-module-qt-labs-folderlistmodel` on
 Debian and Ubuntu, part of `qt6-declarative` on Arch). The helper scripts also need `python3` with dbus-python
