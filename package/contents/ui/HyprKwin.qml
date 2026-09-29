@@ -71,10 +71,14 @@ Item {
         onTriggered: if (root.driver && !root.shuttingDown) root.driver.later()
     }
 
-    // Panels can change the work area without any signal reaching scripts.
+    // Panels can change the work area without any signal reaching scripts, so
+    // this has to ask. checkAreas() is one clientArea() per visible space plus
+    // a string compare that returns early when nothing moved, which is far too
+    // cheap to justify a second of lag: a panel toggle used to leave the layout
+    // stale for up to a whole interval.
     Timer {
         id: areaTimer
-        interval: 1000
+        interval: 100
         running: root.driver !== null
         repeat: true
         onTriggered: root.driver.checkAreas()
