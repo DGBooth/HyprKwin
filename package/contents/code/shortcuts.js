@@ -1,9 +1,9 @@
 // Global shortcuts. Defaults follow Hyprland/Omarchy bindings (SUPER = Meta).
-// Shifted symbols use the character they produce on a US layout, the way
-// Plasma stores them (Shift+1 is "Meta+!", Shift+- is "Meta+_").
+// A shifted symbol is written as Shift plus the key that produces it, not as
+// the character itself: "Meta+!" is stored as the character by Plasma, but it
+// encodes to Qt::Key_Exclam, which no key press ever reports - Shift+1 arrives
+// as Key_1 with the Shift modifier. So it is Meta+Shift+1.
 // Every entry can be rebound in System Settings > Keyboard > Shortcuts > KWin.
-
-var SHIFTED_DIGITS = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"];
 
 function shortcutList() {
     // A one-element entry starts a section of the keys guide (Meta+K).
@@ -35,16 +35,16 @@ function shortcutList() {
         ["Resizing"],
         ["resizeLeft", "Move split left", "Meta+-"],
         ["resizeRight", "Move split right", "Meta+="],
-        ["resizeUp", "Move split up", "Meta+_"],
-        ["resizeDown", "Move split down", "Meta++"],
+        ["resizeUp", "Move split up", "Meta+Shift+-"],
+        ["resizeDown", "Move split down", "Meta+Shift+="],
         ["resizeLeftSmall", "Move split left a little", "Meta+Alt+-"],
         ["resizeRightSmall", "Move split right a little", "Meta+Alt+="],
-        ["resizeUpSmall", "Move split up a little", "Meta+Alt+_"],
-        ["resizeDownSmall", "Move split down a little", "Meta+Alt++"],
+        ["resizeUpSmall", "Move split up a little", "Meta+Alt+Shift+-"],
+        ["resizeDownSmall", "Move split down a little", "Meta+Alt+Shift+="],
         ["resizeLeftLarge", "Move split left a lot", "Meta+Ctrl+-"],
         ["resizeRightLarge", "Move split right a lot", "Meta+Ctrl+="],
-        ["resizeUpLarge", "Move split up a lot", "Meta+Ctrl+_"],
-        ["resizeDownLarge", "Move split down a lot", "Meta+Ctrl++"],
+        ["resizeUpLarge", "Move split up a lot", "Meta+Ctrl+Shift+-"],
+        ["resizeDownLarge", "Move split down a lot", "Meta+Ctrl+Shift+="],
 
         ["Workspaces and monitors"],
         ["nextDesktop", "Next workspace", "Meta+Tab"],
@@ -74,8 +74,8 @@ function shortcutList() {
         ["layoutScrolling", "Use the scrolling layout", ""],
         ["masterSwap", "Swap window with the master", "Meta+M"],
         ["masterFocus", "Focus the master window", "Meta+Shift+M"],
-        ["masterCountIncrease", "One more master window", "Meta+>"],
-        ["masterCountDecrease", "One fewer master window", "Meta+<"],
+        ["masterCountIncrease", "One more master window", "Meta+Shift+."],
+        ["masterCountDecrease", "One fewer master window", "Meta+Shift+,"],
         ["masterOrientationNext", "Move the master area round", "Meta+Alt+M"],
         ["masterOrientationPrevious", "Move the master area back", ""],
         ["zoomIn", "Zoom in towards the focused window", "Meta+Z"],
@@ -117,8 +117,8 @@ function shortcutList() {
     for (var i = 1; i <= 10; i++) {
         var key = String(i % 10);
         numbered.push(["desktop" + i, "Switch to workspace " + i, "Meta+" + key]);
-        numbered.push(["moveToDesktop" + i, "Move window to workspace " + i, "Meta+" + SHIFTED_DIGITS[i - 1]]);
-        numbered.push(["moveToDesktopSilent" + i, "Move window silently to workspace " + i, "Meta+Alt+" + SHIFTED_DIGITS[i - 1]]);
+        numbered.push(["moveToDesktop" + i, "Move window to workspace " + i, "Meta+Shift+" + key]);
+        numbered.push(["moveToDesktopSilent" + i, "Move window silently to workspace " + i, "Meta+Alt+Shift+" + key]);
         if (i <= 5) numbered.push(["groupWindow" + i, "Switch to group window " + i, "Meta+Alt+" + key]);
     }
     numbered.forEach(function (s) {
