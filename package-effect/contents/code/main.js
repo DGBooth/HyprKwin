@@ -263,6 +263,54 @@ class HyprKwinAnimations {
         this.slideUntil = Date.now() + this.slideDuration;
     }
 
+    // A tiler strut change (panel show/hide): the window shifts along one
+    // axis with the far edge kept and the near edge moving by the strut.
+    // isSplitNudge would snap this, and the snap reads as flicker -- client
+    // content jumps a whole strut in one frame. A quick glide follows the
+    // panel instead. Returns the travel distance, or 0 when this is some
+    // other resize. Small enough that divider work never lands here:
+    // keyboard divider steps move one edge, not the whole window.
+    strutShift(o, n) {
+        if (o.x !== n.x || o.width !== n.width) return 0;
+        const dy = n.y - o.y, dh = n.height - o.height;
+        if (dy === 0 || dh === 0) return 0;
+        if (o.y + o.height !== n.y + n.height && o.y !== n.y) return 0;
+        const dist = Math.abs(dy);
+        if (dist > 64 || Math.abs(dh) > 64) return 0;
+        return dist;
+    }
+
+    // Smooth version of the snap above, for strut shifts only: the same
+    // Translation+Size pair as a normal re-tile, but with a duration scaled
+    // to the distance, so a 28px panel toggle glides in ~90ms instead of
+    // either jumping (snap) or stretching for the full re-tile duration.
+    // No cross-fade: at this size the stretch is negligible and the extra
+    // offscreen buffer per window is pure cost.
+    glide(window, oldGeometry, dist) {
+        const newGeometry = window.geometry;
+        this.snap(window);
+        this.lastWindowAnimation = Date.now();
+        const duration = Math.max(40, Math.min(Math.round(3 * dist), this.duration));
+        window.hkAnimation = animate({
+            window: window,
+            duration: animationTime(duration),
+            animations: [{
+                type: Effect.Translation,
+                from: {
+                    value1: oldGeometry.x - newGeometry.x - (newGeometry.width / 2 - oldGeometry.width / 2),
+                    value2: oldGeometry.y - newGeometry.y - (newGeometry.height / 2 - oldGeometry.height / 2),
+                },
+                to: { value1: 0, value2: 0 },
+                curve: this.curve,
+            }, {
+                type: Effect.Size,
+                from: { value1: oldGeometry.width, value2: oldGeometry.height },
+                to: { value1: newGeometry.width, value2: newGeometry.height },
+                curve: this.curve,
+            }],
+        });
+    }
+
     onFrameGeometryChanged(window, oldGeometry) {
         // A held window has now been resized: the cover has done its job.
         if (window.hkCover) this.uncover(window);
@@ -276,10 +324,29 @@ class HyprKwinAnimations {
             this.snap(window);      // parked out of sight by a scrolling layout
             return;
         }
+        // KWin delivers one tiler commit as two signals -- a pure move and
+        // a pure resize a millisecond apart. Handled separately they become
+        // a 200ms slide plus a clip (or snap): the bottom edge dips
+        // off-screen and jumps back. Merged, they are one strut glide.
+        if (window.hkMoveFrom && Date.now() - window.hkMoveFrom.t < 150) {
+            const o = window.hkMoveFrom;
+            window.hkMoveFrom = null;
+            if (this.strutShift(o, newGeometry) > 0) {
+                this.glide(window, o, this.strutShift(o, newGeometry));
+                return;
+            }
+        } else {
+            window.hkMoveFrom = null;
+        }
         if (window.caption !== OVERLAY_TITLE) {
             const edge = this.slideDuration > 0 ? this.grownEdge(oldGeometry, newGeometry) : null;
             if (edge) {
                 this.slide(window, oldGeometry, edge);
+                return;
+            }
+            const strut = this.strutShift(oldGeometry, newGeometry);
+            if (strut > 0) {
+                this.glide(window, oldGeometry, strut);
                 return;
             }
             if (this.isSplitNudge(oldGeometry, newGeometry)) {
@@ -291,6 +358,16 @@ class HyprKwinAnimations {
         const moved = oldGeometry.x !== newGeometry.x || oldGeometry.y !== newGeometry.y;
         const resized = oldGeometry.width !== newGeometry.width || oldGeometry.height !== newGeometry.height;
         if ((!moved && !resized) || (!this.animateMove && !resized) || (!this.animateResize && !moved)) return;
+        if (moved && !resized && oldGeometry.x === newGeometry.x
+            && oldGeometry.width === newGeometry.width
+            && oldGeometry.y !== newGeometry.y
+            && Math.abs(newGeometry.y - oldGeometry.y) <= 64) {
+            window.hkMoveFrom = {
+                x: oldGeometry.x, y: oldGeometry.y,
+                width: oldGeometry.width, height: oldGeometry.height,
+                t: Date.now(),
+            };
+        }
 
         if (this.maxDistance > 0) {
             const dx = newGeometry.x - oldGeometry.x, dy = newGeometry.y - oldGeometry.y;
