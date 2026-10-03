@@ -71,7 +71,22 @@ Item {
         onTriggered: if (root.driver && !root.shuttingDown) root.driver.later()
     }
 
-    // Panels can change the work area without any signal reaching scripts.
+    // A panel just changed (see watchPanel in the driver): check the work area
+    // every 50ms for the next half second, as KWin and the panel settle on its
+    // new space (a panel that grows reserves it a couple of hundred ms later).
+    Timer {
+        id: areaSoonTimer
+        interval: 50
+        repeat: true
+        property int left: 0
+        onTriggered: {
+            if (--left <= 0) stop();
+            if (root.driver && !root.shuttingDown) root.driver.checkAreas();
+        }
+    }
+
+    // Panels can change the work area without any signal reaching scripts;
+    // the ones that do announce it are caught above, and this catches the rest.
     Timer {
         id: areaTimer
         interval: 1000
@@ -515,6 +530,10 @@ Item {
                 load: (callback) => root.storeLoad(callback),
                 save: (text) => root.storeSave(text),
             },
+            areaSoon: () => {
+                areaSoonTimer.left = 10;
+                areaSoonTimer.restart();
+            },
             later: ms => {
                 laterTimer.interval = ms;
                 laterTimer.restart();
@@ -559,6 +578,7 @@ Item {
         laterTimer.stop();
         decorationTimer.stop();
         areaTimer.stop();
+        areaSoonTimer.stop();
         effectTimer.stop();
         loadRetry.stop();
         keysTimer.stop();

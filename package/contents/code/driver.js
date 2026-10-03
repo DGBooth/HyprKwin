@@ -1627,6 +1627,21 @@ function createDriver(env) {
         return out;
     }
 
+    // A panel showing, hiding or changing size changes the work area, and
+    // KWin tells scripts nothing about that. Panels are windows (docks),
+    // though, and report their own changes: each one has the work area checked
+    // again over the next moments, as KWin catches up, rather than at the next
+    // once-a-second check.
+    function watchPanel(w) {
+        if (!w || !w.dock) return;
+        listen(w.frameGeometryChanged, panelChanged, w);
+        if (w.hiddenChanged) listen(w.hiddenChanged, panelChanged, w);
+    }
+
+    function panelChanged() {
+        if (env.areaSoon) env.areaSoon();
+    }
+
     function checkAreas() {
         var sig = visibleSpaces().map(function (v) { return v.space + ":" + JSON.stringify(v.area); }).join(";");
         if (sig !== lastAreas) {
@@ -2644,6 +2659,7 @@ function createDriver(env) {
         initial.sort(function (a, b) { return (a.x - b.x) || (a.y - b.y); });
         initial.forEach(function (w) {
             hideOverlay(w);
+            watchPanel(w);
             var st = track(w, true);
             if (st && isTiled(st)) engine.focused(st.id);
         });
@@ -2671,11 +2687,19 @@ function createDriver(env) {
 
         listen(ws.windowAdded, function (w) {
             hideOverlay(w);
+            if (w.dock) {
+                watchPanel(w);
+                panelChanged();
+            }
             var st = track(w, false);
             if (st) relayout();
             else if (!isOverlay(w)) scheduleDecorations();  // a menu may cover a border
         });
         listen(ws.windowRemoved, function (w) {
+            if (w.dock) {
+                forgetConnections(w);
+                panelChanged();
+            }
             if (!stOf(w)) {
                 if (!isOverlay(w)) scheduleDecorations();   // a menu closing frees a border
                 return;

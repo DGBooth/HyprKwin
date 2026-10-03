@@ -2688,6 +2688,133 @@ def focus_on_activate_can_be_turned_off(sb):
     eq(sb.window("Spotify", s)["demandsAttention"], True, "flagged, as Plasma does")
 
 
+def with_panel(sb):
+    """A real plasmashell (and so a real panel) in the sandbox; None if it is
+    not installed. Returns a function that sets the panel's height."""
+    import shutil
+    import subprocess
+    if not shutil.which("plasmashell"):
+        return None
+    env = dict(sb.env)
+    env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland")
+    sb.clients.append(subprocess.Popen(["plasmashell", "--no-respawn"], env=env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+    def shell(js):
+        return subprocess.run(["qdbus6", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", js],
+                              env=env, capture_output=True, text=True).stdout.strip()
+    # Until its panel is up: a script sent before then changes nothing.
+    for _ in range(60):
+        if shell("print(panels().length)") == "1":
+            break
+        time.sleep(0.5)
+    else:
+        raise AssertionError("plasmashell's panel never came up")
+    time.sleep(2)
+
+    def height(px):
+        shell("panels().forEach(p => p.height = %d)" % px)
+        if shell("print(panels()[0].height)") != str(px):
+            raise AssertionError("the panel did not take %dpx" % px)
+    return height
+
+
+def y_range(sb, path, rgb, tol=40):
+    """y-extent of everything matching a colour, measured from a screenshot."""
+    from PIL import Image
+    sb.screenshot(path)
+    im = Image.open(path).convert("RGB")
+    px = im.load()
+    ys = [y for y in range(0, im.height, 4) for x in range(0, im.width, 8)
+          if all(abs(px[x, y][i] - rgb[i]) < tol for i in range(3))]
+    return (min(ys), max(ys)) if ys else None
+
+
+@test
+def a_panel_change_retiles_at_once(sb):
+    """KWin tells scripts nothing when the work area changes, but panels are
+    windows and say when they change: the layout follows the work area
+    straight away instead of at the next once-a-second check. (Timed from
+    the work area itself, which KWin sometimes updates a while after the
+    panel.)"""
+    height = with_panel(sb)
+    if not height:
+        print("  (plasmashell not installed, skipped)")
+        return
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.settle(1.0)
+    probe = sb.base / ("probe-%d" % time.time_ns())
+    probe.mkdir()
+    (probe / "main.qml").write_text("""import QtQuick
+import org.kde.kwin
+Item {
+    property string area: ""
+    property string geo: ""
+    Timer {
+        interval: 5; repeat: true; running: true
+        onTriggered: {
+            const r = Workspace.clientArea(KWin.MaximizeArea, Workspace.activeScreen, Workspace.currentDesktop);
+            const a = String(r.y + r.height);
+            if (a !== parent.area) { if (parent.area) console.warn("AREAPROBE", Date.now(), "area", a); parent.area = a; }
+            for (const w of Workspace.windows) if (w.caption === "A") {
+                const g = String(w.frameGeometry.y + w.frameGeometry.height);
+                if (g !== parent.geo) { if (parent.geo) console.warn("AREAPROBE", Date.now(), "window", g); parent.geo = g; }
+            }
+        }
+    }
+}
+""")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadDeclarativeScript", str(probe / "main.qml"), "areaprobe")
+    sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
+    time.sleep(0.5)
+    for px in (90, 50, 80, 44):
+        height(px)
+        time.sleep(2.0)
+    events = [l.split("AREAPROBE ", 1)[1].split() for l in sb.log_path.read_text().splitlines() if "AREAPROBE" in l]
+    # From each change of the work area's bottom to A's bottom edge sitting
+    # in its tile for it (the outer gap above it). KWin moves windows into a
+    # work area that shrinks by itself; only the tile counts.
+    lags = []
+    for i, (t, kind, bottom) in enumerate(events):
+        if kind != "area":
+            continue
+        after = [int(t2) - int(t) for t2, k2, b2 in events[i + 1:] if k2 == "window" and int(b2) == int(bottom) - 10]
+        if after:
+            lags.append(after[0])
+    eq(len(lags) >= 3, True, "the work area changed and A followed, several times: %r" % (events,))
+    eq(max(lags) < 120, True, "A followed the work area within 120ms each time: %r ms" % lags)
+
+
+@test(effect=True, effect_config={"Duration": 3000, "Curve": 4})
+def a_panel_change_glides_the_windows(sb):
+    """After a panel change every window glides to its new tile quickly and
+    together, however long a re-tile is set to take; a window that moves and
+    shrinks no longer takes the full re-tile animation."""
+    height = with_panel(sb)
+    if not height:
+        print("  (plasmashell not installed, skipped)")
+        return
+    if not sb.opengl:
+        raise Skip("the effect needs OpenGL compositing (no GPU here)")
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff")
+    sb.spawn("C", color="#00ff00")          # below B: it moves and shrinks
+    sb.settle(3.5)                            # let the opening animations finish
+    height(90)
+    before = sb.geometry("C")
+    start = time.time()
+    while sb.geometry("C") == before and time.time() - start < 3:
+        time.sleep(0.02)
+    time.sleep(0.6)                           # a fifth of the re-tile animation
+    c = sb.geometry("C")
+    green = y_range(sb, shots / "glide.png", (0, 255, 0))
+    eq(abs(green[0] - c[1]) <= 8 and abs(green[1] - (c[1] + c[3])) <= 8, True,
+       "C is drawn at its new tile %r already: %r" % (c, green))
+
+
 @test
 def plasma_shell(sb):
     """A real plasmashell: panel struts respected, shell surfaces left alone,

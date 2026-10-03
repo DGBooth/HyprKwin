@@ -38,7 +38,7 @@ function load(config = {}) {
         configChanged: signal(),
         animationEnded: signal(),
     };
-    const effects = { windowAdded: signal(), stackingOrder: [] };
+    const effects = { windowAdded: signal(), windowClosed: signal(), stackingOrder: [] };
     let nextId = 1;
     const record = (spec) => { animations.push(spec); return nextId++; };
     const instance = new Function(
@@ -111,4 +111,54 @@ Deno.test("a divider slide clips instead of resizing the picture", () => {
     fx.onFrameGeometryChanged(w, { x: 0, y: 0, width: 500, height: 900 });
     assertEquals(animations.length, 1);
     assertEquals(types(animations[0]), [EFFECT.Clip], "the edge is uncovered, nothing is scaled or faded");
+});
+
+// ---- panels and split re-tiles ----------------------------------------------
+
+const PANEL_OLD = { x: 0, y: 1018, width: 1920, height: 62 };
+const PANEL_NEW = { x: 0, y: 984, width: 1920, height: 96 };
+
+function panelChange(fx) {
+    const panel = makeWindow("", PANEL_NEW, { dock: true, normalWindow: false });
+    fx.onFrameGeometryChanged(panel, PANEL_OLD);
+}
+
+const durationOf = (spec) => spec.duration;
+
+Deno.test("a small divider nudge between stacked windows still snaps", () => {
+    // The lower window loses 25px at the top, its bottom edge kept.
+    const { fx, animations } = load({ Duration: 3000 });
+    retile(fx, makeWindow("C", { x: 965, y: 547, width: 945, height: 498 }),
+           { x: 965, y: 522, width: 945, height: 523 }, { x: 965, y: 547, width: 945, height: 498 });
+    assertEquals(animations.length, 0, "nothing animates");
+});
+
+Deno.test("after a panel change, the windows glide together, quickly and without a fade", () => {
+    const { fx, animations } = load({ Duration: 3000 });
+    panelChange(fx);
+    // A only shrinks (top kept): on its own that would snap like a nudge.
+    retile(fx, makeWindow("A", LEFT), { x: 10, y: 10, width: 945, height: 1014 }, { x: 10, y: 10, width: 945, height: 980 });
+    // C moves up and shrinks.
+    retile(fx, makeWindow("C", LEFT), { x: 965, y: 522, width: 945, height: 502 }, { x: 965, y: 505, width: 945, height: 485 });
+    assertEquals(animations.length, 2, "both animate");
+    assertEquals(faded(animations), 0, "neither cross-fades");
+    assertEquals(animations.every((a) => durationOf(a) < 200), true, "and both are short: " + animations.map(durationOf));
+    assertEquals(types(animations[0]).sort(), [EFFECT.Translation, EFFECT.Size].sort());
+});
+
+Deno.test("a re-tile that arrives in two parts animates from where the window was", () => {
+    // KWin first moves the window at its old size, then the re-tile lands.
+    const { fx, animations } = load();
+    const c = makeWindow("C", LEFT);
+    const was = { x: 965, y: 522, width: 945, height: 502 };
+    const between = { x: 965, y: 498, width: 945, height: 502 };
+    const final = { x: 965, y: 505, width: 945, height: 485 };
+    retile(fx, c, was, between);
+    retile(fx, c, between, final);
+    const last = animations[animations.length - 1];
+    const size = last.animations.find((a) => a.type === EFFECT.Size);
+    assertEquals([size.from.value1, size.from.value2], [945, 502], "from the old size");
+    const move = last.animations.find((a) => a.type === EFFECT.Translation);
+    // Centre to centre: old centre y 773, new centre y 747.5.
+    assertEquals(move.from.value2, 25.5, "and from the old place, not the in-between one");
 });

@@ -20,6 +20,14 @@ const BUILD = "source";
 // one retires the others; we unload explicitly too in case that changes.
 const OPEN_CLOSE_EFFECTS = ["scale", "fade", "glide"];
 
+function plainRect(r) {
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+}
+
+function sameRect(a, b) {
+    return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
 class HyprKwinAnimations {
     constructor() {
         print("HYPRKWIN_EFFECT_BUILD " + BUILD);
@@ -36,6 +44,18 @@ class HyprKwinAnimations {
         this.userResizeEnded = 0;
         // A keyboard divider slide in progress: borders follow it.
         this.slideUntil = 0;
+        // A panel appeared, went or changed size a moment ago: the work area
+        // changes after it, and every tiled window re-tiles a little. Until
+        // then those changes glide together (see glide()), where otherwise a
+        // window that only shrinks would snap like a divider nudge while its
+        // neighbour slides.
+        this.panelUntil = 0;
+        // A glide in progress, and how long it takes: borders keep pace.
+        this.glideUntil = 0;
+        this.glideDuration = 0;
+        effects.windowClosed.connect((window) => {
+            if (window.dock) this.notePanel();
+        });
         effect.animationEnded.connect((window, id) => {
             // The watchdog on a covered window ran out: never leave it clipped.
             if (window.hkCoverWatch === id) this.uncover(window);
@@ -89,6 +109,7 @@ class HyprKwinAnimations {
     }
 
     manage(window) {
+        if (window.dock) this.notePanel();
         window.windowFrameGeometryChanged.connect(this.onFrameGeometryChanged.bind(this));
         // Maximize and fullscreen are animated by KWin's own effects; ours
         // would run on top of them.
@@ -103,6 +124,12 @@ class HyprKwinAnimations {
                 this.userResizeEnded = Date.now();
             }
         });
+    }
+
+    notePanel() {
+        // The work area follows a panel up to a couple of hundred ms later,
+        // and HyprKwin re-tiles straight after it.
+        this.panelUntil = Date.now() + 1200;
     }
 
     suspend(window) {
@@ -263,11 +290,71 @@ class HyprKwinAnimations {
         this.slideUntil = Date.now() + this.slideDuration;
     }
 
-    onFrameGeometryChanged(window, oldGeometry) {
+    // A short glide for the re-tile that follows a panel change: the windows
+    // move and resize together, quickly, with no cross-fade (at a few dozen
+    // pixels the stretch is not visible, and each fade costs an offscreen
+    // buffer), the time scaled to the distance.
+    glide(window, from, to) {
+        const dist = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y),
+                              Math.abs(to.width - from.width), Math.abs(to.height - from.height));
+        const duration = Math.max(60, Math.min(Math.round(3 * dist), this.duration));
+        this.snap(window);
+        this.lastWindowAnimation = Date.now();
+        this.glideUntil = Date.now() + duration;
+        this.glideDuration = duration;
+        window.hkAnimation = animate({
+            window: window,
+            duration: duration,
+            animations: this.moveAndResize(from, to, this.curve),
+        });
+    }
+
+    moveAndResize(from, to, curve) {
+        // Translation is measured between the centres, the way KWin's own
+        // maximize effect does it, so it composes with the size animation.
+        const animations = [{
+            type: Effect.Translation,
+            from: {
+                value1: from.x - to.x - (to.width / 2 - from.width / 2),
+                value2: from.y - to.y - (to.height / 2 - from.height / 2),
+            },
+            to: { value1: 0, value2: 0 },
+            curve: curve,
+        }];
+        if (from.width !== to.width || from.height !== to.height) {
+            animations.push({
+                type: Effect.Size,
+                from: { value1: from.width, value2: from.height },
+                to: { value1: to.width, value2: to.height },
+                curve: curve,
+            });
+        }
+        return animations;
+    }
+
+    onFrameGeometryChanged(window, changedFrom) {
+        // A panel moving: the work area is about to change.
+        if (window.dock) {
+            this.notePanel();
+            return;
+        }
         // A held window has now been resized: the cover has done its job.
         if (window.hkCover) this.uncover(window);
         if (!this.shouldAnimate(window)) return;
         const newGeometry = window.geometry;
+        // One re-tile can reach us in two parts a moment apart: a move at the
+        // old size (KWin keeping the window inside a work area that just
+        // shrank, say), then the real move and resize. Taken apart, the
+        // window jumps to the in-between place and animates from there; taken
+        // together, it goes straight from where it was.
+        const now = Date.now();
+        const last = window.hkLast;
+        let oldGeometry = changedFrom;
+        if (last && now - last.t < 150 && sameRect(last.to, changedFrom) &&
+            last.from.width === last.to.width && last.from.height === last.to.height) {
+            oldGeometry = last.from;
+        }
+        window.hkLast = { from: plainRect(oldGeometry), to: plainRect(newGeometry), t: now };
         if (this.userResizing || Date.now() - this.userResizeEnded < 150) {
             this.snap(window);
             return;
@@ -277,6 +364,10 @@ class HyprKwinAnimations {
             return;
         }
         if (window.caption !== OVERLAY_TITLE) {
+            if (now < this.panelUntil) {
+                this.glide(window, oldGeometry, newGeometry);
+                return;
+            }
             const edge = this.slideDuration > 0 ? this.grownEdge(oldGeometry, newGeometry) : null;
             if (edge) {
                 this.slide(window, oldGeometry, edge);
@@ -309,25 +400,8 @@ class HyprKwinAnimations {
             delete window.hkAnimation;
         }
 
-        // Translation is measured between the centres, the way KWin's own
-        // maximize effect does it, so it composes with the size animation.
-        const animations = [{
-            type: Effect.Translation,
-            from: {
-                value1: oldGeometry.x - newGeometry.x - (newGeometry.width / 2 - oldGeometry.width / 2),
-                value2: oldGeometry.y - newGeometry.y - (newGeometry.height / 2 - oldGeometry.height / 2),
-            },
-            to: { value1: 0, value2: 0 },
-            curve: this.curve,
-        }];
-
+        const animations = this.moveAndResize(oldGeometry, newGeometry, this.curve);
         if (resized) {
-            animations.push({
-                type: Effect.Size,
-                from: { value1: oldGeometry.width, value2: oldGeometry.height },
-                to: { value1: newGeometry.width, value2: newGeometry.height },
-                curve: this.curve,
-            });
             // Fade the old contents into the new ones, otherwise the window
             // looks stretched while it grows. Borders and tab bars are flat
             // colour, so they never need it.
@@ -345,9 +419,11 @@ class HyprKwinAnimations {
         if (sliding) {
             for (const a of animations) a.curve = QEasingCurve.OutCubic;
         }
+        // A border keeps pace with its window's glide, too.
+        const gliding = window.caption === OVERLAY_TITLE && Date.now() < this.glideUntil;
         window.hkAnimation = animate({
             window: window,
-            duration: sliding ? this.slideDuration : this.duration,
+            duration: sliding ? this.slideDuration : gliding ? this.glideDuration : this.duration,
             animations: animations,
         });
     }

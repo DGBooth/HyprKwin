@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- **The layout follows a panel at once.** KWin tells scripts nothing when the
+  work area changes, so HyprKwin checked it once a second, and hiding or
+  shrinking a panel left the windows short of the edge for up to that long.
+  Panels are windows, though, and say when they change: HyprKwin now checks
+  the work area as soon as one does, and keeps the once-a-second check for
+  anything else. The idea came from [#3](https://github.com/DGBooth/HyprKwin/pull/3)
+  (thanks, @towgenik), which shortened the check instead.
+- **Windows glide together when a panel changes** (with the animations
+  effect): briefly, and without the stretch-and-fade of a re-tile. Before,
+  a window that only shrank snapped like a divider nudge while its
+  neighbour slid. Small divider nudges still snap. After
+  [#5](https://github.com/DGBooth/HyprKwin/pull/5) (thanks, @towgenik).
+
+### Fixed
+
+- A window that moves and resizes in a re-tile could first jump to an
+  in-between place and animate from there: KWin reports some re-tiles in two
+  parts (a move at the old size, then the real one). The animations effect
+  now takes them together.
+
 ## 0.13.1
 
 ### Fixed

@@ -41,14 +41,6 @@ Corners instead.
   - A settings-page switch: "Separate workspaces for each activity".
   - The test sandbox needs kactivitymanagerd and a few activities first.
 
-- **Panel changes relaid at once** ([#3](https://github.com/DGBooth/HyprKwin/pull/3)
-  and [#5](https://github.com/DGBooth/HyprKwin/pull/5), waiting on the
-  contributor). Panels are dock windows to scripts, and report their own
-  changes (`frameGeometryChanged`, `hiddenChanged`): re-check the work area on
-  those instead of polling faster, keeping the one-second poll as a fallback.
-  And glide the windows when a panel appears or goes, but only for real
-  work-area changes: HyprKwin's own small vertical divider nudges must still
-  snap.
 - **Shift+digit binds on any keyboard layout.** `Meta+!`…`Meta+)` are the
   characters a US layout gives; on others (Shift+3 is £ on a UK one) moving a
   window to a workspace has no key. Pick the characters of the active layout,
