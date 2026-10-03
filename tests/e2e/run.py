@@ -1753,7 +1753,7 @@ def red_x_range(sb, path, rgb=(255, 0, 0), tol=40):
     return (min(xs), max(xs)) if xs else None
 
 
-@test(config={"SlideHold": 1500})
+@test(config={"SlideDivider": True, "SlideHold": 1500})
 def keyboard_resize_holds_the_shrinking_window(sb):
     """Each app resizes once: the one that grows straight away, the one that
     shrinks after the divider has slid over it."""
@@ -1778,8 +1778,9 @@ def keyboard_resize_holds_the_shrinking_window(sb):
     eq(sb.geometry("B"), (1265, 10, 645, 1060), "B gave up the space")
 
 
-@test(config={"SlideDivider": False})
+@test
 def keyboard_resize_can_jump(sb):
+    """The default: both windows resize at once, nothing is held."""
     sb.spawn("A")
     sb.spawn("B")
     sb.invoke("focusLeft")
@@ -1808,7 +1809,7 @@ def extents(sb, path, *colours, tol=40, column=None):
     return out
 
 
-SLOW_SLIDE = dict(effect=True, effect_config={"SlideDuration": 2400}, config={"SlideHold": 3000})
+SLOW_SLIDE = dict(effect=True, effect_config={"SlideDuration": 2400}, config={"SlideDivider": True, "SlideHold": 3000})
 
 
 @test(**SLOW_SLIDE)
@@ -1861,7 +1862,7 @@ def divider_slides_vertically_too(sb):
 
 
 @test(effect=True, effect_config={"SlideDuration": 2400},
-      config={"SlideHold": 3000, "BorderSize": 6, "ActiveBorderSource": 1, "ActiveBorderColor": "#00ff00"})
+      config={"SlideDivider": True, "SlideHold": 3000, "BorderSize": 6, "ActiveBorderSource": 1, "ActiveBorderColor": "#00ff00"})
 def the_border_slides_with_the_divider(sb):
     """The focused window here is the one being held back: its border must
     follow the edge the user sees, not the size the app still has."""
@@ -2803,11 +2804,18 @@ def a_panel_change_glides_the_windows(sb):
     sb.spawn("B", color="#0000ff")
     sb.spawn("C", color="#00ff00")          # below B: it moves and shrinks
     sb.settle(3.5)                            # let the opening animations finish
-    height(90)
     before = sb.geometry("C")
-    start = time.time()
-    while sb.geometry("C") == before and time.time() - start < 3:
-        time.sleep(0.02)
+    # KWin sometimes leaves the work area as it was after a panel grows, until
+    # the panel changes again: give it another pixel if nothing moved.
+    for px in (90, 91, 92):
+        height(px)
+        start = time.time()
+        while sb.geometry("C") == before and time.time() - start < 2:
+            time.sleep(0.02)
+        if sb.geometry("C") != before:
+            break
+    else:
+        raise AssertionError("the work area never followed the panel")
     time.sleep(0.6)                           # a fifth of the re-tile animation
     c = sb.geometry("C")
     green = y_range(sb, shots / "glide.png", (0, 255, 0))

@@ -15,6 +15,14 @@
   neighbour slid. Small divider nudges still snap. After
   [#5](https://github.com/DGBooth/HyprKwin/pull/5) (thanks, @towgenik).
 
+- **Keyboard resizes no longer slide the divider by default.** The slide
+  holds the window that shrinks at its old size until the edge has passed it
+  (220 ms), and when that is the window you are working in, Meta+- and
+  Meta+Shift+- visibly lag behind the key while Meta+= and Meta+Shift+= do
+  not. Now both windows resize at once. The slide is still there ("Slide the
+  split when resizing from the keyboard"), and the hold's length is now set
+  beside it on the settings page.
+
 ### Fixed
 
 - A window that moves and resizes in a re-tile could first jump to an

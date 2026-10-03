@@ -158,17 +158,19 @@ starts**, so log out and back in after the first install. Its settings
 Windows animate when they change tile (opening, closing, swapping,
 toggling a split).
 
-A keyboard resize slides the divider without the usual tricks. Stretching
+A keyboard resize can slide the divider, without the usual tricks (off by
+default: turn on "Slide the split when resizing from the keyboard"). Stretching
 the apps' contents to fake the in-between sizes squashes their text, and
 resizing them at every step makes Chromium and Electron apps flicker, so
 each app resizes exactly once: the one that grows gets its new size at once
 and is uncovered as the edge travels; the one that shrinks keeps its old size
-while the edge slides over it, then resizes. The focus border moves with the
-edge. While an edge is dragged with the mouse nothing animates; the
+while the edge slides over it, then resizes (after 220 ms, set beside the
+setting). That hold is why it is off by default: when the window you are
+working in is the one that shrinks, it visibly lags behind the key. The focus
+border moves with the edge. While an edge is dragged with the mouse nothing animates; the
 neighbours simply follow the pointer.
 
-The slide needs this effect. Without it, turn off HyprKwin's "Slide the split
-when resizing from the keyboard" setting and the divider jumps instead.
+The slide needs this effect; without the slide, both windows resize at once.
 
 "Window open/close" picks one of Plasma's own effects (Scale, Fade, Glide) or
 turns them off. KWin treats those as mutually exclusive, so choosing one here

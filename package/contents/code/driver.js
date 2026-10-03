@@ -654,7 +654,7 @@ function createDriver(env) {
             layoutOsd: bool(rc("LayoutOsd", true), true),
             // How long that message stays up; not in the settings page.
             osdDuration: Math.max(200, num(rc("OsdDuration", 1200), 1200)),
-            slideDivider: bool(rc("SlideDivider", true), true),
+            slideDivider: bool(rc("SlideDivider", false), false),
             // How long a shrinking window keeps its old size while the
             // animations effect slides the divider over it (the effect's
             // slide takes 180ms).

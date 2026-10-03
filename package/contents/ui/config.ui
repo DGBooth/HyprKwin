@@ -98,10 +98,28 @@
         </widget>
        </item>
        <item row="9" column="1">
-        <widget class="QCheckBox" name="kcfg_SlideDivider">
-         <property name="text"><string>Slide the split when resizing from the keyboard</string></property>
-         <property name="toolTip"><string>The divider slides over a fifth of a second, and each app still resizes only once: the one that grows straight away, the one that shrinks as soon as the divider has passed. Needs the "HyprKwin animations" desktop effect; turn this off if you do not use it. Off: the divider jumps.</string></property>
-        </widget>
+        <layout class="QHBoxLayout" name="slideLayout">
+         <item>
+          <widget class="QCheckBox" name="kcfg_SlideDivider">
+           <property name="text"><string>Slide the split when resizing from the keyboard, holding the shrinking window for</string></property>
+           <property name="toolTip"><string>The divider slides, and each app still resizes only once: the one that grows straight away, the one that shrinks once the divider has passed (after the time beside this). The window that shrinks therefore lags behind the key for that long, which is why this is off by default. Needs the "HyprKwin animations" desktop effect. Off: both windows resize at once.</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="kcfg_SlideHold">
+           <property name="suffix"><string> ms</string></property>
+           <property name="minimum"><number>0</number></property>
+           <property name="maximum"><number>2000</number></property>
+           <property name="singleStep"><number>20</number></property>
+           <property name="toolTip"><string>How long the window that shrinks keeps its old size while the divider slides over it. Shorter: it catches up sooner, but may resize before the edge reaches it. 0: it resizes at once, and only the growing window slides.</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="slideSpacer">
+           <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          </spacer>
+         </item>
+        </layout>
        </item>
        <item row="10" column="0">
         <widget class="QLabel" name="masterFactorLabel"><property name="text"><string>Master area size:</string></property></widget>
