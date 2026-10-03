@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.0
 
 - **The layout follows a panel at once.** KWin tells scripts nothing when the
   work area changes, so HyprKwin checked it once a second, and hiding or
