@@ -375,3 +375,44 @@ function keysGuide(infos, submaps, conflicts, labels) {
     if (subRows.length) sections.push({ title: "Submaps", rows: subRows });
     return sections;
 }
+
+// The keys guide narrowed to what is typed into its search box. Every word
+// has to be found in a row: in its label, its section or its keys ("meta+k",
+// "shift", "scratch"), or loosely, as letters in order in its label ("mvws"
+// finds "Move window to workspace"). A submap's own lines bring the line that
+// enters it along, so they still read as part of it.
+function keysGuideMatches(query, section, row) {
+    var words = String(query || "").toLowerCase().split(/\s+/).filter(function (w) { return w; });
+    if (!words.length) return true;
+    var label = String(row.label || "").toLowerCase();
+    var hay = [section.title, row.label, (row.keys || []).join(" "), row.note || ""].join(" ").toLowerCase();
+    return words.every(function (w) {
+        if (hay.indexOf(w) >= 0) return true;
+        var at = 0;
+        for (var i = 0; i < label.length && at < w.length; i++) if (label[i] === w[at]) at++;
+        return at === w.length;
+    });
+}
+
+function filterKeysGuide(sections, query) {
+    if (!String(query || "").trim()) return sections || [];
+    var out = [];
+    (sections || []).forEach(function (sec) {
+        var rows = [], parent = -1, parentAdded = false;
+        sec.rows.forEach(function (row, i) {
+            if (!row.indent) {
+                parent = i;
+                parentAdded = false;
+            }
+            if (!keysGuideMatches(query, sec, row)) return;
+            if (row.indent && parent >= 0 && !parentAdded) {
+                rows.push(sec.rows[parent]);
+                parentAdded = true;
+            }
+            if (!row.indent) parentAdded = true;
+            rows.push(row);
+        });
+        if (rows.length) out.push({ title: sec.title, rows: rows });
+    });
+    return out;
+}

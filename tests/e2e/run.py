@@ -1335,6 +1335,62 @@ def meta_k_shows_every_shortcut_on_its_real_key(sb):
     eq(sb.state()["keysGuide"], None, "nothing happens")
 
 
+def held_guide_keys(sb):
+    """The keys guide's own shortcuts KDE knows of (names have spaces, so
+    straight from kglobalaccel rather than split from a list)."""
+    import dbus
+    bus = dbus.bus.BusConnection(sb.env["DBUS_SESSION_BUS_ADDRESS"])
+    comp = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/component/kwin"), "org.kde.kglobalaccel.Component")
+    return [str(i[0]) for i in comp.allShortcutInfos() if str(i[0]).startswith("HyprKwin submap keys ")]
+
+
+def search_labels(s):
+    shown = (s.get("keysSearch") or {}).get("shown") or []
+    return [r["label"] for sec in shown for r in sec["rows"]]
+
+
+@test
+def the_keys_guide_can_be_searched(sb):
+    """Issue #6: typing into the guide narrows it down, Escape empties the
+    search before it closes the guide, and the window you were in has the
+    keyboard back after."""
+    sb.spawn("A")
+    sb.spawn("B")
+    take_keys(sb)
+    fi = sb.input()
+    fi.combo("meta+k")
+    sb.settle(0.8)
+    fi.type_text("close")
+    sb.settle(0.4)
+    s = sb.state()
+    eq(s["keysSearch"]["query"], "close", "what was typed went into the search box")
+    eq(s["active"], None, "and to no application: none has the keyboard meanwhile")
+    eq("HyprKwin submap keys A" in held_guide_keys(sb), True, "the letters are held while it is up")
+    eq(search_labels(s), ["Close window"], "and narrowed the guide to it")
+    fi.type_text(" win")
+    sb.settle(0.3)
+    eq(search_labels(sb.state()), ["Close window"], "every word counts")
+    fi.type_text("dow zzz")
+    sb.settle(0.3)
+    eq(search_labels(sb.state()), [], "nothing matches")
+    fi.combo("escape")
+    sb.settle(0.4)
+    s = sb.state()
+    eq((s["keysGuide"] is not None, s["keysSearch"]["query"]), (True, ""), "Escape emptied the search, guide still up")
+    eq(len(search_labels(s)) > 30, True, "the whole list is back")
+    fi.type_text("mvws")
+    sb.settle(0.3)
+    eq("Move window to workspace 1–10" in search_labels(sb.state()), True, "letters in order find it")
+    fi.combo("escape")
+    fi.combo("escape")
+    sb.settle(0.5)
+    s = sb.state()
+    eq((s["keysGuide"], s["keysSearch"]), (None, None), "the second Escape closed it")
+    eq(active_caption(sb, s), "B", "B has the keyboard back")
+    sb.settle(0.5)
+    eq(held_guide_keys(sb), [], "the keys it held are not left in System Settings")
+
+
 @test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"], "LayoutOsd": "false"})
 def submaps_hold_plain_keys_only_while_they_are_on(sb):
     """Hyprland's submaps: a key puts the keyboard into a mode where plain

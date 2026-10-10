@@ -58,6 +58,7 @@ function createDriver(env) {
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
     var zoomKeysOn = false;         // Escape held to zoom back out
     var keysOpen = false;           // the keys guide (Meta+K) is up
+    var keysReturnTo = null;        // the window that had the focus before it
     var actions = null;             // action name -> function, filled in below
 
     // ---- helpers -----------------------------------------------------------
@@ -2048,9 +2049,19 @@ function createDriver(env) {
     // way a submap's keys are, so they are the applications' again after.
     var keysShown = null;
     var KEYS_BINDS = [
-        ["Escape", "closeKeys"], ["Up", "keysLineUp"], ["Down", "keysLineDown"],
+        ["Escape", "keysEscape"], ["Up", "keysLineUp"], ["Down", "keysLineDown"],
         ["PgUp", "keysPageUp"], ["PgDown", "keysPageDown"], ["Home", "keysTop"], ["End", "keysBottom"],
     ];
+    // Typing searches it (issue #6). KWin gives a script's windows no
+    // keyboard, so these keys are held too while it is up, and the search is
+    // put together here; nothing else has the keyboard meanwhile, so a key
+    // that is not held reaches no application either.
+    var KEYS_TYPED = "abcdefghijklmnopqrstuvwxyz0123456789".split("").concat(["Space", "Backspace"]);
+
+    function keysGuideBinds() {
+        return KEYS_BINDS.map(function (b) { return { submap: "keys", key: b[0], action: b[1] }; })
+            .concat(KEYS_TYPED.map(function (k) { return { submap: "keys", key: k.length === 1 ? k.toUpperCase() : k, type: k }; }));
+    }
 
     function showKeys() {
         if (keysOpen) {
@@ -2073,23 +2084,41 @@ function createDriver(env) {
             var submapList = SC.parseSubmaps ? SC.parseSubmaps(cfg.submaps, Object.keys(actions)).submaps : [];
             keysShown = SC.keysGuide(infos || [], submapList, keyConflicts || [], labels);
             keysOpen = true;
+            // Typing is for the search box now: the window you were in gets
+            // the keyboard back when the guide closes.
+            keysReturnTo = isOverlay(ws.activeWindow) ? null : ws.activeWindow;
+            if (ws.activeWindow) ws.activeWindow = null;
             zoomKeysOn = false;             // the guide's Escape replaces the zoom's
-            env.ui.setSubmapBinds(KEYS_BINDS.map(function (b) {
-                return { submap: "keys", key: b[0], action: b[1] };
-            }));
+            env.ui.setSubmapBinds(keysGuideBinds());
             env.ui.showKeys(keysShown, workArea(screen, desktopFor(screen)));
             log("keys guide on", screen.name);
         });
     }
 
-    function closeKeys() {
+    // giveBack: the focus goes back to the window you were in, unless you
+    // closed the guide by going to another one.
+    function closeKeys(giveBack) {
         if (!keysOpen) return;
         keysOpen = false;
         keysShown = null;
+        var back = keysReturnTo;
+        keysReturnTo = null;
+        if (giveBack !== false && back && (ws.windows || []).indexOf(back) >= 0) activate(back);
         if (env.ui.hideKeys) env.ui.hideKeys();
         env.ui.setSubmapBinds([]);
+        // Held only while it was up: not left behind in System Settings.
+        if (env.ui.forgetBinds) env.ui.forgetBinds(keysGuideBinds());
         updateZoomKeys();
         log("keys guide off");
+    }
+
+    function typeKeys(k) {
+        if (keysOpen && env.ui.typeKeys) env.ui.typeKeys(k);
+    }
+
+    function keysEscape() {
+        if (env.ui.clearKeysSearch && env.ui.clearKeysSearch()) return;
+        closeKeys();
     }
 
     function scrollKeys(how) {
@@ -2637,7 +2666,8 @@ function createDriver(env) {
         leaveSubmap: leaveSubmap,
         toggleSubmap: toggleSubmap,
         showKeys: showKeys,
-        closeKeys: closeKeys,
+        closeKeys: function () { closeKeys(); },
+        keysEscape: keysEscape,
         keysLineUp: function () { scrollKeys("lineUp"); },
         keysLineDown: function () { scrollKeys("lineDown"); },
         keysPageUp: function () { scrollKeys("pageUp"); },
@@ -2771,7 +2801,7 @@ function createDriver(env) {
         listen(ws.windowActivated, function (w) {
             applyAllOpacity();
             // Going to a window means you are done reading.
-            if (keysOpen && w) closeKeys();
+            if (keysOpen && w && !isOverlay(w)) closeKeys(false);
             var st = stOf(w);
             if (st) {
                 if (st.id !== lastActiveId) {
@@ -2892,6 +2922,7 @@ function createDriver(env) {
         openTile: openTile,
         onCursorMoved: onCursorMoved,
         actions: actions,
+        typeKeys: typeKeys,
         config: function () { return cfg; },
         ruleErrors: function () { return ruleErrors.slice(); },
         selectTab: function (id) {

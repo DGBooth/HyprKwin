@@ -199,8 +199,13 @@ Shortcuts › KWin (all entries start with "HyprKwin:").
 
 `Meta+K` brings up a guide to all of them, as they are bound right now —
 rebound keys, submaps and named scratchpads included, and any key another
-shortcut still holds marked as such. It scrolls with the wheel or the arrow
-and page keys; Escape or `Meta+K` again closes it.
+shortcut still holds marked as such. Typing searches it: every word you
+type has to appear in a shortcut's name, section or keys (`close`,
+`scratchpad`, `shift`), or its letters in order in the name (`mvws` finds
+"Move window to workspace"). It scrolls with the wheel or the arrow and page
+keys; Escape empties the search, then closes it, as does `Meta+K` again.
+While it is up, the keyboard is the guide's, so nothing you type reaches the
+window underneath; that window has it back when the guide closes.
 
 Your own shortcuts are safe either way: before changing anything,
 `install.sh` takes a snapshot of every global shortcut

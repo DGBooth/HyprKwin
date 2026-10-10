@@ -1,17 +1,21 @@
 // The keys guide (Meta+K): every HyprKwin shortcut on the key it actually
 // has, grouped as the settings are, framed like the on-screen messages. Wide
 // monitors get two columns; either way it scrolls, by wheel or by the arrow
-// and page keys the driver holds while it is up.
+// and page keys the driver holds while it is up. Typing narrows it down: the
+// driver holds the letters too, and passes them on.
 import QtQuick
 import QtQuick.Controls as QQC
 import QtQuick.Shapes
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
+import "../code/shortcuts.js" as Shortcuts
 
 Window {
     id: guide
 
     property var sections: []                 // [{title, rows: [{label, keys, note, indent}]}]
+    property string query: ""
+    readonly property var shown: Shortcuts.filterKeysGuide(sections, query)
     property var area: null
     property bool overlaysHidden: false
     signal dismissed()
@@ -36,7 +40,10 @@ Window {
     readonly property int columnWidth: unit * 30
     readonly property int columnCount: area && area.width >= columnWidth * 2 + unit * 8 ? 2 : 1
     width: ready ? Math.min(area.width - unit * 4, columnWidth * columnCount + unit * (columnCount + 2)) : 1
-    height: ready ? Math.min(Math.round(area.height * 0.85), header.height + body.contentHeight + unit * 3) : 1
+    // As tall as the whole list was when it opened: narrowing it down does
+    // not shrink the window under the pointer.
+    property real tallest: 0
+    height: ready ? Math.min(Math.round(area.height * 0.85), header.height + tallest + unit * 3) : 1
     x: ready ? Math.round(area.x + (area.width - width) / 2) : 0
     y: ready ? Math.round(area.y + (area.height - height) / 2) : 0
 
@@ -49,9 +56,9 @@ Window {
     readonly property var columns: {
         const cols = [];
         for (let i = 0; i < columnCount; i++) cols.push([]);
-        const total = sections.reduce((n, s) => n + s.rows.length + 2, 0);
+        const total = shown.reduce((n, s) => n + s.rows.length + 2, 0);
         let col = 0, used = 0;
-        for (const s of sections) {
+        for (const s of shown) {
             if (col < columnCount - 1 && used > 0 && used + (s.rows.length + 2) / 2 > total / columnCount) {
                 col++;
                 used = 0;
@@ -63,6 +70,8 @@ Window {
     }
 
     function open(list, where) {
+        query = "";
+        tallest = 0;
         sections = list || [];
         area = where;
         body.contentY = 0;
@@ -72,6 +81,19 @@ Window {
         }
         show();
     }
+
+    // Escape: first empties the search box, and only then closes.
+    function clearSearch() {
+        if (!query) return false;
+        query = "";
+        return true;
+    }
+
+    function type(k) {
+        if (k === "Backspace") query = query.slice(0, -1);
+        else query += k === "Space" ? " " : k;
+    }
+    onQueryChanged: body.contentY = 0
 
     function scroll(how) {
         const line = unit * 2, page = Math.max(line, body.height - line);
@@ -117,10 +139,29 @@ Window {
             font.pointSize: Kirigami.Theme.defaultFont.pointSize + 3
             font.bold: true
         }
+        // A search box to look at; the typing comes from the driver.
+        Rectangle {
+            width: parent.width
+            height: searchText.implicitHeight + guide.unit * 0.6
+            radius: 4
+            color: Qt.alpha(Kirigami.Theme.textColor, 0.06)
+            border.width: 1
+            border.color: guide.query ? guide.ringColor : Qt.alpha(Kirigami.Theme.textColor, 0.25)
+            Text {
+                id: searchText
+                anchors.verticalCenter: parent.verticalCenter
+                x: guide.unit / 2
+                width: parent.width - guide.unit
+                elide: Text.ElideLeft
+                text: guide.query ? guide.query + "▏" : "Type to search"
+                color: guide.query ? Kirigami.Theme.textColor : Kirigami.Theme.disabledTextColor
+                font.family: Kirigami.Theme.defaultFont.family
+            }
+        }
         Text {
             width: parent.width
             wrapMode: Text.Wrap
-            text: "Esc closes · ↑ ↓ PgUp PgDn scroll · change any of them in System Settings › Keyboard › Shortcuts › KWin"
+            text: "Esc clears the search, then closes · ↑ ↓ PgUp PgDn scroll · change any of them in System Settings › Keyboard › Shortcuts › KWin"
             color: Kirigami.Theme.disabledTextColor
             font.family: Kirigami.Theme.defaultFont.family
             font.pointSize: Kirigami.Theme.smallFont.pointSize
@@ -136,8 +177,17 @@ Window {
         clip: true
         contentWidth: width
         contentHeight: columnsRow.height
+        onContentHeightChanged: guide.tallest = Math.max(guide.tallest, contentHeight)
         boundsBehavior: Flickable.StopAtBounds
         QQC.ScrollBar.vertical: QQC.ScrollBar { policy: body.contentHeight > body.height ? QQC.ScrollBar.AlwaysOn : QQC.ScrollBar.AlwaysOff }
+
+        Text {
+            visible: guide.shown.length === 0
+            x: guide.unit / 2
+            text: "No shortcut matches “" + guide.query.trim() + "”"
+            color: Kirigami.Theme.disabledTextColor
+            font.family: Kirigami.Theme.defaultFont.family
+        }
 
         Row {
             id: columnsRow

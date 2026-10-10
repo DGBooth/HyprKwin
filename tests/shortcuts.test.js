@@ -1,8 +1,8 @@
 // Unit tests for the shortcut list and submap parsing.
-import { assertEquals } from "./assert.js";
+import { assertEquals, assert } from "./assert.js";
 
 const src = Deno.readTextFileSync(new URL("../package/contents/code/shortcuts.js", import.meta.url));
-const S = new Function(src + "\nreturn { shortcutList, parseSubmaps, keyCode, keyText, keysGuide };")();
+const S = new Function(src + "\nreturn { shortcutList, parseSubmaps, keyCode, keyText, keysGuide, filterKeysGuide };")();
 
 const ACTIONS = ["resizeLeft", "resizeRight", "toggleFloating"];
 
@@ -124,4 +124,23 @@ Deno.test("bound keys come first, and unnamed unbound scratchpad slots are left 
     assertEquals(windows.slice(firstUnbound).every((r) => !r.keys.length), true);
     const pads = guide.find((s) => s.title === "Scratchpads").rows.map((r) => r.label);
     assertEquals(pads, ["Toggle scratchpad", "Move window to/from scratchpad", "Toggle scratchpad “music”"]);
+});
+
+Deno.test("the keys guide can be searched by name, section, key or loosely", () => {
+    const { submaps } = S.parseSubmaps("resize = Meta+R, Left: resizeLeft", ACTIONS);
+    const guide = S.keysGuide(infos({}), submaps, [], {});
+    const labels = (q) => S.filterKeysGuide(guide, q).flatMap((s) => s.rows.map((r) => r.label));
+    assertEquals(S.filterKeysGuide(guide, "  "), guide, "nothing typed: everything");
+    assertEquals(labels("close"), ["Close window"]);
+    assertEquals(labels("CLOSE win"), ["Close window"], "any case, every word");
+    assertEquals(labels("meta+k"), ["Show keyboard shortcuts"], "by key");
+    assert(labels("scratchpad").length >= 2, "by section");
+    assert(labels("swtw").includes("Switch to workspace 1–10"), "letters in order");
+    assertEquals(labels("zzzz"), [], "nothing matches");
+    // A submap's lines bring the line that enters it.
+    assertEquals(S.filterKeysGuide(guide, "resize: left").find((s) => s.title === "Submaps").rows.map((r) => r.label),
+                 ["Enter the resize submap", "resize: Move split left"]);
+    const sub = S.filterKeysGuide(guide, "leave the submap").find((s) => s.title === "Submaps");
+    assertEquals(sub.rows[0].label, "Enter the resize submap", "the submap's own entry comes first");
+    assertEquals(S.filterKeysGuide(guide, "close")[0].rows.length, 1, "sections keep only what matches");
 });

@@ -33,6 +33,8 @@ Item {
         if (action === "dumpState") {
             const state = driver.state();
             state.effectActive = root.effectActive;
+            // What the guide's search box has narrowed it to.
+            state.keysSearch = keysGuide.visible ? { query: keysGuide.query, shown: keysGuide.shown } : null;
             // How often Overview & co. are checked for, in ms (0: not at all).
             state.effectCheck = effectTimer.running ? effectTimer.interval : 0;
             const text = JSON.stringify(state);
@@ -354,6 +356,25 @@ Item {
     property var submapEntries: []
     property var submapBinds: []
 
+    function bindName(b) {
+        return "HyprKwin submap " + b.submap + " " + b.key;
+    }
+
+    // Keys held only for a while (the keys guide's) are taken out of KDE's
+    // list once they are let go, or every one would stay in System Settings.
+    function forgetBinds(binds) {
+        Qt.callLater(() => {
+            for (const b of binds) {
+                const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.kglobalaccel"; '
+                    + 'path: "/kglobalaccel"; dbusInterface: "org.kde.KGlobalAccel"; method: "unregister" }', root);
+                call.arguments = ["kwin", root.bindName(b)];
+                call.finished.connect(() => call.destroy());
+                call.failed.connect(() => call.destroy());
+                call.call();
+            }
+        });
+    }
+
     Instantiator {
         model: root.submapEntries
         delegate: ShortcutHandler {
@@ -369,10 +390,10 @@ Item {
         model: root.submapBinds
         delegate: ShortcutHandler {
             required property var modelData
-            name: "HyprKwin submap " + modelData.submap + " " + modelData.key
+            name: root.bindName(modelData)
             text: "HyprKwin: " + modelData.submap + " submap, " + modelData.key
             sequence: modelData.key
-            onActivated: root.run(modelData.action)
+            onActivated: modelData.type !== undefined ? root.driver.typeKeys(modelData.type) : root.run(modelData.action)
         }
     }
 
@@ -547,6 +568,9 @@ Item {
                 showKeys: (sections, area) => { if (!root.shuttingDown) keysGuide.open(sections, area); },
                 hideKeys: () => keysGuide.hide(),
                 scrollKeys: (how) => keysGuide.scroll(how),
+                clearKeysSearch: () => keysGuide.clearSearch(),
+                typeKeys: (k) => keysGuide.type(k),
+                forgetBinds: (binds) => { if (!root.shuttingDown) root.forgetBinds(binds); },
                 // Only when they change: a shortcut destroyed and made again
                 // straight away can end up inactive in Plasma 6.6, listed on
                 // its key but deaf to it.

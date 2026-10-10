@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **The keys guide (Meta+K) can be searched**
+  ([#6](https://github.com/DGBooth/HyprKwin/issues/6)): type and it narrows to
+  the shortcuts whose name, section or keys hold every word, or whose name
+  has the letters in order (`mvws` finds "Move window to workspace"). Escape
+  empties the search, then closes the guide. While it is up nothing else has
+  the keyboard, so typing reaches no window underneath; the one you were in
+  has it back after. KWin gives scripts' windows no keyboard, so the guide
+  holds the letter keys itself while it is up, and lets KDE forget them
+  after: neither they nor its scrolling keys stay listed in System Settings
+  any more.
+
 ## 0.15.0
 
 - **Ready for Plasma 6.8.** Nothing HyprKwin uses changed, but KWin 6.8
