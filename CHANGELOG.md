@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Tests:** a crash in the test sandbox no longer shows up as a crash of your
+  desktop. Nothing the tests start leaves a core dump (a core limit of 1
+  makes the kernel skip systemd-coredump, which KDE's crash reporter reads),
+  and the sandbox has its own cache and state folders, where KWin's crash
+  handler writes. A test still fails on a crash, from KWin's log.
+
 ## 0.15.1
 
 - **The keys guide (Meta+K) can be searched**

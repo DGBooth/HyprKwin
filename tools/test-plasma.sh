@@ -56,10 +56,11 @@ if [ ${#GPU[@]} -eq 0 ] && [ -z "${HK_NO_GPU:-}" ] && [ "$VERSION" != 6.6 ]; the
     fi
 fi
 
-# --init reaps what the tests leave behind; with no core files, a crash in
-# the container fails its test without landing in this machine's crash
-# records (systemd-coredump sees the container's processes too).
-exec "$ENGINE" run --rm --init --ulimit core=0 "${GPU[@]}" -v "$ROOT:/src:ro" "${ARTIFACTS[@]}" "$IMAGE" bash -c '
+# --init reaps what the tests leave behind. A crash in the container fails
+# its test without reaching this machine's crash records: systemd-coredump
+# sees the container's processes too, and a core limit of 1 (not 0, which
+# still reaches it) makes the kernel skip it.
+exec "$ENGINE" run --rm --init --ulimit core=1 "${GPU[@]}" -v "$ROOT:/src:ro" "${ARTIFACTS[@]}" "$IMAGE" bash -c '
     python3 tests/e2e/run.py "$@"; status=$?
     [ -d /artifacts ] && cp "$XDG_RUNTIME_DIR"/hyprkwin-fail-* /artifacts/ 2>/dev/null
     exit $status' run "$@"

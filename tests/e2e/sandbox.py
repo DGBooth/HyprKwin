@@ -28,6 +28,18 @@ def kactivitymanagerd():
     return shutil.which("kactivitymanagerd") or "/nonexistent/kactivitymanagerd"
 
 
+# Nothing the tests start leaves a core dump behind. With a core size limit
+# of exactly 1 the kernel skips the machine's dump handler (systemd-coredump)
+# altogether, where 0 still reaches it - and from there KDE's crash reporter,
+# which would show a test KWin's crash on the desktop as the desktop's own.
+# A crash still fails its test: run.py looks for KCrash in KWin's log.
+try:
+    import resource
+    _, _hard = resource.getrlimit(resource.RLIMIT_CORE)
+    resource.setrlimit(resource.RLIMIT_CORE, (1, _hard if _hard == resource.RLIM_INFINITY or _hard >= 1 else 1))
+except (ImportError, ValueError, OSError):
+    pass
+
 MESA_EGL = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
 
 
@@ -123,6 +135,11 @@ class Sandbox:
         env.update({
             "XDG_CONFIG_HOME": str(self.base / "config"),
             "XDG_DATA_HOME": str(self.base / "data"),
+            # Caches and state too: KWin's crash handler writes its notes on
+            # a crash to the cache, and the desktop's crash reporter would
+            # take a test KWin's crash for its own.
+            "XDG_CACHE_HOME": str(self.base / "cache"),
+            "XDG_STATE_HOME": str(self.base / "state"),
             "QT_FORCE_STDERR_LOGGING": "1",
             "KWIN_SCREENSHOT_NO_PERMISSION_CHECKS": "1",
             # lets tests use org_kde_kwin_fake_input (see fakeinput.py)
@@ -232,10 +249,12 @@ class Sandbox:
         it would look for a display: none in a container, or this machine's
         own session."""
         # Asked about the name, not the daemon: a call to it would have D-Bus
-        # start it, with no display.
-        owned = self._qdbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner",
-                            "org.kde.ActivityManager", check=False).strip()
-        if owned != "true":
+        # start it, with no display - and its failure ("ChildSignaled") comes
+        # back on standard output like any answer.
+        def owned():
+            return self._qdbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner",
+                               "org.kde.ActivityManager", check=False).strip() == "true"
+        if not owned():
             if not os.path.exists(kactivitymanagerd()):
                 raise Skip("needs kactivitymanagerd")
             env = dict(self.env, QT_QPA_PLATFORM="offscreen")
@@ -244,8 +263,12 @@ class Sandbox:
             self.clients.append(subprocess.Popen([kactivitymanagerd()], env=env, stdout=subprocess.DEVNULL,
                                                  stderr=subprocess.DEVNULL))
         for _ in range(100):
-            if self._activity_call("CurrentActivity", check=False):
-                return
+            if owned():
+                r = subprocess.run(["qdbus6", "org.kde.ActivityManager", "/ActivityManager/Activities",
+                                    "org.kde.ActivityManager.Activities.CurrentActivity"],
+                                   env=self.env, capture_output=True, text=True)
+                if r.returncode == 0 and r.stdout.strip():
+                    return
             time.sleep(0.1)
         raise RuntimeError("kactivitymanagerd did not start")
 
