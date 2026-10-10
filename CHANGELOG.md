@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.1
 
 - **The keys guide (Meta+K) can be searched**
   ([#6](https://github.com/DGBooth/HyprKwin/issues/6)): type and it narrows to
