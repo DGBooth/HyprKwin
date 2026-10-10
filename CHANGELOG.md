@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.15.0
+
+- **Ready for Plasma 6.8.** Nothing HyprKwin uses changed, but KWin 6.8
+  checks scripts more strictly and logged a warning for every setting read
+  before the line that declares it; those are declared first now. The
+  end-to-end tests also run against Plasma 6.8 in a container
+  (`tools/test-plasma.sh 6.8`, which replaces `tools/test-plasma-6.6.sh`:
+  `tools/test-plasma.sh 6.6` runs the 6.6 one).
+- **Tests:** the panel tests run against a real plasmashell again (it needs
+  kactivitymanagerd, and software drawing when nested on NVIDIA), and on
+  Plasma 6.8 too; tests whose tools are missing say SKIP rather than pass;
+  nothing the sandbox starts reaches your own session or outlives it; and
+  on a machine with an integrated GPU beside an NVIDIA one, the tests use
+  the integrated one.
+- **The open/close animation picked in the animations effect's settings
+  holds on Plasma 6.8.** 6.8 can load its own (Scale, by default) after
+  HyprKwin's effect at login, which left both running; the choice is now
+  applied again as windows open.
+
+### Fixed
+
+- **Activities** ([#2](https://github.com/DGBooth/HyprKwin/issues/2)):
+  - Going to a workspace could switch activity. A workspace remembers the
+    window used last on it, and focusing that window, when it was on another
+    activity, took KWin there. Only windows on the current activity (and not
+    minimized) are given the focus now, there and when a window closes.
+  - Switching activity with several monitors could shuffle what they show,
+    putting two workspaces' windows on one monitor. KWin remembers a desktop
+    for each activity and switches to it, which HyprKwin took for a
+    workspace switch on the monitor in use. Each activity now remembers what
+    every monitor showed on it, and gets it back.
+  - After switching activity, the window you last used there has the focus.
+
 ## 0.14.0
 
 - **The layout follows a panel at once.** KWin tells scripts nothing when the

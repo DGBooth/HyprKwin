@@ -62,6 +62,10 @@ class HyprKwinAnimations {
         });
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
+        // Plasma 6.8 can load its own open/close effect after this one at
+        // login, and nothing says when: check again as each window opens,
+        // ahead of that effect seeing it.
+        effects.windowAdded.connect(() => this.applyOpenCloseEffect(this.openClose));
         for (const window of effects.stackingOrder) {
             this.manage(window);
         }
@@ -90,7 +94,8 @@ class HyprKwinAnimations {
         // window back for 220ms, and the slide has to finish first.
         const slide = effect.readConfig("SlideDuration", 180) || 180;
         this.slideDuration = animationTime(slide) > 0 ? slide : 0;
-        this.applyOpenCloseEffect(effect.readConfig("OpenCloseEffect", 0));
+        this.openClose = effect.readConfig("OpenCloseEffect", 0);
+        this.applyOpenCloseEffect(this.openClose);
         const curves = [QEasingCurve.OutCubic, QEasingCurve.OutQuad, QEasingCurve.OutExpo,
                         QEasingCurve.OutBack, QEasingCurve.Linear];
         const index = effect.readConfig("Curve", 0);

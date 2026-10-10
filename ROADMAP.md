@@ -24,11 +24,12 @@ Corners instead.
 
 ## Next
 
-- **Activities** ([#2](https://github.com/DGBooth/HyprKwin/issues/2), waiting
-  on the reporter's reply). Today windows on another activity drop out of the
-  layout, but each workspace's tiling tree is shared by every activity: its
-  layout, splits, master settings, zoom, focus history and what each monitor
-  shows. Full support gives every activity its own set of workspaces:
+- **Separate workspaces for each activity** ([#2](https://github.com/DGBooth/HyprKwin/issues/2)).
+  Windows on another activity drop out of the layout, focus stays on the
+  current activity, and each activity remembers what every monitor shows.
+  Each workspace's tiling tree is still shared by every activity, though: its
+  layout, splits, master settings and zoom. Full support gives every activity
+  its own set of workspaces:
   - Spaces keyed by activity as well as desktop and monitor, so switching
     activity brings back the arrangement left there, monitor by monitor.
   - Windows on all activities: tile in whichever activity is current, or
@@ -39,7 +40,6 @@ Corners instead.
     the key helper stops taking Plasma's `Meta+Tab` activity switcher.
   - Saved layouts, `hyprkwinctl` and the keys guide aware of activities.
   - A settings-page switch: "Separate workspaces for each activity".
-  - The test sandbox needs kactivitymanagerd and a few activities first.
 
 - **Shift+digit binds on any keyboard layout.** `Meta+!`…`Meta+)` are the
   characters a US layout gives; on others (Shift+3 is £ on a UK one) moving a

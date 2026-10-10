@@ -20,13 +20,49 @@ EFFECT_PACKAGE = ROOT / "package-effect"
 CLIENT = Path(__file__).resolve().parent / "client.py"
 
 
+def kactivitymanagerd():
+    for p in ("/usr/lib/kactivitymanagerd", "/usr/libexec/kactivitymanagerd",
+              "/usr/lib/x86_64-linux-gnu/libexec/kactivitymanagerd"):
+        if os.path.exists(p):
+            return p
+    return shutil.which("kactivitymanagerd") or "/nonexistent/kactivitymanagerd"
+
+
+MESA_EGL = "/usr/share/glvnd/egl_vendor.d/50_mesa.json"
+
+
+def mesa_gpu():
+    """Environment that keeps the nested KWin (and its Xwayland and apps) on
+    a GPU Mesa drives, such as an integrated one, when this machine has one
+    beside an NVIDIA card: off the card the desktop and everything else on it
+    use, whose memory can run out under them. HK_ANY_GPU=1 leaves the choice
+    to KWin."""
+    if os.environ.get("HK_ANY_GPU") == "1" or not os.path.exists(MESA_EGL):
+        return {}
+    nodes = sorted(Path("/dev/dri").glob("renderD*")) if Path("/dev/dri").exists() else []
+    drivers = {}
+    for node in nodes:
+        try:
+            drivers[node] = os.path.basename(os.path.realpath("/sys/class/drm/%s/device/driver" % node.name))
+        except OSError:
+            pass
+    if "nvidia" not in drivers.values():
+        return {}
+    mesa = [n for n, d in drivers.items() if d != "nvidia"]
+    if not mesa:
+        return {}
+    return {"__EGL_VENDOR_LIBRARY_FILENAMES": MESA_EGL, "__GLX_VENDOR_LIBRARY_NAME": "mesa",
+            "KWIN_RENDER_NODES": str(mesa[0])}
+
+
 class Skip(Exception):
     """This test cannot run here (not a failure): say why, and move on."""
 
 
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
-                 effect=False, effect_config=None, xwayland=False, native_desktops=False):
+                 effect=False, effect_config=None, xwayland=False, native_desktops=False,
+                 activities=0):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -45,6 +81,10 @@ class Sandbox:
         # be installed and enabled before the compositor launches.
         self.effect = effect
         self.effect_config = dict(effect_config or {})
+        # Plasma's activities: kactivitymanagerd runs in the sandbox, with
+        # this many activities, and KWin starts on the first.
+        self.activities = activities
+        self.activity_ids = []
         self.socket = "hyprkwin-test-%d" % os.getpid()
         self.proc = None
         self.clients = []
@@ -93,6 +133,12 @@ class Sandbox:
             "PULSE_SERVER": "unix:" + str(self.base / "no-audio" / "native"),
         })
         env.pop("QT_QPA_PLATFORM", None)
+        env.update(mesa_gpu())
+        # Nothing in the sandbox may reach this machine's own session: D-Bus
+        # starts services on demand (kactivitymanagerd, when KWin asks for
+        # it) with this environment, and they would open their windows there.
+        for var in ("WAYLAND_DISPLAY", "DISPLAY", "WAYLAND_SOCKET"):
+            env.pop(var, None)
         subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(PACKAGE)], env=env,
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(EFFECT_PACKAGE)], env=env,
@@ -126,6 +172,8 @@ class Sandbox:
             helper.write_text('#!/bin/sh\necho "$DISPLAY" > "%s"\n' % displayfile)
             helper.chmod(0o755)
             xwayland = " --xwayland %s" % helper
+        if self.activities and not os.path.exists(kactivitymanagerd()):
+            raise Skip("needs kactivitymanagerd")
         cmd = ("echo $DBUS_SESSION_BUS_ADDRESS > %s; exec kwin_wayland --virtual --no-lockscreen "
                "--socket %s --width %d --height %d --output-count %d%s%s" %
                (busfile, self.socket, self.width, self.height, self.outputs,
@@ -162,6 +210,8 @@ class Sandbox:
             else:
                 raise RuntimeError("Xwayland did not start; see %s" % self.log_path)
         time.sleep(0.3)
+        if self.activities:
+            self._make_activities()
         if self.outputs > 1:
             # A real setup has a primary monitor, and a new session starts on
             # it; the virtual outputs come up in no particular order. Make the
@@ -172,10 +222,94 @@ class Sandbox:
             time.sleep(0.2)
             self.reload_script()
 
+    def _activity_call(self, method, *args, check=True):
+        return self._qdbus("org.kde.ActivityManager", "/ActivityManager/Activities",
+                           "org.kde.ActivityManager.Activities." + method, *args, check=check).strip()
+
+    def activity_manager(self):
+        """Make sure kactivitymanagerd runs on the sandbox's bus, as
+        plasmashell needs it to load a shell at all. Left to D-Bus to start,
+        it would look for a display: none in a container, or this machine's
+        own session."""
+        # Asked about the name, not the daemon: a call to it would have D-Bus
+        # start it, with no display.
+        owned = self._qdbus("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.NameHasOwner",
+                            "org.kde.ActivityManager", check=False).strip()
+        if owned != "true":
+            if not os.path.exists(kactivitymanagerd()):
+                raise Skip("needs kactivitymanagerd")
+            env = dict(self.env, QT_QPA_PLATFORM="offscreen")
+            env.pop("WAYLAND_DISPLAY", None)
+            env.pop("DISPLAY", None)
+            self.clients.append(subprocess.Popen([kactivitymanagerd()], env=env, stdout=subprocess.DEVNULL,
+                                                 stderr=subprocess.DEVNULL))
+        for _ in range(100):
+            if self._activity_call("CurrentActivity", check=False):
+                return
+            time.sleep(0.1)
+        raise RuntimeError("kactivitymanagerd did not start")
+
+    def _make_activities(self):
+        self.activity_manager()
+        ids = self._activity_call("ListActivities").split()
+        while len(ids) < self.activities:
+            self._activity_call("AddActivity", "Activity %d" % (len(ids) + 1))
+            ids = self._activity_call("ListActivities").split()
+        # In the order they were made, the first being the one we are on.
+        cur = self._activity_call("CurrentActivity")
+        self.activity_ids = [cur] + [i for i in ids if i != cur]
+        for _ in range(50):
+            if self.kwin_js("Workspace.activities.length") == str(len(ids)):
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("KWin does not see the activities")
+
+    def activity(self, n=None):
+        """Switch to activity n (from 1), or say which one is current."""
+        if n is None:
+            cur = self._activity_call("CurrentActivity")
+            return self.activity_ids.index(cur) + 1 if cur in self.activity_ids else 0
+        self._activity_call("SetCurrentActivity", self.activity_ids[n - 1])
+        self.settle()
+
+    def kwin_js(self, expr):
+        """Evaluate a JavaScript expression inside KWin (Workspace in scope)
+        and return what it gives, as a string."""
+        d = self.base / ("js-%d" % time.time_ns())
+        d.mkdir(parents=True)
+        (d / "main.qml").write_text("""import QtQuick
+import org.kde.kwin
+Item { Timer { interval: 50; running: true; onTriggered: {
+  let out;
+  try { out = String((function () { return %s; })()); } catch (e) { out = "ERROR " + e; }
+  console.warn("HKJS " + out.replace(/\\n/g, " "));
+  console.warn("HKJSDONE");
+}}}
+""" % expr)
+        marker = self.log_path.read_text(errors="replace").count("HKJSDONE")
+        name = "hk-js-%d" % time.time_ns()
+        self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadDeclarativeScript", str(d / "main.qml"), name)
+        self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.start")
+        for _ in range(60):
+            text = self.log_path.read_text(errors="replace")
+            if text.count("HKJSDONE") > marker:
+                lines = [l for l in text.splitlines() if "HKJS " in l]
+                self._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.unloadScript", name)
+                return lines[-1].split("HKJS ", 1)[1].strip()
+            time.sleep(0.05)
+        raise RuntimeError("script probe did not report")
+
     def stop(self):
         for c in self.clients:
             if c.poll() is None:
                 c.kill()
+        # Gone before the next sandbox clears the folder they write in.
+        for c in self.clients:
+            try:
+                c.wait(5)
+            except subprocess.TimeoutExpired:
+                pass
         if self.proc and self.proc.poll() is None:
             os.killpg(self.proc.pid, signal.SIGTERM)
             try:
@@ -184,6 +318,65 @@ class Sandbox:
                 os.killpg(self.proc.pid, signal.SIGKILL)
                 self.proc.wait(5)
         self.exit_code = self.proc.returncode if self.proc else None
+        if self.proc:
+            self._end_session(self.proc.pid)
+        self._end_strays()
+
+    @staticmethod
+    def _session_members(sid):
+        out = []
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit():
+                continue
+            try:
+                with open("/proc/%s/stat" % pid) as f:
+                    fields = f.read().rsplit(")", 1)[1].split()
+            except (OSError, IndexError):
+                continue
+            # state, ppid, pgrp, session; zombies write nothing more.
+            if int(fields[3]) == sid and fields[0] != "Z":
+                out.append(int(pid))
+        return out
+
+    def _end_session(self, sid):
+        """Everything started in the sandbox's session gone - KWin above all,
+        which can still be writing its config as it exits. Its environment
+        cannot be read (its file capability forbids it), so it is found by
+        session instead."""
+        end = time.time() + 5
+        while time.time() < end and self._session_members(sid):
+            time.sleep(0.1)
+        for pid in self._session_members(sid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    def _end_strays(self):
+        """Services D-Bus started for the sandbox (a portal, the secret
+        service) outlive its bus; they would go on writing in its folders as
+        the next sandbox clears them. Found by the data folder they were
+        given, which is the sandbox's own."""
+        mine = "XDG_DATA_HOME=%s" % (self.base / "data")
+        strays = []
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit() or int(pid) == os.getpid():
+                continue
+            try:
+                with open("/proc/%s/environ" % pid, "rb") as f:
+                    env = f.read().decode(errors="replace").split("\0")
+            except OSError:
+                continue
+            if mine in env:
+                strays.append(int(pid))
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            for pid in strays:
+                try:
+                    os.kill(pid, sig)
+                except OSError:
+                    pass
+            if sig == signal.SIGTERM and strays:
+                time.sleep(0.5)
 
     def crashed(self):
         """True if KWin crashed rather than exiting on our SIGTERM.

@@ -1155,6 +1155,61 @@ def multi_monitor(sb):
     eq((sb.geometry("A", s)[2], sb.geometry("B", s)[2]), (945, 945), "they share the monitor")
 
 
+def shown_numbers(sb, s=None):
+    """Which workspace (by number) each monitor shows, left to right."""
+    s = s or sb.state()
+    return tuple(s["desktops"].index(s["shown"][o]) + 1 for o in sorted(s["shown"]))
+
+
+@test(outputs=2, activities=2)
+def a_workspace_key_stays_on_the_activity(sb):
+    # Issue #2: every workspace remembers the window used last on it, and
+    # going to the workspace focuses it - even one on another activity,
+    # which KWin then switched to.
+    sb.spawn("A")
+    sb.invoke("desktop2")
+    sb.spawn("A2")
+    sb.invoke("desktop1")
+    sb.activity(2)
+    sb.spawn("B")
+    sb.invoke("desktop2")
+    eq(sb.activity(), 2, "workspace 2 (A2 used last there, on activity 1)")
+    sb.invoke("desktop1")
+    eq(sb.activity(), 2, "workspace 1")
+    eq(active_caption(sb), "B", "B, the window on this activity, has the focus")
+    sb.activity(1)
+    sb.invoke("desktop2")
+    sb.invoke("desktop1")
+    eq(sb.activity(), 1, "back on activity 1, B used last on workspace 1")
+    eq(active_caption(sb), "A", "A has the focus")
+
+
+@test(outputs=2, activities=2)
+def each_activity_keeps_what_its_monitors_show(sb):
+    # Issue #2: KWin remembers a desktop per activity and switches to it,
+    # which looked like a workspace switch on the monitor in use and
+    # shuffled the monitors' workspaces.
+    sb.spawn("A")
+    sb.invoke("desktop2")
+    sb.spawn("A2")              # the right monitor shows 2, and has the focus
+    sb.activity(2)
+    sb.invoke("desktop3")
+    sb.spawn("B")
+    eq(shown_numbers(sb), (1, 3), "activity 2")
+    sb.invoke("desktop1")       # the focus goes left, Plasma's desktop to 1
+    sb.activity(1)
+    s = sb.state()
+    eq(shown_numbers(sb, s), (1, 2), "activity 1 shows what it did")
+    eq(active_caption(sb, s) in ("A", "A2"), True, "a window of activity 1 focused: %r" % active_caption(sb, s))
+    eq(sb.geometry("A", s), FULL, "A where it was")
+    eq(sb.geometry("A2", s)[0], 1920 + 10, "A2 still on the right")
+    sb.activity(2)
+    s = sb.state()
+    eq(shown_numbers(sb, s), (1, 3), "activity 2 shows what it did")
+    eq(active_caption(sb, s) in (None, "B"), True, "nothing from activity 1 focused: %r" % active_caption(sb, s))
+    eq(sb.geometry("B", s)[0], 1920 + 10, "B still on the right")
+
+
 @test
 def unload_restores(sb):
     three(sb)
@@ -1700,8 +1755,7 @@ def border_fills_in_for_self_decorated_apps(sb):
     import shutil
     import subprocess
     if not shutil.which("zenity"):
-        print("  (zenity not installed, skipped)")
-        return
+        raise Skip("needs zenity")
     sb.spawn("ServerSide")
     env = dict(sb.env)
     env.update(WAYLAND_DISPLAY=sb.socket, GDK_BACKEND="wayland")
@@ -2040,7 +2094,10 @@ def dialogs_can_be_tiled(sb):
 
 @test(effect=True, effect_config={"OpenCloseEffect": 2})
 def open_close_animation_can_be_chosen(sb):
-    """Picking one of Plasma's open/close effects loads it and retires the rest."""
+    """Picking one of Plasma's open/close effects loads it and retires the rest
+    - by the time a window opens, since Plasma 6.8 can load its own after this
+    one at login."""
+    sb.spawn("A")
     loaded = sb._qdbus("org.kde.KWin", "/Effects", "org.kde.kwin.Effects.loadedEffects")
     names = loaded.split()
     eq("fade" in names, True, "fade loaded: %r" % ([n for n in names if n in ("fade", "scale", "glide")],))
@@ -2113,7 +2170,7 @@ def rules_added_in_the_settings_page_apply(sb):
     obeys it. Driven through the real page with real key presses and clicks."""
     import subprocess
     if not shutil.which("kcmshell6"):
-        return
+        raise Skip("needs kcmshell6")
     env = dict(sb.env)
     env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland")
     page = subprocess.Popen(["kcmshell6", "kwin/effects/configs/kcm_kwin4_genericscripted", "--args", "hyprkwin KWin/Script"],
@@ -2125,13 +2182,16 @@ def rules_added_in_the_settings_page_apply(sb):
     # The page is the only window, so HyprKwin tiles it to fill the screen.
     fi.click(315, 31)                       # the "Window rules" tab
     sb.settle(1.0)
-    # These two sit just below the tab's help text, so they move whenever it
-    # gains or loses a line; a screenshot of the page shows where they are.
-    fi.click(900, 223)                      # the input line above the list
+    # Where the input line and the list sit depends on the help text above
+    # them and on the Qt style, so they are found on screen. Add is level
+    # with the top of the list; Return in the list is the dialog's OK.
+    line, list_top = input_line_above_list(sb, 900)
+    fi.click(900, line)
     fi.type_text("float, title:^Floater$")
-    fi.click(1836, 263)                     # Add
+    fi.click(sb.width - 94, list_top + 10)  # Add
     sb.settle(0.5)
-    fi.click(1681, 1047)                    # OK
+    fi.click(900, sb.height * 3 // 4)       # the list
+    fi.combo("return")                      # OK
     page.wait(timeout=10)
     eq(read_rules_of(sb), r"float\, title:^Floater$", "saved as the page's list (items split by unescaped commas)")
     sb.wait_for(lambda s: "Floater" in s["config"]["windowRules"], "rule picked up", timeout=12)
@@ -2140,6 +2200,29 @@ def rules_added_in_the_settings_page_apply(sb):
     s = sb.state()
     eq(sb.window("Floater", s)["tiled"], False, "the new rule applies")
     eq(sb.window("A", s)["tiled"], True, "other windows still tile")
+
+
+def input_line_above_list(sb, x):
+    """The middle of the input line above a page's big list, and the top of
+    the list, in column x: up from the list's inside, past its frame, to the
+    next stretch of the same colour (both are drawn in the theme's view
+    background, light or dark)."""
+    from PIL import Image
+    shot = sb.base / "page.png"
+    sb.screenshot(shot)
+    img = Image.open(shot).convert("RGB")
+    y = sb.height * 3 // 4
+    view = img.getpixel((x, y))
+    same = lambda y: near(img.getpixel((x, y)), view, tol=3)
+    while y > 0 and same(y):
+        y -= 1                              # up through the list
+    list_top = y
+    while y > 0 and not same(y):
+        y -= 1                              # its frame, the gap, the line's frame
+    bottom = y
+    while y > 0 and same(y):
+        y -= 1                              # the input line
+    return (y + bottom) // 2, list_top
 
 
 def read_rules_of(sb, key="WindowRuleList"):
@@ -2558,7 +2641,7 @@ def a_monitor_can_come_and_go(sb):
     """Turning a display off mid-session must not strand its windows or leave
     another workspace's windows on screen; turning it back on restores it."""
     if not shutil.which("kscreen-doctor"):
-        return
+        raise Skip("needs kscreen-doctor")
     shots = sb.base / "shots"
     shots.mkdir(exist_ok=True)
     sb.spawn("A", color="#ff0000")
@@ -2689,6 +2772,16 @@ def focus_on_activate_can_be_turned_off(sb):
     eq(sb.window("Spotify", s)["demandsAttention"], True, "flagged, as Plasma does")
 
 
+def shell_env(sb):
+    """How plasmashell runs in the sandbox. Drawn in software: with OpenGL,
+    nested on an NVIDIA GPU, its panel never gets a frame out
+    (eglSwapBuffers fails), so it never shows or takes its strip of the
+    screen. The tests only need where it is."""
+    env = dict(sb.env)
+    env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland", QT_QUICK_BACKEND="software")
+    return env
+
+
 def with_panel(sb):
     """A real plasmashell (and so a real panel) in the sandbox; None if it is
     not installed. Returns a function that sets the panel's height."""
@@ -2696,8 +2789,8 @@ def with_panel(sb):
     import subprocess
     if not shutil.which("plasmashell"):
         return None
-    env = dict(sb.env)
-    env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland")
+    sb.activity_manager()
+    env = shell_env(sb)
     sb.clients.append(subprocess.Popen(["plasmashell", "--no-respawn"], env=env,
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
@@ -2740,8 +2833,7 @@ def a_panel_change_retiles_at_once(sb):
     panel.)"""
     height = with_panel(sb)
     if not height:
-        print("  (plasmashell not installed, skipped)")
-        return
+        raise Skip("needs plasmashell")
     sb.spawn("A")
     sb.spawn("B")
     sb.settle(1.0)
@@ -2794,8 +2886,7 @@ def a_panel_change_glides_the_windows(sb):
     shrinks no longer takes the full re-tile animation."""
     height = with_panel(sb)
     if not height:
-        print("  (plasmashell not installed, skipped)")
-        return
+        raise Skip("needs plasmashell")
     if not sb.opengl:
         raise Skip("the effect needs OpenGL compositing (no GPU here)")
     shots = sb.base / "shots"
@@ -2830,10 +2921,9 @@ def plasma_shell(sb):
     import shutil
     import subprocess
     if not shutil.which("plasmashell"):
-        print("  (plasmashell not installed, skipped)")
-        return
-    env = dict(sb.env)
-    env.update(WAYLAND_DISPLAY=sb.socket, QT_QPA_PLATFORM="wayland")
+        raise Skip("needs plasmashell")
+    sb.activity_manager()
+    env = shell_env(sb)
     sb.clients.append(subprocess.Popen(["plasmashell", "--no-respawn"], env=env,
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
     time.sleep(10)
@@ -2885,7 +2975,8 @@ def main():
             sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
                               effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
                               xwayland=opts.get("xwayland", False),
-                              native_desktops=opts.get("native_desktops", False))
+                              native_desktops=opts.get("native_desktops", False),
+                              activities=opts.get("activities", 0))
             with sandbox as sb:
                 try:
                     if opts.get("effect") and not sb.opengl:

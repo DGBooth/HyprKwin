@@ -44,6 +44,21 @@ function createDriver(env) {
     var drag = null;          // {st, mode, last}
     var stopped = false;
     var reloads = 0;
+    // Declared here, ahead of the functions that use them, for Plasma 6.8's
+    // QML engine, which warns about any use before the declaration:
+    // The divider slide (see slideDivider).
+    var slidePhase = "idle";
+    var holdShrinks = false;
+    var slideQueue = null;
+    var releasing = null;
+    // Windows that grew in the current slide and have yet to take their new
+    // size. Borders wait for them: the effect only knows a slide is under
+    // way once one of them has, and a border moved before that would jump.
+    var slideGrowers = null;
+    var lastIconTiles = [];         // ids of the windows drawn as icon tiles
+    var zoomKeysOn = false;         // Escape held to zoom back out
+    var keysOpen = false;           // the keys guide (Meta+K) is up
+    var actions = null;             // action name -> function, filled in below
 
     // ---- helpers -----------------------------------------------------------
 
@@ -144,6 +159,11 @@ function createDriver(env) {
     // The workspace on the monitor in use, while there were several: when
     // the others go away, that is the one to stay on.
     var focusedWorkspace = null;
+    // Each activity remembers what every monitor showed on it, as KWin
+    // remembers a current desktop per activity: switching back brings the
+    // same workspaces up on the same monitors.
+    var shownActivity = ws.currentActivity;
+    var shownByActivity = {};       // activity id -> {shown, formerShown}
 
     function perOutput() {
         return !!cfg.perOutputWorkspaces && screens().length > 1;
@@ -328,6 +348,57 @@ function createDriver(env) {
                 floating.forEach(function (st) { guarded(function () { ws.sendClientToScreen(st.w, to); }); });
             }
         });
+    }
+
+    // The activity changed: put away what the monitors showed on the old one
+    // and bring back what they showed on this one. KWin switches to the
+    // desktop it remembers for the activity first, before saying the activity
+    // changed; that is not the user switching workspace on the monitor they
+    // are on, so it must not count as one.
+    function activityChanged() {
+        var now = ws.currentActivity;
+        if (now === shownActivity) return false;
+        if (shownActivity) shownByActivity[shownActivity] = { shown: copyMap(shown), formerShown: copyMap(formerShown) };
+        shownActivity = now;
+        var saved = shownByActivity[now];
+        if (saved && perOutput()) {
+            screens().forEach(function (s) {
+                if (desktopById(saved.shown[s.name])) shown[s.name] = saved.shown[s.name];
+                if (saved.formerShown[s.name]) formerShown[s.name] = saved.formerShown[s.name];
+            });
+        }
+        if (native()) {
+            // Whatever KWin has just done to the screens was its own part of
+            // the switch: ours wins, and is passed back to it.
+            screens().forEach(function (s) {
+                var kd = ws.currentDesktopForScreen(s);
+                if (kd) kwinShown[s.name] = kd.id;
+            });
+        } else if (perOutput()) {
+            var screen = ws.activeScreen || focusedScreen();
+            var d = screen ? desktopById(shown[screen.name]) : null;
+            if (d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
+        }
+        log("activity", now, "shows", JSON.stringify(shown));
+        return true;
+    }
+
+    // After an activity switch KWin may leave nothing focused (or something
+    // it is about to hide): take up where you left off on this activity, on
+    // the monitor you are on.
+    function focusAfterActivity() {
+        var w = ws.activeWindow;
+        if (w && onCurrentActivity(w) && kwinVisible(w)) return;
+        var screen = ws.activeScreen || screens()[0];
+        if (!screen) return;
+        var id = engine.lastFocused(spaceFor(desktopFor(screen), screen), true);
+        if (id && tracked[id]) activate(tracked[id].w);
+    }
+
+    function copyMap(m) {
+        var out = {};
+        for (var k in m) out[k] = m[k];
+        return out;
     }
 
     // Put every window on the Plasma desktop that makes it visible where
@@ -988,7 +1059,7 @@ function createDriver(env) {
             // Floating windows are not in the layout: fall back to the last
             // window used on the workspace this one was on.
             var space = spaceOfWindow(st);
-            next = space ? engine.lastFocused(space) : null;
+            next = space ? engine.lastFocused(space, true) : null;
         }
         return next && next !== st.id ? next : null;
     }
@@ -1795,14 +1866,7 @@ function createDriver(env) {
     // "slide": holding the shrinking windows while the divider slides;
     // "release": they have been let go, and the next slide waits until they
     // have actually taken their new size (so it finds them where they are).
-    var slidePhase = "idle";
-    var holdShrinks = false;
-    var slideQueue = null;
-    var releasing = null;
-    // Windows that grew in the current slide and have yet to take their new
-    // size. Borders wait for them: the effect only knows a slide is under
-    // way once one of them has, and a border moved before that would jump.
-    var slideGrowers = null;
+    // (Its state, slidePhase and the rest, is declared at the top.)
 
     function slideDivider(st, dx, dy) {
         if (slidePhase !== "idle") {
@@ -1896,7 +1960,6 @@ function createDriver(env) {
     // offers to move them; installed from the store nothing does, so check
     // each default key's owner and say when it is not HyprKwin.
     var keyConflicts = null;
-    var lastIconTiles = [];
 
     function checkKeys() {
         if (stopped || !env.keyOwner || !SC || !SC.shortcutList || !SC.keyCode) return;
@@ -1968,7 +2031,6 @@ function createDriver(env) {
 
     // Escape zooms back out while a zoom lasts, when that is turned on: it
     // borrows the submap keys, and gives Escape back the moment the zoom ends.
-    var zoomKeysOn = false;
     function updateZoomKeys() {
         if (!env.ui.setSubmapBinds) return;
         var space = currentSpace();
@@ -1984,7 +2046,6 @@ function createDriver(env) {
     // time, so keys rebound in System Settings show as they are. While it is
     // up, Escape closes it and the arrow and page keys scroll it — held the
     // way a submap's keys are, so they are the applications' again after.
-    var keysOpen = false;
     var keysShown = null;
     var KEYS_BINDS = [
         ["Escape", "closeKeys"], ["Up", "keysLineUp"], ["Down", "keysLineDown"],
@@ -2180,7 +2241,7 @@ function createDriver(env) {
         if (!screen) return;
         var d = desktopFor(screen);
         if (perOutput() && !native() && d && d !== ws.currentDesktop) guarded(function () { ws.currentDesktop = d; });
-        var id = engine.lastFocused(spaceFor(d, screen));
+        var id = engine.lastFocused(spaceFor(d, screen), true);
         if (id && tracked[id] && !tracked[id].w.minimized) {
             activate(tracked[id].w);
             return;
@@ -2219,7 +2280,7 @@ function createDriver(env) {
         }
         var already = desktopFor(screen) === d;
         showDesktop(screen, d);
-        var id = engine.lastFocused(spaceFor(d, screen));
+        var id = engine.lastFocused(spaceFor(d, screen), true);
         if (id && tracked[id] && !tracked[id].w.minimized) activate(tracked[id].w);
         else if (!already) focusEmptyWorkspace(screen);
     }
@@ -2335,7 +2396,7 @@ function createDriver(env) {
             }
         });
         if (specialShown()) {
-            var last = engine.lastFocused(specialSpace(special.name));
+            var last = engine.lastFocused(specialSpace(special.name), true);
             first = last ? tracked[last] : null;
             if (!first) {
                 for (var id in tracked) {
@@ -2467,7 +2528,7 @@ function createDriver(env) {
         relayout();
     }
 
-    var actions = {
+    actions = {
         close: function () { var st = active(); if (st) st.w.closeWindow(); else if (ws.activeWindow) ws.activeWindow.closeWindow(); },
         toggleSplit: function () {
             var st = active();
@@ -2747,7 +2808,9 @@ function createDriver(env) {
             if (prev) previousDesktop = prev.id;
             // Plasma switched desktop by itself (pager, its own shortcuts):
             // that applies to the monitor the user is on.
-            if (!syncing && perOutput() && !native()) {
+            if (activityChanged()) {
+                // Part of an activity switch, not a workspace switch.
+            } else if (!syncing && perOutput() && !native()) {
                 var screen = focusedScreen();
                 if (screen && shown[screen.name] !== ws.currentDesktop.id) {
                     formerShown[screen.name] = shown[screen.name];
@@ -2759,7 +2822,11 @@ function createDriver(env) {
         listen(ws.desktopsChanged, schedule);
         if (ws.stackingOrderChanged) listen(ws.stackingOrderChanged, scheduleDecorations);
         listen(ws.screensChanged, schedule);
-        listen(ws.currentActivityChanged, schedule);
+        listen(ws.currentActivityChanged, function () {
+            activityChanged();
+            focusAfterActivity();
+            schedule();
+        });
         listen(ws.virtualScreenGeometryChanged, schedule);
         if (env.options && env.options.perOutputVirtualDesktopsChanged) {
             listen(env.options.perOutputVirtualDesktopsChanged, schedule);

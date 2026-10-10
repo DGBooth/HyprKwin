@@ -2,14 +2,14 @@
 # (KWin 6.6.6). KWin runs nested on its virtual backend with software
 # rendering, so no GPU or display is needed:
 #
-#   tools/test-plasma-6.6.sh [test names...]
+#   tools/test-plasma.sh 6.6 [test names...]
 #
 # The repository is mounted at /src when it runs; nothing of it is copied in.
 FROM ubuntu:26.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        kwin-wayland kwin-common xwayland kglobalacceld qt6-wayland kwin-style-breeze \
+        kwin-wayland kwin-common xwayland kglobalacceld kactivitymanagerd qt6-wayland kwin-style-breeze \
         qml6-module-org-kde-kirigami qml6-module-qtquick-shapes qml6-module-qtquick-controls \
         qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtquick-templates \
         qml6-module-qtcore qml6-module-qt-labs-folderlistmodel \

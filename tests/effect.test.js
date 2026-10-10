@@ -11,7 +11,8 @@ const EFFECT = {
 const CURVES = { OutCubic: 6, OutQuad: 2, OutExpo: 14, OutBack: 21, Linear: 0 };
 
 function signal() {
-    return { connect() {} };
+    const handlers = [];
+    return { connect(fn) { handlers.push(fn); }, emit(...args) { handlers.forEach((fn) => fn(...args)); } };
 }
 
 function makeWindow(caption, geometry, extra = {}) {
@@ -31,21 +32,27 @@ function makeWindow(caption, geometry, extra = {}) {
 }
 
 // Loads the effect with the given settings; returns it plus the animations it starts.
-function load(config = {}) {
+function load(config = {}, loaded = []) {
     const animations = [];
     const effect = {
         readConfig: (key, fallback) => (key in config ? config[key] : fallback),
         configChanged: signal(),
         animationEnded: signal(),
     };
-    const effects = { windowAdded: signal(), windowClosed: signal(), stackingOrder: [] };
+    const effects = {
+        windowAdded: signal(), windowClosed: signal(), stackingOrder: [],
+        loaded: new Set(loaded),
+        isEffectLoaded(name) { return this.loaded.has(name); },
+        loadEffect(name) { this.loaded.add(name); },
+        unloadEffect(name) { this.loaded.delete(name); },
+    };
     let nextId = 1;
     const record = (spec) => { animations.push(spec); return nextId++; };
     const instance = new Function(
         "effect", "effects", "animate", "set", "cancel", "animationTime", "print", "Effect", "QEasingCurve",
         src.replace('"use strict";', "") + "\nreturn new HyprKwinAnimations();",
     )(effect, effects, record, record, () => {}, (ms) => ms, () => {}, EFFECT, CURVES);
-    return { fx: instance, animations };
+    return { fx: instance, animations, effects };
 }
 
 const types = (spec) => spec.animations.map((a) => a.type);
@@ -161,4 +168,20 @@ Deno.test("a re-tile that arrives in two parts animates from where the window wa
     const move = last.animations.find((a) => a.type === EFFECT.Translation);
     // Centre to centre: old centre y 773, new centre y 747.5.
     assertEquals(move.from.value2, 25.5, "and from the old place, not the in-between one");
+});
+
+Deno.test("a chosen open/close animation retires the others, even ones loaded later", () => {
+    // Fade picked: Scale goes. Plasma 6.8 may load Scale after this effect at
+    // login, so the choice is applied again as windows open.
+    const { effects } = load({ OpenCloseEffect: 2 }, ["scale"]);
+    assertEquals([...effects.loaded].sort(), ["fade"]);
+    effects.loaded.add("scale");
+    effects.windowAdded.emit(makeWindow("A", LEFT));
+    assertEquals([...effects.loaded].sort(), ["fade"], "scale, loaded after, is retired as a window opens");
+});
+
+Deno.test("left alone, Plasma's own open/close animation stays", () => {
+    const { effects } = load({}, ["scale"]);
+    effects.windowAdded.emit(makeWindow("A", LEFT));
+    assertEquals([...effects.loaded], ["scale"]);
 });

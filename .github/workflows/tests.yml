@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: End-to-end tests (Plasma 6.6)
-        run: HK_ARTIFACTS=artifacts tools/test-plasma-6.6.sh
+        run: HK_ARTIFACTS=artifacts tools/test-plasma.sh 6.6
 
       - name: Screenshots and KWin logs of failed tests
         if: failure()

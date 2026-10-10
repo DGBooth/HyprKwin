@@ -143,6 +143,8 @@ function createEngine(userConfig) {
     var zooms = {};      // space -> the node zoomed into (dwindle only)
     var isVisible = function () { return true; };
     var nextNodeId = 1;
+    var api = null;      // the engine's interface, filled in below (declared
+                         // here: Plasma 6.8 warns of any use before this)
 
     function newLeaf(ids) {
         return { id: nextNodeId++, leaf: true, wins: ids.slice(), active: 0, grouped: false, parent: null, rect: null };
@@ -530,7 +532,7 @@ function createEngine(userConfig) {
         return s.ratio !== before;
     }
 
-    var api = {
+    api = {
         // Gaps for one space, from a workspace rule; null goes back to the
         // global setting.
         setGaps: function (space, gaps) {
@@ -605,25 +607,30 @@ function createEngine(userConfig) {
         // Hyprland moves focus to what grows into the gap: another window in
         // its group, the side of the split it shared (most recently used
         // window in there), or the next one along in the other layouts.
+        // Only windows that can be seen count: one minimized, or on another
+        // activity, would take KWin away to it.
         neighbourOf: function (id) {
             var leaf = leafOf[id];
             if (!leaf) return null;
             if (leaf.wins.length > 1) {
                 var j = leaf.wins.indexOf(id);
-                return leaf.wins[(j + 1) % leaf.wins.length];
+                for (var k = 1; k < leaf.wins.length; k++) {
+                    var g = leaf.wins[(j + k) % leaf.wins.length];
+                    if (isVisible(g)) return g;
+                }
             }
             var space = spaceOf[id];
             if (api.layoutOf(space) === "dwindle") {
                 var parent = leaf.parent;
                 if (parent) {
                     var sibling = parent.a === leaf ? parent.b : parent.a;
-                    var ids = leaves(sibling).reduce(function (acc, l) { return acc.concat(l.wins); }, []);
-                    return mostRecent(ids);
+                    var ids = leaves(sibling).reduce(function (acc, l) { return acc.concat(l.wins); }, []).filter(isVisible);
+                    if (ids.length) return mostRecent(ids);
                 }
             }
-            var all = api.windows(space).filter(function (w) { return w !== id; });
+            var order = api.windows(space).filter(function (w) { return w === id || isVisible(w); });
+            var all = order.filter(function (w) { return w !== id; });
             if (!all.length) return null;
-            var order = api.windows(space);
             var i = order.indexOf(id);
             return order[i + 1] || order[i - 1] || all[0];
         },
@@ -721,11 +728,15 @@ function createEngine(userConfig) {
 
         focusHistory: function () { return focusOrder.slice(); },
 
-        lastFocused: function (space) {
+        // The window last used in a space; with `visibleOnly`, the last one
+        // that can be seen now (not minimized, not on another activity), or
+        // none: focusing one that cannot would make KWin go to it.
+        lastFocused: function (space, visibleOnly) {
+            var ok = function (id) { return !visibleOnly || isVisible(id); };
             for (var i = 0; i < focusOrder.length; i++) {
-                if (spaceOf[focusOrder[i]] === space && leafOf[focusOrder[i]]) return focusOrder[i];
+                if (spaceOf[focusOrder[i]] === space && leafOf[focusOrder[i]] && ok(focusOrder[i])) return focusOrder[i];
             }
-            var ws = api.windows(space);
+            var ws = api.windows(space).filter(ok);
             return ws.length ? ws[0] : null;
         },
 

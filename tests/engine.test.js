@@ -480,6 +480,31 @@ Deno.test("the other layouts hand over to the next window along", () => {
     assertEquals(e.neighbourOf("c"), "b", "the last one falls back to the one before");
 });
 
+Deno.test("windows that cannot be seen are not handed the focus", () => {
+    // Minimized, or on another activity: focusing one would make KWin go to it.
+    const e = eng();
+    e.add("a", S); e.add("b", S); e.add("c", S);
+    e.focused("a"); e.focused("b"); e.focused("c");
+    const hidden = new Set(["b"]);
+    e.setVisibility((id) => !hidden.has(id));
+    assertEquals(e.neighbourOf("c"), "a", "c's sibling b is away: the next one along");
+    assertEquals(e.neighbourOf("a"), "c");
+    assertEquals(e.lastFocused(S), "c");
+    hidden.add("c");
+    assertEquals(e.lastFocused(S), "c", "without asking for a visible one");
+    assertEquals(e.lastFocused(S, true), "a");
+    hidden.add("a");
+    assertEquals(e.lastFocused(S, true), null, "nothing to see");
+});
+
+Deno.test("in a group, a tab that cannot be seen is passed over", () => {
+    const e = eng();
+    e.add("a", S); e.add("b", S); e.add("c", S);
+    e.joinGroup("b", "a"); e.joinGroup("c", "a");
+    e.setVisibility((id) => id !== "b");
+    assertEquals(e.neighbourOf("a"), "c");
+});
+
 Deno.test("a space moved to an empty one keeps its layout and master settings", () => {
     const e = eng();
     e.add("a", S); e.add("b", S);

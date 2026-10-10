@@ -699,7 +699,7 @@ Plasma's own effects.
   it. Unloading the script restores everything.
 - Minimizing a tiled window gives its space to its neighbours; restoring it
   puts it back where it was. Windows on another activity are treated the same
-  way.
+  way, and each activity remembers which workspace every monitor shows.
 - Moving a window with Plasma (task manager, pager, "Window to Desktop",
   "Window to Next Screen", dragging) re-tiles it in its new place, and a
   window that lands on another monitor joins the workspace that monitor is
@@ -768,27 +768,32 @@ deno test --allow-read tests/
 End-to-end tests start a private `kwin_wayland --virtual` (own D-Bus session
 and config dir, nothing touches your desktop), install the package into it
 and drive it with real key presses and mouse drags through KWin's
-fake-input protocol. One test also runs a real `plasmashell`. They need
-`python3` with PySide6, dbus-python and Pillow, plus `kscreen-doctor` (for
-plugging monitors in and out). Screenshots come straight from KWin, and
+fake-input protocol. The panel tests also run a real `plasmashell` (with
+its own `kactivitymanagerd`). They need `python3` with PySide6, dbus-python
+and Pillow, plus `kscreen-doctor` (for plugging monitors in and out); tests
+whose tools are missing say SKIP. Screenshots come straight from KWin, and
 need a GPU: without one, the tests that take them (or use the animations
-effect) say SKIP.
+effect) say SKIP. On a machine with an NVIDIA card and an integrated one,
+the tests use the integrated one, leaving the NVIDIA card's memory to
+whatever else is running (`HK_ANY_GPU=1` lets KWin choose).
 
 ```bash
 python3 tests/e2e/run.py            # everything
 python3 tests/e2e/run.py groups     # tests whose name contains "groups"
 ```
 
-The same suite runs against Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04 LTS
-ships it) in a container, whatever Plasma your machine has, and in CI on
-every push. It needs Docker or podman; the tests for Plasma 6.7's
-per-screen desktops are skipped there. Locally the container is given the
-first GPU render node that Mesa drives (an Intel or AMD GPU, not NVIDIA's),
-so the screenshot and effect tests run too; CI has no GPU and skips them.
+The same suite runs in a container against other Plasma releases, whatever
+Plasma your machine has: Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04 LTS ships
+it, also in CI on every push) and Plasma 6.8 (from Arch's kde-unstable
+repository; `HK_REBUILD=1` picks up a newer release candidate). It needs
+Docker or podman; the tests for Plasma 6.7's per-screen desktops are skipped
+on 6.6. Locally the container is given the first GPU render node that Mesa
+drives (an Intel or AMD GPU, not NVIDIA's), so the screenshot and effect
+tests run too; CI has no GPU and skips them.
 
 ```bash
-tools/test-plasma-6.6.sh            # everything, on Plasma 6.6
-tools/test-plasma-6.6.sh groups     # some of it
+tools/test-plasma.sh 6.6            # everything, on Plasma 6.6
+tools/test-plasma.sh 6.8 groups     # some of it, on Plasma 6.8
 ```
 
 The screenshot at the top is staged in the same nested KWin, with real apps
