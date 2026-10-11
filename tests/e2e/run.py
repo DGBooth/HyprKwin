@@ -1603,17 +1603,18 @@ def keys_other_shortcuts_hold_are_reported(sb):
     eq(s["keyConflicts"], [], "after handing them over, nothing is left to report")
 
 
-@test(config={"SubmapList": ["resize = Meta+W, Left: resizeLeft"]})
+@test(config={"SubmapList": ["resize = Alt+F3, Left: resizeLeft"]})
 def a_submap_whose_key_is_taken_is_reported(sb):
-    """A submap's key can belong to another shortcut too (Meta+W is the
-    Overview's): the key check says so, and the keys guide marks it."""
+    """A submap's key can belong to another shortcut too (Alt+F3 is KWin's
+    window menu - KWin's own, so held with or without a GPU, unlike the
+    Overview's Meta+W): the key check says so, and the keys guide marks it."""
     s = sb.wait_for(lambda s: s["keyConflicts"] is not None, "the key check", timeout=15)
     taken = [c for c in s["keyConflicts"] if c["action"] == "submap resize"]
-    eq([(c["key"], bool(c["owner"])) for c in taken], [("Meta+W", True)], "Meta+W is reported: %r" % (s["keyConflicts"],))
+    eq([(c["key"], bool(c["owner"])) for c in taken], [("Alt+F3", True)], "Alt+F3 is reported: %r" % (s["keyConflicts"],))
     sb.input().combo("meta+k")
     sb.settle(0.8)
     row = guide_row(sb.state(), "Enter the resize submap")
-    eq((row["keys"], row["note"].startswith("Meta+W is ")), ([], True), "the guide marks it: %r" % (row,))
+    eq((row["keys"], row["note"].startswith("Alt+F3 is ")), ([], True), "the guide marks it: %r" % (row,))
 
 
 @test
