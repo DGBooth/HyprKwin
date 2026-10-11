@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **The workspace keys work on any keyboard layout.** Plasma matches a
+  shortcut by the character a key types, so the defaults (`Meta+!` …
+  `Meta+)` for moving a window to a workspace) only ever worked on a US
+  layout: on a UK one Meta+Shift+3 is `Meta+£`, and on AZERTY even
+  `Meta+1` needs Shift. HyprKwin now gives the workspace keys (switch, move,
+  move silently, group window) the characters of the layout in use, from a
+  table of every layout xkb knows, and follows when you switch layout. A key
+  you rebound yourself stays as it is; where a layout's character already
+  belongs to another shortcut, the workspace key keeps its old one and the
+  key check reports it.
+
 - **Tests:** a crash in the test sandbox no longer shows up as a crash of your
   desktop. Nothing the tests start leaves a core dump (a core limit of 1
   makes the kernel skip systemd-coredump, which KDE's crash reporter reads),

@@ -2,7 +2,8 @@
 import { assertEquals, assert } from "./assert.js";
 
 const src = Deno.readTextFileSync(new URL("../package/contents/code/shortcuts.js", import.meta.url));
-const S = new Function(src + "\nreturn { shortcutList, parseSubmaps, keyCode, keyText, keysGuide, filterKeysGuide };")();
+const DIGIT_ROW = new Function(Deno.readTextFileSync(new URL("../package/contents/code/digitrow.js", import.meta.url)) + "\nreturn DIGIT_ROW;")();
+const S = new Function(src + "\nreturn { shortcutList, parseSubmaps, keyCode, keyText, keysGuide, filterKeysGuide, layoutKeys, ownDigitCodes };")();
 
 const ACTIONS = ["resizeLeft", "resizeRight", "toggleFloating"];
 
@@ -143,4 +144,25 @@ Deno.test("the keys guide can be searched by name, section, key or loosely", () 
     const sub = S.filterKeysGuide(guide, "leave the submap").find((s) => s.title === "Submaps");
     assertEquals(sub.rows[0].label, "Enter the resize submap", "the submap's own entry comes first");
     assertEquals(S.filterKeysGuide(guide, "close")[0].rows.length, 1, "sections keep only what matches");
+});
+
+Deno.test("workspace keys follow the keyboard layout's digit row", () => {
+    const us = S.layoutKeys(DIGIT_ROW, "us", "");
+    assertEquals([us.desktop1, us.moveToDesktop3, us.moveToDesktopSilent2, us.groupWindow5], ["Meta+1", "Meta+#", "Meta+Alt+@", "Meta+Alt+5"]);
+    const gb = S.layoutKeys(DIGIT_ROW, "gb", "");
+    assertEquals([gb.desktop3, gb.moveToDesktop2, gb.moveToDesktop3, gb.moveToDesktopSilent3], ["Meta+3", 'Meta+"', "Meta+£", "Meta+Alt+£"]);
+    const fr = S.layoutKeys(DIGIT_ROW, "fr", "");
+    assertEquals([fr.desktop1, fr.desktop2, fr.moveToDesktop1, fr.desktop10], ["Meta+&", "Meta+é", "Meta+1", "Meta+à"], "AZERTY: digits need Shift");
+    assertEquals(S.layoutKeys(DIGIT_ROW, "gb", "extd").moveToDesktop3, "Meta+£", "a variant not in the table types what its layout does");
+    assertEquals(S.layoutKeys(DIGIT_ROW, "xx", "").moveToDesktop3, "Meta+#", "an unknown layout: US");
+    assertEquals("moveToDesktop6" in S.layoutKeys(DIGIT_ROW, "us", "intl"), false, "a dead key: left out");
+    assertEquals(S.keyCode("Meta+£"), 0x10000000 | 0xa3);
+    assertEquals(S.keyCode("Meta+é"), 0x10000000 | 0xc9, "Qt names it by its capital");
+});
+
+Deno.test("a key HyprKwin gave an action on any layout is HyprKwin's to change", () => {
+    const own = S.ownDigitCodes(DIGIT_ROW, "moveToDesktop3");
+    for (const k of ["Meta+#", "Meta+£", "Meta+3", "Meta+§"]) assert(own.includes(S.keyCode(k)), k);
+    assert(!own.includes(S.keyCode("Meta+F3")), "one the user chose is not");
+    assert(!own.includes(S.keyCode("Meta+Alt+£")), "nor another family's");
 });

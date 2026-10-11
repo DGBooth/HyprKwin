@@ -7,6 +7,7 @@ import "../code/engine.js" as Engine
 import "../code/rules.js" as Rules
 import "../code/driver.js" as Driver
 import "../code/shortcuts.js" as Shortcuts
+import "../code/digitrow.js" as DigitRow
 import "../code/build.js" as Build
 
 Item {
@@ -302,7 +303,12 @@ Item {
     Timer {
         id: keysTimer
         interval: 6000
-        onTriggered: if (root.driver && !root.shuttingDown) root.driver.checkKeys()
+        onTriggered: {
+            if (!root.driver || root.shuttingDown) return;
+            // The layout's workspace keys first; checkKeys follows them.
+            root.driver.checkKeyboard(true);
+            keyboardTimer.start();
+        }
     }
 
     // KWin's own "Move Mouse to Focus" action: scripts cannot move the
@@ -339,7 +345,7 @@ Item {
     }
 
     Instantiator {
-        model: Shortcuts.shortcutList()
+        model: Shortcuts.shortcutList().filter(s => !Shortcuts.digitAction(s.action))
         delegate: ShortcutHandler {
             required property var modelData
             name: modelData.name
@@ -347,6 +353,100 @@ Item {
             sequence: modelData.key
             onActivated: root.run(modelData.action)
         }
+    }
+
+    // The workspace keys (Meta with the digit row) apart: their keys depend on
+    // the keyboard layout, and a handler's key is fixed once it exists, so
+    // giving one the key of another layout means taking it away and making it
+    // again. KDE keeps a key it already has for an action, though, so the old
+    // one is forgotten first (rebindDigits).
+    // One handler per row: only the rows that change are made again (a
+    // handler made again without its old key forgotten would hold the key
+    // but never fire).
+    ListModel {
+        id: digitModel
+        Component.onCompleted: {
+            for (const s of Shortcuts.shortcutList()) {
+                if (Shortcuts.digitAction(s.action)) append(root.digitRow(s, s.key));
+            }
+        }
+    }
+    function digitRow(s, key) {
+        return { rowAction: s.action, rowName: s.name, rowText: s.text, rowKey: key };
+    }
+    Instantiator {
+        model: digitModel
+        delegate: ShortcutHandler {
+            required property string rowAction
+            required property string rowName
+            required property string rowText
+            required property string rowKey
+            name: rowName
+            text: rowText
+            sequence: rowKey
+            onActivated: root.run(rowAction)
+        }
+    }
+
+    function rebindDigits(changes, done) {
+        const actions = Object.keys(changes);
+        if (!actions.length) {
+            done();
+            return;
+        }
+        // Their handlers go, KDE forgets their keys, and they come back on
+        // the new ones.
+        for (let i = digitModel.count - 1; i >= 0; i--) {
+            if (changes[digitModel.get(i).rowAction] !== undefined) digitModel.remove(i);
+        }
+        let pending = actions.length;
+        const next = () => {
+            if (--pending > 0) return;
+            for (const s of Shortcuts.shortcutList()) {
+                if (changes[s.action] !== undefined) digitModel.append(root.digitRow(s, changes[s.action]));
+            }
+            done();
+        };
+        Qt.callLater(() => {
+            for (const a of actions) {
+                const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.kglobalaccel"; '
+                    + 'path: "/kglobalaccel"; dbusInterface: "org.kde.KGlobalAccel"; method: "unregister" }', root);
+                call.arguments = ["kwin", "HyprKwin " + a];
+                call.finished.connect(() => { call.destroy(); next(); });
+                call.failed.connect(() => { call.destroy(); next(); });
+                call.call();
+            }
+        });
+    }
+
+    // The keyboard layout in use, from KWin: {layout: "gb", variant: ""}.
+    function keyboardLayout(callback) {
+        const make = (method) => Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.keyboard"; '
+            + 'path: "/Layouts"; dbusInterface: "org.kde.KeyboardLayouts"; method: "' + method + '" }', root);
+        const which = make("getLayout");
+        which.finished.connect(ret => {
+            which.destroy();
+            const index = ret && ret.length ? Number(ret[0]) : 0;
+            const list = make("getLayoutsList");
+            list.finished.connect(r => {
+                list.destroy();
+                const all = r && r.length ? r[0] : [];
+                const l = all && all[index] ? all[index] : null;
+                callback(l ? { layout: String(l[0] || ""), variant: String(l[1] || "") } : null);
+            });
+            list.failed.connect(() => { list.destroy(); callback(null); });
+            list.call();
+        });
+        which.failed.connect(() => { which.destroy(); callback(null); });
+        which.call();
+    }
+
+    // Switching layouts is not announced to scripts: look every few seconds.
+    Timer {
+        id: keyboardTimer
+        interval: 5000
+        repeat: true
+        onTriggered: if (root.driver && !root.shuttingDown) root.driver.checkKeyboard()
     }
 
     // Submaps: the keys that enter one are always live, the keys inside it
@@ -547,6 +647,8 @@ Item {
             warpPointer: () => warpCall.call(),
             keyOwner: (code, callback) => root.keyOwner(code, callback),
             shortcutInfos: (callback) => root.shortcutInfos(callback),
+            digitTable: DigitRow.DIGIT_ROW,
+            keyboardLayout: (callback) => root.keyboardLayout(callback),
             store: {
                 load: (callback) => root.storeLoad(callback),
                 save: (text) => root.storeSave(text),
@@ -569,6 +671,7 @@ Item {
                 hideKeys: () => keysGuide.hide(),
                 scrollKeys: (how) => keysGuide.scroll(how),
                 clearKeysSearch: () => keysGuide.clearSearch(),
+                rebindDigits: (changes, done) => root.rebindDigits(changes, done),
                 typeKeys: (k) => keysGuide.type(k),
                 forgetBinds: (binds) => { if (!root.shuttingDown) root.forgetBinds(binds); },
                 // Only when they change: a shortcut destroyed and made again

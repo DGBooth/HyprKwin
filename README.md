@@ -213,9 +213,16 @@ Your own shortcuts are safe either way: before changing anything,
 `kglobalshortcutsrc` next to it), and uninstalling puts them all back. The
 snapshot is never overwritten by a later install or upgrade.
 
-Defaults follow Omarchy's Hyprland bindings (Meta = SUPER). Shifted symbols
-use the character they produce on a US layout, which is how Plasma stores
-them (Shift+1 is `Meta+!`), so rebind those if you use another layout.
+Defaults follow Omarchy's Hyprland bindings (Meta = SUPER). Plasma stores a
+shortcut by the character a key types, so the workspace keys (Meta, or
+Meta+Shift, with the digit row) are given the characters of the keyboard
+layout you use: Meta+Shift+3 is `Meta+#` on a US layout, `Meta+£` on a UK
+one, and on AZERTY, where the digits need Shift, Meta with the 1 key is
+`Meta+&`. Switching layout moves them along. A key you rebound yourself is
+left alone, and where a layout's character already belongs to another
+shortcut (`=` is Shift+0 on a German layout, and Meta+= moves a split), the
+workspace key keeps its old one and HyprKwin's key check says so. The
+table below shows the US keys.
 
 | Keys | Action |
 |---|---|

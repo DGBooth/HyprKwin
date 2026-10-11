@@ -229,7 +229,12 @@ function keyCode(sequence) {
     if (KEY_CODES[key] !== undefined) return code | KEY_CODES[key];
     var f = /^F(\d{1,2})$/.exec(key);
     if (f) return code | (0x01000030 + parseInt(f[1], 10) - 1);
-    if (key.length === 1) return code | key.toUpperCase().charCodeAt(0);
+    // Qt names a character key by its capital (é is É), where there is one
+    // character for it (ß has none).
+    if (key.length === 1) {
+        var up = key.toUpperCase();
+        return code | (up.length === 1 ? up : key).charCodeAt(0);
+    }
     return 0;
 }
 
@@ -415,4 +420,61 @@ function filterKeysGuide(sections, query) {
         if (rows.length) out.push({ title: sec.title, rows: rows });
     });
     return out;
+}
+
+// ---- the digit row on any keyboard layout ----------------------------------
+//
+// The workspace keys are Meta with the digit row, and KDE matches a shortcut
+// by the character a key types: on a UK layout Meta+Shift+3 is Meta+£, never
+// the US Meta+#. These give each numbered action the key it has on a layout,
+// from the table tools/gen-digit-row.py makes (digitrow.js): the same physical
+// keys everywhere.
+var DIGIT_FAMILIES = {
+    desktop: { level: 0, mods: "Meta+" },
+    moveToDesktop: { level: 1, mods: "Meta+" },
+    moveToDesktopSilent: { level: 1, mods: "Meta+Alt+" },
+    groupWindow: { level: 0, mods: "Meta+Alt+" },
+};
+var US_DIGIT_ROW = [["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"], SHIFTED_DIGITS];
+
+function digitAction(action) {
+    var m = /^(desktop|moveToDesktop|moveToDesktopSilent|groupWindow)(\d+)$/.exec(String(action));
+    return m ? { family: DIGIT_FAMILIES[m[1]], index: parseInt(m[2], 10) - 1 } : null;
+}
+
+function digitRow(table, layout, variant) {
+    table = table || {};
+    if (variant && table[layout + "(" + variant + ")"]) return table[layout + "(" + variant + ")"];
+    return table[layout] || US_DIGIT_ROW;
+}
+
+// The key an action has on a row, "" where the row has a dead key there.
+function digitKey(action, row) {
+    var d = digitAction(action);
+    if (!d) return null;
+    var ch = row[d.family.level][d.index];
+    return ch ? d.family.mods + ch : "";
+}
+
+// Every numbered action's key on a layout: {action: "Meta+£", …}, leaving out
+// what a dead key makes impossible.
+function layoutKeys(table, layout, variant) {
+    var row = digitRow(table, layout, variant), out = {};
+    shortcutList().forEach(function (s) {
+        var k = digitKey(s.action, row);
+        if (k) out[s.action] = k;
+    });
+    return out;
+}
+
+// Every key HyprKwin itself could have given an action, on any layout: a key
+// that is one of these is HyprKwin's to change; any other is the user's.
+function ownDigitCodes(table, action) {
+    var codes = [], rows = [US_DIGIT_ROW];
+    for (var name in (table || {})) rows.push(table[name]);
+    rows.forEach(function (row) {
+        var k = digitKey(action, row), c = k ? keyCode(k) : 0;
+        if (c && codes.indexOf(c) < 0) codes.push(c);
+    });
+    return codes;
 }

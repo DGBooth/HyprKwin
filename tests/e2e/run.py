@@ -1335,6 +1335,124 @@ def meta_k_shows_every_shortcut_on_its_real_key(sb):
     eq(sb.state()["keysGuide"], None, "nothing happens")
 
 
+class Accel:
+    """KDE's shortcut service on the sandbox's bus."""
+    def __init__(self, sb):
+        import dbus
+        self.dbus = dbus
+        bus = dbus.bus.BusConnection(sb.env["DBUS_SESSION_BUS_ADDRESS"])
+        self.comp = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/component/kwin"), "org.kde.kglobalaccel.Component")
+        self.accel = dbus.Interface(bus.get_object("org.kde.kglobalaccel", "/kglobalaccel"), "org.kde.KGlobalAccel")
+        self.layouts = dbus.Interface(bus.get_object("org.kde.keyboard", "/Layouts"), "org.kde.KeyboardLayouts")
+
+    def keys(self, action):
+        for i in self.comp.allShortcutInfos():
+            if str(i[0]) == "HyprKwin " + action:
+                return [int(k) for k in i[6]]
+        return None
+
+    def set(self, action, label, codes):
+        self.accel.setForeignShortcut(["kwin", "HyprKwin " + action, "KWin", "HyprKwin: " + label],
+                                      self.dbus.Array(codes, signature="i"))
+
+    def wait(self, action, code, timeout=20):
+        end = time.time() + timeout
+        while time.time() < end:
+            if self.keys(action) == [code]:
+                return
+            time.sleep(0.25)
+        raise AssertionError("%s never got key %#x: %r" % (action, code, [hex(k) for k in self.keys(action) or []]))
+
+
+META, ALT = 0x10000000, 0x08000000
+
+
+def workspace_of(sb, title, s=None):
+    s = s or sb.state()
+    w = sb.window(title, s)["workspace"]
+    return s["desktops"].index(w) + 1 if w in s["desktops"] else 0
+
+
+@test(keyboard="gb")
+def workspace_keys_follow_a_uk_layout(sb):
+    """On a UK layout Shift+3 types £, and KDE matches shortcuts by what a key
+    types: the US Meta+# never fires. The workspace keys move to the layout's
+    own digit row, so the same keys work."""
+    sb.spawn("A")
+    sb.spawn("B")
+    take_keys(sb)
+    accel = Accel(sb)
+    accel.wait("moveToDesktop3", META | 0xA3)               # Meta+£
+    eq(accel.keys("moveToDesktop2"), [META | 0x22], 'Meta+" for Shift+2')
+    eq(accel.keys("moveToDesktopSilent3"), [META | ALT | 0xA3], "the silent one too")
+    eq(accel.keys("moveToDesktop1"), [META | 0x21], "Shift+1 is ! on both")
+    eq(accel.keys("desktop3"), [META | 0x33], "the plain digits are the same")
+    fi = sb.input()
+    fi.combo("meta+shift+3")
+    sb.settle(0.6)
+    eq(workspace_of(sb, "B"), 3, "Meta+Shift+3 moved B to workspace 3")
+    fi.combo("meta+1")
+    sb.settle(0.5)
+    s = sb.state()
+    eq(s["desktops"].index(s["currentDesktop"]) + 1, 1, "Meta+1 still goes to workspace 1")
+
+
+@test(keyboard="fr")
+def workspace_keys_follow_an_azerty_layout(sb):
+    """AZERTY types &é\"'(-è_çà on the digit row, the digits only with Shift:
+    the same physical keys go to a workspace and move a window there."""
+    sb.spawn("A")
+    sb.spawn("B")
+    take_keys(sb)
+    accel = Accel(sb)
+    accel.wait("moveToDesktop3", META | 0x33)               # Shift+3 types 3
+    eq(accel.keys("desktop2"), [META | 0xC9], "Meta+é for the 2 key")
+    eq(accel.keys("desktop3"), [META | 0x22], 'Meta+" for the 3 key')
+    fi = sb.input()
+    fi.combo("meta+shift+3")
+    sb.settle(0.6)
+    eq(workspace_of(sb, "B"), 3, "Meta+Shift+<3> moved B to workspace 3")
+    fi.combo("meta+2")
+    sb.settle(0.5)
+    s = sb.state()
+    eq(s["desktops"].index(s["currentDesktop"]) + 1, 2, "Meta+<2> went to workspace 2")
+
+
+@test(keyboard="de", config={"WarnKeyConflicts": "true"})
+def a_workspace_key_another_shortcut_holds_is_left_and_reported(sb):
+    """On a German layout Shift+0 types =, and Meta+= already moves a split:
+    moving a window to workspace 10 keeps its old key rather than taking it,
+    and the key check says so."""
+    sb.spawn("A")
+    take_keys(sb)
+    accel = Accel(sb)
+    accel.wait("moveToDesktop3", META | 0xA7)               # Meta+§
+    eq(accel.keys("resizeRight"), [META | ord("=")], "the split keeps Meta+=")
+    eq(accel.keys("moveToDesktop10"), [META | ord(")")], "workspace 10 keeps its old key")
+    s = sb.wait_for(lambda s: s.get("keyConflicts") is not None, "the key check")
+    eq([c["action"] for c in s["keyConflicts"] if c["key"] == "Meta+="], ["moveToDesktop10"], "and it is reported")
+
+
+@test(keyboard=("us,gb", ","))
+def workspace_keys_follow_a_layout_switch_but_leave_your_own(sb):
+    """Switching layout moves the workspace keys along; a key you chose
+    yourself stays."""
+    sb.spawn("A")
+    accel = Accel(sb)
+    # A key nothing else holds (Plasma 6.6 records one another action holds
+    # as no key at all).
+    mine = META | ALT | ord("W")
+    accel.set("moveToDesktop4", "Move window to workspace 4", [mine])
+    time.sleep(7)                                             # the first look, on US
+    eq(accel.keys("moveToDesktop3"), [META | 0x23], "US: Meta+#")
+    accel.layouts.setLayout(1)                                # to UK
+    accel.wait("moveToDesktop3", META | 0xA3)
+    eq(accel.keys("moveToDesktop4"), [mine], "Meta+Alt+W is yours, and stays")
+    eq(accel.keys("moveToDesktop5"), [META | 0x25], "Shift+5 is % on both")
+    accel.layouts.setLayout(0)                                # and back
+    accel.wait("moveToDesktop3", META | 0x23)
+
+
 def held_guide_keys(sb):
     """The keys guide's own shortcuts KDE knows of (names have spaces, so
     straight from kglobalaccel rather than split from a list)."""
@@ -3032,7 +3150,7 @@ def main():
                               effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
                               xwayland=opts.get("xwayland", False),
                               native_desktops=opts.get("native_desktops", False),
-                              activities=opts.get("activities", 0))
+                              activities=opts.get("activities", 0), keyboard=opts.get("keyboard"))
             with sandbox as sb:
                 try:
                     if opts.get("effect") and not sb.opengl:

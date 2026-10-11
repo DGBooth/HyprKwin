@@ -1962,9 +1962,85 @@ function createDriver(env) {
     // each default key's owner and say when it is not HyprKwin.
     var keyConflicts = null;
 
+    // ---- the workspace keys on this keyboard layout ---------------------------
+    //
+    // Meta with the digit row, as the layout types it: Meta+£ for Meta+Shift+3
+    // on a UK layout. An action still on a key HyprKwin gave it (the US one, or
+    // another layout's) moves to this layout's; one the user rebound stays.
+    var keyboard = null;                  // "layout(variant)" last seen
+    var layoutDigitKeys = {};             // action -> its key on that layout
+    var rebinding = false;
+
+    function checkKeyboard(thenKeys) {
+        if (stopped || !env.keyboardLayout || !env.digitTable || !SC || !SC.layoutKeys) {
+            if (thenKeys) checkKeys();
+            return;
+        }
+        env.keyboardLayout(function (lv) {
+            if (stopped) return;
+            var name = lv ? lv.layout + (lv.variant ? "(" + lv.variant + ")" : "") : null;
+            if (!lv || name === keyboard || rebinding) {
+                if (thenKeys) checkKeys();
+                return;
+            }
+            keyboard = name;
+            layoutDigitKeys = SC.layoutKeys(env.digitTable, lv.layout, lv.variant);
+            fitDigitKeys(function () { checkKeys(); });
+        });
+    }
+
+    function fitDigitKeys(done) {
+        env.shortcutInfos(function (infos) {
+            if (stopped) return;
+            var current = {};
+            (infos || []).forEach(function (row) {
+                if (!row) return;
+                current[String(row[0])] = (row[6] || []).map(Number);
+            });
+            var candidates = [];
+            Object.keys(layoutDigitKeys).forEach(function (action) {
+                var cur = current["HyprKwin " + action];
+                var want = SC.keyCode(layoutDigitKeys[action]);
+                if (!cur || cur.length !== 1 || !want || cur[0] === want) return;
+                if (SC.ownDigitCodes(env.digitTable, action).indexOf(cur[0]) < 0) return;   // the user's
+                candidates.push(action);
+            });
+            if (!candidates.length) {
+                done();
+                return;
+            }
+            // A key something else holds stays its: the action keeps the one
+            // it has, and checkKeys says so. Another of these giving it up is
+            // fine.
+            var moving = {};
+            candidates.forEach(function (a) { moving["HyprKwin " + a] = true; });
+            var changes = {}, pending = candidates.length;
+            candidates.forEach(function (action) {
+                env.keyOwner(SC.keyCode(layoutDigitKeys[action]), function (owner) {
+                    var holder = owner && owner.length >= 2 ? String(owner[1]) : "";
+                    if (!holder || moving[holder]) changes[action] = layoutDigitKeys[action];
+                    if (--pending > 0) return;
+                    log("keyboard", keyboard + ":", Object.keys(changes).length, "workspace keys to its digit row");
+                    if (!Object.keys(changes).length || !env.ui.rebindDigits) {
+                        done();
+                        return;
+                    }
+                    rebinding = true;
+                    env.ui.rebindDigits(changes, function () {
+                        rebinding = false;
+                        done();
+                    });
+                });
+            });
+        });
+    }
+
     function checkKeys() {
         if (stopped || !env.keyOwner || !SC || !SC.shortcutList || !SC.keyCode) return;
-        var list = SC.shortcutList().filter(function (s) { return s.key && SC.keyCode(s.key); });
+        // The workspace keys as this layout has them.
+        var list = SC.shortcutList().map(function (s) {
+            return layoutDigitKeys[s.action] ? { action: s.action, name: s.name, key: layoutDigitKeys[s.action] } : s;
+        }).filter(function (s) { return s.key && SC.keyCode(s.key); });
         var pending = list.length, found = [];
         if (!pending) return;
         list.forEach(function (s) {
@@ -2919,6 +2995,7 @@ function createDriver(env) {
         checkAreas: checkAreas,
         reloadConfig: reloadConfig,
         checkKeys: checkKeys,
+        checkKeyboard: checkKeyboard,
         openTile: openTile,
         onCursorMoved: onCursorMoved,
         actions: actions,

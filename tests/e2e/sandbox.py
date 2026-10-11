@@ -74,7 +74,7 @@ class Skip(Exception):
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
                  effect=False, effect_config=None, xwayland=False, native_desktops=False,
-                 activities=0):
+                 activities=0, keyboard=None):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -97,6 +97,8 @@ class Sandbox:
         # this many activities, and KWin starts on the first.
         self.activities = activities
         self.activity_ids = []
+        # A keyboard layout other than US, e.g. "gb" or ("fr", "azerty").
+        self.keyboard = keyboard
         self.socket = "hyprkwin-test-%d" % os.getpid()
         self.proc = None
         self.clients = []
@@ -168,6 +170,10 @@ class Sandbox:
         # once broke the border strips and went unnoticed without one.
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
         self._write_config(env, "Script-hyprkwin", self.config)
+        if self.keyboard:
+            layout, variant = (self.keyboard, "") if isinstance(self.keyboard, str) else self.keyboard
+            self._write_config(env, "Layout", {"Use": "true", "LayoutList": layout, "VariantList": variant},
+                               file="kxkbrc")
         if self.native_desktops:
             # Plasma 6.7's own per-screen virtual desktops.
             self._write_config(env, "Windows", {"PerOutputVirtualDesktops": "true"})
