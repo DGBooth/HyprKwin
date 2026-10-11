@@ -243,25 +243,32 @@ Item {
         call.call();
     }
 
-    // Whether KWin knows the animations effect (it only finds a newly
-    // installed one when it starts) and has it on: {installed, on}, or null.
+    // The animations effect as KWin sees it: {installed, on, supported}, or
+    // null. Installed means KWin knows it (it only finds a newly installed
+    // effect when it starts); supported, that it can run here (an effect
+    // needs OpenGL compositing).
     function animationsState(callback) {
-        const make = (method) => Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.KWin"; '
-            + 'path: "/Effects"; dbusInterface: "org.kde.kwin.Effects"; method: "' + method + '" }', root);
-        const loaded = make("isEffectLoaded");
-        loaded.arguments = ["hyprkwinanimations"];
-        loaded.finished.connect(ret => {
-            loaded.destroy();
-            const on = !!(ret && ret.length && ret[0]);
-            const known = make("isEffectSupported");
-            known.arguments = ["hyprkwinanimations"];
-            // An effect KWin does not know is reported as not supported.
-            known.finished.connect(r => { known.destroy(); callback({ installed: on || !!(r && r.length && r[0]), on: on }); });
-            known.failed.connect(() => { known.destroy(); callback(null); });
-            known.call();
+        const make = (iface, method) => Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.KWin"; '
+            + 'path: "/Effects"; dbusInterface: "' + iface + '"; method: "' + method + '" }', root);
+        const ask = (iface, method, args, done) => {
+            const call = make(iface, method);
+            call.arguments = args;
+            call.finished.connect(ret => { call.destroy(); done(ret && ret.length ? ret[0] : null); });
+            call.failed.connect(() => { call.destroy(); callback(null); });
+            call.call();
+        };
+        ask("org.kde.kwin.Effects", "isEffectLoaded", ["hyprkwinanimations"], on => {
+            if (on) {
+                callback({ installed: true, on: true, supported: true });
+                return;
+            }
+            ask("org.freedesktop.DBus.Properties", "Get", ["org.kde.kwin.Effects", "listOfEffects"], list => {
+                const installed = !!list && Array.prototype.indexOf.call(list, "hyprkwinanimations") >= 0;
+                ask("org.kde.kwin.Effects", "isEffectSupported", ["hyprkwinanimations"], supported => {
+                    callback({ installed: installed, on: false, supported: !!supported });
+                });
+            });
         });
-        loaded.failed.connect(() => { loaded.destroy(); callback(null); });
-        loaded.call();
     }
 
     // Window rules kept the old way (one text entry) move into the list the

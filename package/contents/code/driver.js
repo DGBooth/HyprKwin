@@ -2143,7 +2143,9 @@ function createDriver(env) {
         if (animationsChecked || stopped || !cfg.animationsNotice || !env.animationsState) return;
         animationsChecked = true;
         env.animationsState(function (state) {
-            if (stopped || !state || state.on) return;
+            // Installed but unable to run here (no OpenGL compositing):
+            // nothing anyone could do about it from Desktop Effects.
+            if (stopped || !state || state.on || (state.installed && !state.supported)) return;
             var what = state.installed ? "off" : "missing";
             once("animations", what, function (heard) {
                 if (heard === what) return;

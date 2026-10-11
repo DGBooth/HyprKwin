@@ -1022,6 +1022,8 @@ def wait_notices(sb, timeout=20):
 def a_notice_says_the_animations_are_off_once(sb):
     """The animations are a separate effect, which the store cannot make a
     dependency of the script: installed but off, HyprKwin says so - once."""
+    if not sb.opengl:
+        raise Skip("the effect needs OpenGL compositing to be on at all (no GPU here)")
     fake_plasma(sb)
     sb.reload_script()                      # with somewhere to remember it
     notices = wait_notices(sb)
@@ -1037,6 +1039,17 @@ def a_notice_says_where_to_get_the_animations(sb):
     sb.reload_script()
     notices = wait_notices(sb)
     eq(len(notices) == 1 and "Get New" in notices[0] and "log out" in notices[0], True, "%r" % (notices,))
+
+
+@test(config={"AnimationsNotice": "true"})
+def no_notice_when_the_animations_cannot_run_here(sb):
+    """Installed, but no OpenGL compositing: nothing anyone could turn on,
+    so nothing is said (it used to say the effect was missing)."""
+    if sb.opengl:
+        raise Skip("needs a KWin without OpenGL compositing (no GPU)")
+    fake_plasma(sb)
+    sb.reload_script()
+    eq(wait_notices(sb), [], "nothing to say")
 
 
 @test(config={"AnimationsNotice": "true"}, effect=True)
