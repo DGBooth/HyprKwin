@@ -77,6 +77,16 @@ DIST=$(mktemp -d)
 trap 'rm -rf "$DIST"' EXIT
 tools/package.sh "$DIST" >/dev/null
 awk -v v="## $VERSION" '$0 == v {f=1; next} /^## /{if (f) exit} f' CHANGELOG.md > "$DIST/notes.md"
+# The changelog's links are relative to the repository; on the release page
+# they would lead nowhere, so they point at the tagged files instead.
+python3 - "$DIST/notes.md" "v$VERSION" <<'EOF'
+import re, sys
+path, tag = sys.argv[1], sys.argv[2]
+base = "https://github.com/DGBooth/HyprKwin/blob/%s/" % tag
+text = open(path).read()
+text = re.sub(r"\]\((?!https?:|#|mailto:)([^)\s]+)\)", lambda m: "](" + base + m.group(1) + ")", text)
+open(path, "w").write(text)
+EOF
 gh release create "v$VERSION" --title "HyprKwin $VERSION" --notes-file "$DIST/notes.md" \
     "$DIST/hyprkwin-$VERSION.kwinscript" "$DIST/hyprkwinanimations-$EFFECT_VERSION.kwineffect"
 
