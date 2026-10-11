@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.16.0
 
 - **The workspace keys work on any keyboard layout.** Plasma matches a
   shortcut by the character a key types, so the defaults (`Meta+!` …
