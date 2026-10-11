@@ -1448,9 +1448,18 @@ function createDriver(env) {
         updateZoomKeys();
     }
 
+    // The saved form: {version, spaces: {space: {layout, …}}}. The version is
+    // for whatever comes next to read it by; before 0.16 the spaces were all
+    // there was.
+    var LAYOUTS_VERSION = 1;
+
+    function layoutsText() {
+        return JSON.stringify({ version: LAYOUTS_VERSION, spaces: engine.exportSettings() });
+    }
+
     function saveLayouts() {
         if (!layoutsRestored || !env.store) return;
-        var text = JSON.stringify(engine.exportSettings());
+        var text = layoutsText();
         if (text === lastSavedLayouts) return;
         lastSavedLayouts = text;
         env.store.save(text);
@@ -1464,13 +1473,14 @@ function createDriver(env) {
         if (text) {
             try { saved = JSON.parse(text); } catch (e) { log("unreadable saved layouts:", e); }
         }
-        if (saved && typeof saved === "object") {
-            var n = engine.importSettings(saved);
-            Object.keys(saved).forEach(function (space) { if (saved[space].layout) ruledSpaces[space] = true; });
+        var spaces = saved && typeof saved === "object" && saved.version !== undefined ? saved.spaces : saved;
+        if (spaces && typeof spaces === "object") {
+            var n = engine.importSettings(spaces);
+            Object.keys(spaces).forEach(function (space) { if (spaces[space] && spaces[space].layout) ruledSpaces[space] = true; });
             log("restored layouts for", n, "workspaces");
         }
         layoutsRestored = true;
-        lastSavedLayouts = JSON.stringify(engine.exportSettings());
+        lastSavedLayouts = layoutsText();
         relayout();
     }
 
@@ -2040,7 +2050,12 @@ function createDriver(env) {
         // The workspace keys as this layout has them.
         var list = SC.shortcutList().map(function (s) {
             return layoutDigitKeys[s.action] ? { action: s.action, name: s.name, key: layoutDigitKeys[s.action] } : s;
-        }).filter(function (s) { return s.key && SC.keyCode(s.key); });
+        });
+        // And the keys that enter a submap, which are always held too.
+        Object.keys(submaps).forEach(function (name) {
+            list.push({ action: "submap " + name, name: "HyprKwin submap " + name, key: submaps[name].key });
+        });
+        list = list.filter(function (s) { return s.key && SC.keyCode(s.key); });
         var pending = list.length, found = [];
         if (!pending) return;
         list.forEach(function (s) {
@@ -2793,8 +2808,27 @@ function createDriver(env) {
 
     // ---- lifecycle -----------------------------------------------------------------
 
+    // Rules from before the settings page had its list were kept as one text
+    // entry. They still apply, but the page cannot show them, so they move
+    // into the list - through plasmashell, as KWin scripts cannot write their
+    // own settings. Without plasmashell they keep applying from where they
+    // are, and the next start tries again.
+    var legacyRulesMoved = false;
+
+    function moveLegacyRules() {
+        if (legacyRulesMoved || !env.moveRules) return;
+        var rc = env.readConfig;
+        var legacy = String(rc("WindowRules", "") || "");
+        if (!legacy.trim()) return;
+        legacyRulesMoved = true;
+        var items = ruleText(rc("WindowRuleList", ""), legacy).split("\n").filter(function (l) { return l.trim(); });
+        log("moving", items.length, "window rules into the settings page's list");
+        env.moveRules(items);
+    }
+
     function reloadConfig() {
         loadConfig();
+        moveLegacyRules();
         reloads++;
         log("configuration reloaded");
         for (var id in tracked) {
@@ -2808,6 +2842,7 @@ function createDriver(env) {
 
     function start() {
         loadConfig();
+        moveLegacyRules();
         // A previous instance (an upgrade, or a crash) can leave its overlay
         // windows behind; they are ownerless, so close them before we draw ours.
         var stale = ws.windows || [];

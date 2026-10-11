@@ -221,6 +221,24 @@ Item {
         loadCall.call();
     }
 
+    // Window rules kept the old way (one text entry) move into the list the
+    // settings page edits; KWin then reloads the settings, as the page would.
+    function moveRules(items) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.plasmashell"; '
+            + 'path: "/PlasmaShell"; dbusInterface: "org.kde.PlasmaShell"; method: "evaluateScript" }', root);
+        call.arguments = ['const c = ConfigFile("kwinrc", "Script-hyprkwin"); c.deleteEntry("WindowRules"); '
+            + 'c.writeEntry("WindowRuleList", ' + JSON.stringify(items) + ');'];
+        call.finished.connect(() => { call.destroy(); rulesMovedTimer.start(); });
+        call.failed.connect(() => call.destroy());
+        call.call();
+    }
+    // plasmashell writes its changes 1.5s later.
+    Timer {
+        id: rulesMovedTimer
+        interval: 2500
+        onTriggered: if (!root.shuttingDown) reconfigureCall.call()
+    }
+
     function storeSave(text) {
         storePending = text;
         saveTimer.restart();
@@ -648,6 +666,7 @@ Item {
             keyOwner: (code, callback) => root.keyOwner(code, callback),
             shortcutInfos: (callback) => root.shortcutInfos(callback),
             digitTable: DigitRow.DIGIT_ROW,
+            moveRules: (items) => root.moveRules(items),
             keyboardLayout: (callback) => root.keyboardLayout(callback),
             store: {
                 load: (callback) => root.storeLoad(callback),

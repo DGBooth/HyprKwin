@@ -98,7 +98,8 @@ function shortcutList() {
         ["Other"],
         ["showKeys", "Show keyboard shortcuts", "Meta+K"],
         ["retile", "Reload configuration and retile", ""],
-        ["dumpState", "Log internal state (debug)", ""],
+        // hyprkwinctl asks for HyprKwin's state through this; not for a key.
+        ["dumpState", "Used by hyprkwinctl (leave unbound)", ""],
     ];
     // Extra scratchpads, named in HyprKwin's settings. Unbound by default:
     // Hyprland users pick their own keys for these.
@@ -352,6 +353,7 @@ function keysGuide(infos, submaps, conflicts, labels) {
             if (m[2] === "1") sectionFor(s.section).rows.push({ label: fold[m[1]].label, keys: fold[m[1]].keys });
             return;
         }
+        if (s.action === "dumpState") return;     // hyprkwinctl's, not yours
         var row = rowFor(s);
         // A scratchpad slot nobody has named or bound is not worth a line.
         if (/Scratchpad\d$/.test(s.action) && !row.keys.length && !labels[s.action]) return;
@@ -366,7 +368,9 @@ function keysGuide(infos, submaps, conflicts, labels) {
 
     var subRows = [];
     (submaps || []).forEach(function (sm) {
-        subRows.push({ label: "Enter the " + sm.name + " submap", keys: [sm.key] });
+        var t = taken["submap " + sm.name];
+        subRows.push(t ? { label: "Enter the " + sm.name + " submap", keys: [], note: sm.key + " is " + t.owner + "'s" }
+            : { label: "Enter the " + sm.name + " submap", keys: [sm.key] });
         sm.binds.forEach(function (b) {
             var s = byAction[b.action];
             var label = b.action === "leaveSubmap" ? "Leave the submap"

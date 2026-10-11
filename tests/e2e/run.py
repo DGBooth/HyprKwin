@@ -399,6 +399,26 @@ def window_rules_from_the_settings_list(sb):
     eq(s["ruleErrors"], [], "no rule errors")
 
 
+@test(config={"WindowRuleList": ["float, title:^Floater$"], "WindowRules": "workspace 2, title:^Old$"})
+def old_window_rules_move_into_the_settings_list(sb):
+    """Rules kept the old way (one text entry) apply, but the settings page
+    cannot show them: with plasmashell up they move into its list."""
+    if with_panel(sb) is None:
+        raise Skip("needs plasmashell")
+    sb.reload_script()                      # starts again, plasmashell up
+    end = time.time() + 15
+    while time.time() < end and read_rules_of(sb, "WindowRules"):
+        time.sleep(0.3)
+    eq(read_rules_of(sb, "WindowRules"), "", "the old entry is gone")
+    eq(read_rules_of(sb), r"float\, title:^Floater$,workspace 2\, title:^Old$", "both rules are in the list")
+    sb.settle(1.0)                          # KWin reloads the settings
+    sb.spawn("A")
+    sb.spawn("Old")
+    s = sb.state()
+    eq(sb.window("Old", s)["desktops"], [s["desktops"][1]], "the moved rule applies")
+    eq(s["config"]["windowRules"].count("Old"), 1, "once")
+
+
 @test(outputs=2, config={"BorderSize": 4, "WindowRules": "\n".join([
     "monitor 1, title:^Right$", "opacity 0.9 0.6, title:^Dim$", "noborder, title:^Plain$",
 ])})
@@ -963,14 +983,38 @@ def layouts_survive_a_new_session(sb):
     time.sleep(2.5)
     space = sb.window("A")["space"]
     saved = json.loads(store.read_text())
-    eq((saved[space]["layout"], saved[space]["orientation"]), ("master", "right"), "saved: %r" % (saved,))
+    eq(saved["version"], 1, "the saved form says which it is")
+    eq((saved["spaces"][space]["layout"], saved["spaces"][space]["orientation"]), ("master", "right"), "saved: %r" % (saved,))
     # A new session: HyprKwin starts again with nothing in memory.
     sb.reload_script()
     s = sb.wait_for(lambda s: s["layoutsRestored"], "saved layouts read again", timeout=12)
     space = sb.window("A", s)["space"]
     eq((s["layouts"][space]["layout"], s["layouts"][space]["orientation"]), ("master", "right"),
        "the workspace is back in its master layout, master on the right")
-    eq(json.loads(store.read_text())[space]["layout"], "master", "and starting up did not overwrite it")
+    eq(json.loads(store.read_text())["spaces"][space]["layout"], "master", "and starting up did not overwrite it")
+
+
+@test
+def layouts_saved_before_0_16_are_still_read(sb):
+    """Saved layouts had no version before 0.16: the bare map of workspaces
+    is still read, and saved again in the new form."""
+    import subprocess
+    sb.spawn("A")
+    sb.spawn("B")
+    space = sb.window("A")["space"]
+    store = sb.base / "saved-layouts.json"
+    store.write_text(json.dumps({space: {"layout": "monocle"}}))
+    fake = subprocess.Popen([sys.executable, str(ROOT_DIR / "tests" / "e2e" / "fakeplasma.py"), str(store)],
+                            env=sb.env, stdout=subprocess.PIPE, text=True)
+    sb.clients.append(fake)
+    fake.stdout.readline()
+    sb.reload_script()
+    s = sb.wait_for(lambda s: s["layoutsRestored"], "saved layouts read", timeout=12)
+    eq(s["layouts"][sb.window("A", s)["space"]]["layout"], "monocle", "the old form was read")
+    sb.invoke("layoutMaster")
+    time.sleep(2.5)
+    saved = json.loads(store.read_text())
+    eq((saved.get("version"), saved["spaces"][space]["layout"]), (1, "master"), "and saved in the new one")
 
 
 @test
@@ -1557,6 +1601,19 @@ def keys_other_shortcuts_hold_are_reported(sb):
     sb.reload_script()
     s = sb.wait_for(lambda s: s["keyConflicts"] is not None, "the key check again", timeout=15)
     eq(s["keyConflicts"], [], "after handing them over, nothing is left to report")
+
+
+@test(config={"SubmapList": ["resize = Meta+W, Left: resizeLeft"]})
+def a_submap_whose_key_is_taken_is_reported(sb):
+    """A submap's key can belong to another shortcut too (Meta+W is the
+    Overview's): the key check says so, and the keys guide marks it."""
+    s = sb.wait_for(lambda s: s["keyConflicts"] is not None, "the key check", timeout=15)
+    taken = [c for c in s["keyConflicts"] if c["action"] == "submap resize"]
+    eq([(c["key"], bool(c["owner"])) for c in taken], [("Meta+W", True)], "Meta+W is reported: %r" % (s["keyConflicts"],))
+    sb.input().combo("meta+k")
+    sb.settle(0.8)
+    row = guide_row(sb.state(), "Enter the resize submap")
+    eq((row["keys"], row["note"].startswith("Meta+W is ")), ([], True), "the guide marks it: %r" % (row,))
 
 
 @test

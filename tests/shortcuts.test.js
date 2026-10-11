@@ -166,3 +166,10 @@ Deno.test("a key HyprKwin gave an action on any layout is HyprKwin's to change",
     assert(!own.includes(S.keyCode("Meta+F3")), "one the user chose is not");
     assert(!own.includes(S.keyCode("Meta+Alt+£")), "nor another family's");
 });
+
+Deno.test("a submap whose key another shortcut holds is marked in the keys guide", () => {
+    const { submaps } = S.parseSubmaps("resize = Meta+W, Left: resizeLeft", ACTIONS);
+    const guide = S.keysGuide(infos({}), submaps, [{ key: "Meta+W", action: "submap resize", owner: "Overview" }], {});
+    assertEquals(find(guide, "Enter the resize submap"),
+                 { section: "Submaps", label: "Enter the resize submap", keys: [], note: "Meta+W is Overview's" });
+});

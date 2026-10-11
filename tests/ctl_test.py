@@ -77,6 +77,23 @@ class Keys(unittest.TestCase):
         self.assertEqual(ctl.key_name([0]), "")
         self.assertEqual(ctl.key_name([]), "")
 
+class VersionTest(unittest.TestCase):
+    def test_the_user_copy_wins_over_the_system_one(self):
+        import json, os, tempfile
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as system:
+            for base, version in ((home, "0.16.0"), (system, "0.12.0")):
+                d = Path(base) / "kwin" / "scripts" / "hyprkwin"
+                d.mkdir(parents=True)
+                (d / "metadata.json").write_text(json.dumps({"KPlugin": {"Version": version}}))
+            old = dict(os.environ)
+            try:
+                os.environ["XDG_DATA_HOME"], os.environ["XDG_DATA_DIRS"] = home, system
+                self.assertEqual(ctl.installed_version("scripts", "hyprkwin"), "0.16.0")
+                self.assertIsNone(ctl.installed_version("effects", "hyprkwinanimations"))
+            finally:
+                os.environ.clear()
+                os.environ.update(old)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

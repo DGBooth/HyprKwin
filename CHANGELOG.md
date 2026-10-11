@@ -12,7 +12,21 @@
   you rebound yourself stays as it is; where a layout's character already
   belongs to another shortcut, the workspace key keeps its old one and the
   key check reports it.
-
+- **Getting ready for 1.0:** [docs/compatibility.md](docs/compatibility.md)
+  lists what stays stable across upgrades (settings, shortcut names, rule
+  syntax, `hyprkwinctl`'s commands, saved layouts) and what does not. Along
+  with it:
+  - Window rules kept the old way (one text entry, from before the settings
+    page had its list) move into the list, so the page shows them. They
+    applied all along; now you can see and edit them.
+  - Saved layouts carry a format version. Older ones are still read.
+  - `hyprkwinctl version` says what is installed and running, and which
+    KWin. `hyprkwinctl state` is marked as internal, for debugging; scripts
+    should use `windows --json` and `workspaces --json`.
+  - The `dumpState` shortcut is labelled "Used by hyprkwinctl (leave
+    unbound)" in System Settings, and left out of the keys guide.
+- **A submap whose key another shortcut holds is reported**, as HyprKwin's
+  other keys already were: on screen at start, and in the keys guide.
 - **Tests:** a crash in the test sandbox no longer shows up as a crash of your
   desktop. Nothing the tests start leaves a core dump (a core limit of 1
   makes the kernel skip systemd-coredump, which KDE's crash reporter reads),

@@ -681,6 +681,12 @@ and the running script sends its state there. Nothing is written to the
 journal, so a status bar polling every second leaves no trail of your window
 titles on disk.
 
+`hyprkwinctl version` says what is installed and running, and which KWin;
+include it in a bug report. Build scripts on `windows --json` and
+`workspaces --json`: those stay stable, while `hyprkwinctl state` is
+HyprKwin's internal state for debugging and changes with it. What else stays
+stable across upgrades is in [docs/compatibility.md](docs/compatibility.md).
+
 ### Importing a hyprland.conf
 
 `tools/hyprkwin-import.py` reads an existing `hyprland.conf`, follows its
@@ -751,6 +757,13 @@ Plasma's own effects.
 - KWin does not destroy a script's overlay windows when the script is
   unloaded; HyprKwin closes any leftovers when it next starts, and
   `uninstall.sh` sweeps them.
+
+## Compatibility
+
+HyprKwin supports Plasma 6.6, 6.7 and 6.8 on Wayland. Your settings, your
+own key choices, your rules and the `hyprkwinctl` commands scripts use carry
+over every upgrade; [docs/compatibility.md](docs/compatibility.md) lists
+exactly what is kept stable, and what is not.
 
 ## Development
 
