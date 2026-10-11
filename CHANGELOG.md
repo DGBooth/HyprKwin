@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.17.0
+
+*HyprKwin animations unchanged: 0.16.1 is still current.*
 
 - **The README is now a short front page**, with the details in
   [docs/](docs/): [getting started](docs/getting-started.md),
