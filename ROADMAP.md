@@ -22,6 +22,50 @@ Rounded window corners were tried and dropped: every shader applied from a
 scripted effect rendered the window black. The README points to Shape
 Corners instead.
 
+## 1.0
+
+1.0 is a stability release: no headline feature, but a promise that what is
+there stays put and keeps working.
+
+- **Your setup survives upgrades.** Setting names, shortcut names, the rule
+  and submap syntax, `hyprkwinctl`'s output and the saved-layout format only
+  change with a migration that runs on its own. After 1.0, anything that
+  breaks a setup means 2.0.
+- **It never takes the desktop down:** no KWin crashes, no stuck windows, a
+  clean uninstall.
+- **Plasma 6.6 to 6.8, on Wayland**, each tested before every release.
+- **Any keyboard layout, any setup**, not only a US keyboard.
+
+The way there:
+
+1. **0.16: ready to freeze.**
+   - An audit of every name that 1.0 freezes: settings, shortcuts, rules,
+     submaps, `hyprkwinctl` and saved layouts. Anything awkward is renamed
+     now, while that is allowed.
+   - Settings migrations that run when HyprKwin starts, not only from
+     `tools/install.sh`, which nobody installing from the store runs.
+   - Shift+digit binds on any keyboard layout (a blocker: on a UK layout,
+     moving a window to a workspace has no key).
+   - A warning when a submap's key is taken.
+2. **0.17: first impressions.**
+   - A one-time notice for KDE Store installs, offering to sort out the
+     Plasma shortcuts that HyprKwin's keys clash with.
+   - The README split into a short front page and a few docs pages
+     (getting started, settings, rules and submaps, troubleshooting).
+   - An issue template asking for the Plasma version and a `hyprkwinctl`
+     state dump.
+3. **1.0-rc1, on GitHub only to begin with.**
+   - A soak test: hours of windows opening and closing, monitors coming and
+     going, sleep and wake, with KWin's memory and HyprKwin's overlays
+     watched throughout.
+   - Layout speed with 30 or more windows.
+   - Upgrades rehearsed from 0.10, 0.12 and 0.15 with real settings.
+   - A couple of weeks of feedback.
+4. **1.0.**
+
+Not part of 1.0: separate workspaces for each activity, more layouts,
+translations.
+
 ## Next
 
 - **Separate workspaces for each activity** ([#2](https://github.com/DGBooth/HyprKwin/issues/2)).
@@ -41,20 +85,14 @@ Corners instead.
   - Saved layouts, `hyprkwinctl` and the keys guide aware of activities.
   - A settings-page switch: "Separate workspaces for each activity".
 
-- **Shift+digit binds on any keyboard layout.** `Meta+!`…`Meta+)` are the
-  characters a US layout gives; on others (Shift+3 is £ on a UK one) moving a
-  window to a workspace has no key. Pick the characters of the active layout,
-  or register both. (Writing them as `Meta+Shift+1` does not work: KWin
-  never matches that form; see #4.)
-- **Say when a submap's key is taken**, as HyprKwin already does for its
-  other shortcuts; `hyprkwin-shortcuts.py` could hand those over too.
-
 ## Later
 
 - A deeper scrolling layout, closer to Karousel: stacked columns, preset
   widths, touchpad gestures, moving a column to another desktop.
 - More layouts: spiral, plain columns.
-- Testing on X11 and older Plasma 6 releases.
+
+Shift+digit binds and submap key warnings moved into 0.16 above. X11 and
+Plasma before 6.6 are not supported: Plasma 6.8 is Wayland only.
 
 ## Not possible with KWin scripts
 
