@@ -29,12 +29,13 @@ pack() {
 }
 
 # The script package carries the shortcut helper too, so someone installing
-# from the store can hand Plasma's keys over (see the settings page).
+# from the store can hand Plasma's keys over (see the settings page), and
+# hyprkwinctl, for scripts, status bars and bug reports.
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 cp -r "$ROOT/package" "$STAGE/package"
 mkdir -p "$STAGE/package/contents/tools"
-cp "$ROOT/tools/hyprkwin-shortcuts.py" "$STAGE/package/contents/tools/"
+cp "$ROOT/tools/hyprkwin-shortcuts.py" "$ROOT/tools/hyprkwinctl" "$STAGE/package/contents/tools/"
 
 pack "$STAGE/package" hyprkwin kwinscript
 pack "$ROOT/package-effect" hyprkwinanimations kwineffect

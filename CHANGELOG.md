@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **`hyprkwinctl` comes with the KDE Store package** (in
+  `~/.local/share/kwin/scripts/hyprkwin/contents/tools/`), and bug reports on
+  GitHub have a form asking for what it says (`hyprkwinctl version`).
+
 - **HyprKwin says when the animations are missing or off.** The animations
   are a separate KWin effect, and the KDE Store cannot make one depend on
   the other, so it is easy to end up with the script alone, or with the

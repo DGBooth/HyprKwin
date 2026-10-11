@@ -51,9 +51,10 @@ for other in polonium krohnkite bismuth kzones; do
 done
 
 INSTALLED="${XDG_DATA_HOME:-$HOME/.local/share}/kwin/scripts/hyprkwin"
-# The shortcut helper goes along, where the settings page points to it.
+# The shortcut helper goes along, where the settings page points to it, and
+# hyprkwinctl, as in the store's package.
 mkdir -p "$INSTALLED/contents/tools"
-cp "$ROOT/tools/hyprkwin-shortcuts.py" "$INSTALLED/contents/tools/"
+cp "$ROOT/tools/hyprkwin-shortcuts.py" "$ROOT/tools/hyprkwinctl" "$INSTALLED/contents/tools/"
 BUILD_ID="$(date +%s%N)"
 printf 'var BUILD_ID = "%s";\n' "$BUILD_ID" > "$INSTALLED/contents/code/build.js"
 # KWin caches a script's code by file path for as long as it runs, so this

@@ -1,0 +1,66 @@
+name: Something is wrong
+description: HyprKwin or its animations doing something they should not, or not doing something they should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The two blocks below are what make a report possible to act on.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+      placeholder: |
+        Meta+Shift+2 does nothing; I expected the window to move to workspace 2.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      description: The steps from a fresh login, if you can find them. "It happens sometimes" is useful too.
+      placeholder: |
+        1. Open two terminals on workspace 1
+        2. Press Meta+Shift+2 with the right one focused
+  - type: textarea
+    id: version
+    attributes:
+      label: Versions
+      description: |
+        Paste what this prints (installed from the KDE Store or from a release file):
+
+        `python3 ~/.local/share/kwin/scripts/hyprkwin/contents/tools/hyprkwinctl version`
+
+        or, from a clone of the repository, `tools/hyprkwinctl version`.
+      render: text
+      placeholder: |
+        HyprKwin 0.17.0 (running)
+        HyprKwin animations 0.16.1 (on)
+        KWin 6.7.5
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup
+      description: Whatever is not the default, if you think it matters.
+      placeholder: |
+        Two monitors (2560x1440 and 1920x1080, the second rotated)
+        UK keyboard layout
+        Focus follows mouse; Plasma's own per-screen desktops on
+        Other KWin scripts: none
+  - type: textarea
+    id: state
+    attributes:
+      label: State, if asked for
+      description: |
+        `hyprkwinctl state` prints everything HyprKwin knows: which windows, where, and their titles. Look it over and remove anything private before pasting. Only needed if asked for, or for a layout that went wrong.
+      render: json
+  - type: textarea
+    id: log
+    attributes:
+      label: Log, if asked for
+      description: |
+        Turn on "Debug logging" in HyprKwin's settings (Behaviour), make it happen, then paste the output of
+        `journalctl --user --since "-10min" | grep HyprKwin`
+      render: text

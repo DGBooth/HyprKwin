@@ -1,0 +1,23 @@
+name: An idea or a request
+description: Something HyprKwin could do, or do differently.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you would like
+      description: If it is something Hyprland does, say which setting or dispatcher; that helps a lot.
+      placeholder: |
+        A way to search the Meta+K list, like Hyprland's … / like `bind = …, exec, …`
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What it would help with
+      description: The situation you are in when you miss it.
+  - type: input
+    id: version
+    attributes:
+      label: HyprKwin and Plasma versions
+      placeholder: HyprKwin 0.17.0, Plasma 6.7

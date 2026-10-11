@@ -668,7 +668,9 @@ they never take a key away from an app the rest of the time.
 ### Controlling it from a script
 
 `tools/hyprkwinctl` is the equivalent of `hyprctl`, for status bars and
-scripts:
+scripts. Installed from the KDE Store or a release file, it is at
+`~/.local/share/kwin/scripts/hyprkwin/contents/tools/hyprkwinctl` (run it
+with `python3`, or link it into your `PATH`):
 
 ```bash
 hyprkwinctl dispatch focusLeft     # run any action, as if you pressed its key
