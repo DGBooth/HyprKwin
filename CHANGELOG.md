@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The keys guide (Meta+K) opened empty the second time:** only its title
+  and search box showed. It now opens at the full list's height every time,
+  and keeps that height while a search narrows the list (Qt also stops
+  warning about a binding loop on its height).
+- **With focus following the mouse, the keys guide closed as soon as the
+  pointer moved.** Nothing has the keyboard while the guide is up, so the
+  first window the pointer crossed took the focus, and taking the focus
+  counted as being done with the guide. Focus that only follows the pointer
+  (KWin's focus policy or HyprKwin's own setting) no longer closes it; Escape
+  or Meta+K do, and the window under the pointer keeps the focus.
+
 ## 0.16.0
 
 - **The workspace keys work on any keyboard layout.** Plasma matches a

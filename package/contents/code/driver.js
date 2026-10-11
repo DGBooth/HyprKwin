@@ -2194,6 +2194,9 @@ function createDriver(env) {
         keysShown = null;
         var back = keysReturnTo;
         keysReturnTo = null;
+        // Unless the pointer has given the focus to a window meanwhile.
+        var now = ws.activeWindow;
+        if (now && !isOverlay(now)) giveBack = false;
         if (giveBack !== false && back && (ws.windows || []).indexOf(back) >= 0) activate(back);
         if (env.ui.hideKeys) env.ui.hideKeys();
         env.ui.setSubmapBinds([]);
@@ -2201,6 +2204,14 @@ function createDriver(env) {
         if (env.ui.forgetBinds) env.ui.forgetBinds(keysGuideBinds());
         updateZoomKeys();
         log("keys guide off");
+    }
+
+    // Whether the focus follows the pointer, by HyprKwin's setting or KWin's
+    // own focus policy (anything but click to focus).
+    function focusFollowsPointer() {
+        if (cfg.focusFollowsMouse) return true;
+        var policy = env.options ? env.options.focusPolicy : undefined;
+        return policy !== undefined && policy !== null && Number(policy) !== 0;
     }
 
     function typeKeys(k) {
@@ -2912,7 +2923,9 @@ function createDriver(env) {
         listen(ws.windowActivated, function (w) {
             applyAllOpacity();
             // Going to a window means you are done reading.
-            if (keysOpen && w && !isOverlay(w)) closeKeys(false);
+            // Going to a window means you are done reading - unless the focus
+            // only followed the pointer there.
+            if (keysOpen && w && !isOverlay(w) && !focusFollowsPointer()) closeKeys(false);
             var st = stOf(w);
             if (st) {
                 if (st.id !== lastActiveId) {

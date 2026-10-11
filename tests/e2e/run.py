@@ -1522,6 +1522,7 @@ def the_keys_guide_can_be_searched(sb):
     fi = sb.input()
     fi.combo("meta+k")
     sb.settle(0.8)
+    full = guide_boxes(sb)
     fi.type_text("close")
     sb.settle(0.4)
     s = sb.state()
@@ -1535,6 +1536,7 @@ def the_keys_guide_can_be_searched(sb):
     fi.type_text("dow zzz")
     sb.settle(0.3)
     eq(search_labels(sb.state()), [], "nothing matches")
+    eq(guide_boxes(sb), full, "the window keeps its size as the list narrows")
     fi.combo("escape")
     sb.settle(0.4)
     s = sb.state()
@@ -1551,6 +1553,37 @@ def the_keys_guide_can_be_searched(sb):
     eq(active_caption(sb, s), "B", "B has the keyboard back")
     sb.settle(0.5)
     eq(held_guide_keys(sb), [], "the keys it held are not left in System Settings")
+    fi.combo("meta+k")
+    sb.settle(0.8)
+    eq(guide_boxes(sb), full, "opened again, it is the full size again")
+
+
+@test(kwinrc={"Windows": {"FocusPolicy": "FocusFollowsMouse"}})
+def the_keys_guide_stays_up_when_focus_follows_the_pointer(sb):
+    """With KWin's focus following the mouse, moving the pointer focuses
+    the window under it: that is not going to a window to be done with the
+    guide, which stays up until Escape."""
+    sb.spawn("A")
+    sb.spawn("B")
+    take_keys(sb)
+    fi = sb.input()
+    fi.move_to(1500, 540)                   # over B
+    sb.settle(0.4)
+    fi.combo("meta+k")
+    sb.settle(0.8)
+    for x in (300, 1500, 300):              # over A, B, A: each takes the focus
+        fi.move_to(x, 540)
+        sb.settle(0.5)
+    s = sb.state()
+    eq((s["keysGuide"] is not None, active_caption(sb, s)), (True, "A"), "still up, A focused by the pointer")
+    fi.type_text("close")
+    sb.settle(0.4)
+    eq(search_labels(sb.state()), ["Close window"], "and typing still searches it")
+    fi.combo("escape")
+    fi.combo("escape")
+    sb.settle(0.5)
+    s = sb.state()
+    eq((s["keysGuide"], active_caption(sb, s)), (None, "A"), "closed; A, under the pointer, keeps the focus")
 
 
 @test(config={"SubmapList": ["resize = Meta+R, Left: resizeLeft, Right: resizeRight"], "LayoutOsd": "false"})
@@ -3208,7 +3241,8 @@ def main():
                               effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
                               xwayland=opts.get("xwayland", False),
                               native_desktops=opts.get("native_desktops", False),
-                              activities=opts.get("activities", 0), keyboard=opts.get("keyboard"))
+                              activities=opts.get("activities", 0), keyboard=opts.get("keyboard"),
+                              kwinrc=opts.get("kwinrc"))
             with sandbox as sb:
                 try:
                     if opts.get("effect") and not sb.opengl:

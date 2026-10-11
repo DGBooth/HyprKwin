@@ -74,7 +74,7 @@ class Skip(Exception):
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
                  effect=False, effect_config=None, xwayland=False, native_desktops=False,
-                 activities=0, keyboard=None):
+                 activities=0, keyboard=None, kwinrc=None):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -99,6 +99,8 @@ class Sandbox:
         self.activity_ids = []
         # A keyboard layout other than US, e.g. "gb" or ("fr", "azerty").
         self.keyboard = keyboard
+        # KWin's own settings, {group: {key: value}}, e.g. its focus policy.
+        self.kwinrc = kwinrc or {}
         self.socket = "hyprkwin-test-%d" % os.getpid()
         self.proc = None
         self.clients = []
@@ -170,6 +172,8 @@ class Sandbox:
         # once broke the border strips and went unnoticed without one.
         self._write_config(env, "org.kde.kdecoration2", {"library": "org.kde.breeze", "theme": "Breeze"})
         self._write_config(env, "Script-hyprkwin", self.config)
+        for group, values in self.kwinrc.items():
+            self._write_config(env, group, values)
         if self.keyboard:
             layout, variant = (self.keyboard, "") if isinstance(self.keyboard, str) else self.keyboard
             self._write_config(env, "Layout", {"Use": "true", "LayoutList": layout, "VariantList": variant},

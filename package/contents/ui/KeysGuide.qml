@@ -40,10 +40,11 @@ Window {
     readonly property int columnWidth: unit * 30
     readonly property int columnCount: area && area.width >= columnWidth * 2 + unit * 8 ? 2 : 1
     width: ready ? Math.min(area.width - unit * 4, columnWidth * columnCount + unit * (columnCount + 2)) : 1
-    // As tall as the whole list was when it opened: narrowing it down does
-    // not shrink the window under the pointer.
-    property real tallest: 0
-    height: ready ? Math.min(Math.round(area.height * 0.85), header.height + tallest + unit * 3) : 1
+    // As tall as the whole list when it opens, and kept at that while a
+    // search narrows the list: the window does not shrink under the pointer.
+    property real frozenHeight: 0
+    height: !ready ? 1 : frozenHeight > 0 ? frozenHeight
+        : Math.min(Math.round(area.height * 0.85), header.height + body.contentHeight + unit * 3)
     x: ready ? Math.round(area.x + (area.width - width) / 2) : 0
     y: ready ? Math.round(area.y + (area.height - height) / 2) : 0
 
@@ -71,7 +72,7 @@ Window {
 
     function open(list, where) {
         query = "";
-        tallest = 0;
+        frozenHeight = 0;
         sections = list || [];
         area = where;
         body.contentY = 0;
@@ -80,6 +81,8 @@ Window {
             return;
         }
         show();
+        // Once the full list is laid out, hold that height.
+        Qt.callLater(() => { if (visible && !query) frozenHeight = height; });
     }
 
     // Escape: first empties the search box, and only then closes.
@@ -177,7 +180,6 @@ Window {
         clip: true
         contentWidth: width
         contentHeight: columnsRow.height
-        onContentHeightChanged: guide.tallest = Math.max(guide.tallest, contentHeight)
         boundsBehavior: Flickable.StopAtBounds
         QQC.ScrollBar.vertical: QQC.ScrollBar { policy: body.contentHeight > body.height ? QQC.ScrollBar.AlwaysOn : QQC.ScrollBar.AlwaysOff }
 
