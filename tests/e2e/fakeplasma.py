@@ -19,12 +19,22 @@ from gi.repository import GLib
 
 LOAD = re.compile(r'^print\(ConfigFile\("hyprkwinrc", "Layouts"\)\.readEntry\("state"\)\)$')
 SAVE = re.compile(r'^ConfigFile\("hyprkwinrc", "Layouts"\)\.writeEntry\("state", (".*")\)$', re.S)
+# The once-only notices, kept beside the store as STORE_FILE.notices.json.
+NOTICE_GET = re.compile(r'^print\(ConfigFile\("hyprkwinrc", "Notices"\)\.readEntry\(("[^"]*")\)\)$')
+NOTICE_SET = re.compile(r'^ConfigFile\("hyprkwinrc", "Notices"\)\.writeEntry\(("[^"]*"), (".*")\)$', re.S)
 
 
 class Shell(dbus.service.Object):
     def __init__(self, bus, store):
         super().__init__(bus, "/PlasmaShell")
         self.store = store
+
+    def notices(self):
+        try:
+            with open(self.store + ".notices.json") as f:
+                return json.load(f)
+        except (FileNotFoundError, ValueError):
+            return {}
 
     @dbus.service.method("org.kde.PlasmaShell", in_signature="s", out_signature="s")
     def evaluateScript(self, script):
@@ -35,6 +45,16 @@ class Shell(dbus.service.Object):
                     return f.read() + "\n"
             except FileNotFoundError:
                 return "\n"
+        m = NOTICE_GET.match(script)
+        if m:
+            return str(self.notices().get(json.loads(m.group(1)), "")) + "\n"
+        m = NOTICE_SET.match(script)
+        if m:
+            notices = self.notices()
+            notices[json.loads(m.group(1))] = json.loads(m.group(2))
+            with open(self.store + ".notices.json", "w") as f:
+                json.dump(notices, f)
+            return ""
         m = SAVE.match(script)
         if m:
             with open(self.store, "w") as f:

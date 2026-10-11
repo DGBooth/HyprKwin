@@ -410,10 +410,20 @@
         </widget>
        </item>
        <item row="10" column="1">
-        <widget class="QCheckBox" name="kcfg_WarnKeyConflicts">
-         <property name="text"><string>Tell me when other shortcuts still hold some of HyprKwin's keys</string></property>
-         <property name="toolTip"><string>Shown a few seconds after HyprKwin starts, and written to the log with every key and who has it.</string></property>
-        </widget>
+        <layout class="QVBoxLayout" name="noticesLayout">
+         <item>
+          <widget class="QCheckBox" name="kcfg_WarnKeyConflicts">
+           <property name="text"><string>Tell me when other shortcuts still hold some of HyprKwin's keys</string></property>
+           <property name="toolTip"><string>Said once, a few seconds after HyprKwin starts, and again only if another key comes to clash later. Every key and who has it goes to the log each time, and Meta+K marks them.</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="kcfg_AnimationsNotice">
+           <property name="text"><string>Tell me when the animations effect is missing or turned off</string></property>
+           <property name="toolTip"><string>HyprKwin's window animations are a separate KWin effect, "HyprKwin animations", installed and turned on in Desktop Effects. Said once.</string></property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item row="11" column="1">
         <widget class="QLabel" name="keysHelp">

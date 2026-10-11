@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **HyprKwin says when the animations are missing or off.** The animations
+  are a separate KWin effect, and the KDE Store cannot make one depend on
+  the other, so it is easy to end up with the script alone, or with the
+  effect installed but never turned on (KWin only finds a new effect after
+  logging in again, and then it still has to be switched on). Shortly after
+  starting, HyprKwin says which, and where to fix it. Once: it remembers
+  having said so, and "Tell me when the animations effect is missing or
+  turned off" on the settings page (Behaviour) turns it off.
+- **The message about keys other shortcuts hold comes once**, not at every
+  login, and gives the command that hands them over. It comes again only if
+  a key comes to clash later (a Plasma update, say). Meta+K still marks every
+  one.
+
 - **The animations effect keeps its own version** from now on: it only
   changes when the animations do, so an update to the script no longer
   brings an update to the effect with nothing in it. Every release says

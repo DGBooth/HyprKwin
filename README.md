@@ -145,7 +145,9 @@ intermediate sizes.
 
 Enable it under System Settings › Window Management › Desktop Effects ›
 "HyprKwin animations". **KWin only discovers a newly installed effect when it
-starts**, so log out and back in after the first install. Its settings
+starts**, so log out and back in after the first install. HyprKwin says so
+once if it finds the effect missing or turned off (a switch on its settings
+page turns that off). Its settings
 (duration, curve, what to animate) are behind the effect's configure button:
 
 | Setting | Hyprland equivalent | Default |

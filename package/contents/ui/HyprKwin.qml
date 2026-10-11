@@ -221,6 +221,49 @@ Item {
         loadCall.call();
     }
 
+    // Notices shown once (the animations being off, the keys other shortcuts
+    // hold) are remembered in ~/.config/hyprkwinrc, [Notices], through
+    // plasmashell like the layouts. callback(text), or null where it cannot
+    // be asked (no plasmashell): then nothing can be remembered either.
+    function noticeGet(key, callback) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.plasmashell"; '
+            + 'path: "/PlasmaShell"; dbusInterface: "org.kde.PlasmaShell"; method: "evaluateScript" }', root);
+        call.arguments = ['print(ConfigFile("' + root.storeFile + '", "Notices").readEntry(' + JSON.stringify(key) + '))'];
+        call.finished.connect(ret => { call.destroy(); callback(String(ret && ret.length ? ret[0] : "").trim()); });
+        call.failed.connect(() => { call.destroy(); callback(null); });
+        call.call();
+    }
+    function noticeSet(key, value) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.plasmashell"; '
+            + 'path: "/PlasmaShell"; dbusInterface: "org.kde.PlasmaShell"; method: "evaluateScript" }', root);
+        call.arguments = ['ConfigFile("' + root.storeFile + '", "Notices").writeEntry(' + JSON.stringify(key) + ', '
+            + JSON.stringify(String(value)) + ')'];
+        call.finished.connect(() => call.destroy());
+        call.failed.connect(() => call.destroy());
+        call.call();
+    }
+
+    // Whether KWin knows the animations effect (it only finds a newly
+    // installed one when it starts) and has it on: {installed, on}, or null.
+    function animationsState(callback) {
+        const make = (method) => Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.KWin"; '
+            + 'path: "/Effects"; dbusInterface: "org.kde.kwin.Effects"; method: "' + method + '" }', root);
+        const loaded = make("isEffectLoaded");
+        loaded.arguments = ["hyprkwinanimations"];
+        loaded.finished.connect(ret => {
+            loaded.destroy();
+            const on = !!(ret && ret.length && ret[0]);
+            const known = make("isEffectSupported");
+            known.arguments = ["hyprkwinanimations"];
+            // An effect KWin does not know is reported as not supported.
+            known.finished.connect(r => { known.destroy(); callback({ installed: on || !!(r && r.length && r[0]), on: on }); });
+            known.failed.connect(() => { known.destroy(); callback(null); });
+            known.call();
+        });
+        loaded.failed.connect(() => { loaded.destroy(); callback(null); });
+        loaded.call();
+    }
+
     // Window rules kept the old way (one text entry) move into the list the
     // settings page edits; KWin then reloads the settings, as the page would.
     function moveRules(items) {
@@ -667,6 +710,17 @@ Item {
             shortcutInfos: (callback) => root.shortcutInfos(callback),
             digitTable: DigitRow.DIGIT_ROW,
             moveRules: (items) => root.moveRules(items),
+            notices: {
+                get: (key, callback) => root.noticeGet(key, callback),
+                set: (key, value) => root.noticeSet(key, value),
+            },
+            animationsState: (callback) => root.animationsState(callback),
+            after: (ms, fn) => {
+                const t = Qt.createQmlObject('import QtQuick; Timer {}', root);
+                t.interval = ms;
+                t.triggered.connect(() => { t.destroy(); if (!root.shuttingDown) fn(); });
+                t.start();
+            },
             keyboardLayout: (callback) => root.keyboardLayout(callback),
             store: {
                 load: (callback) => root.storeLoad(callback),

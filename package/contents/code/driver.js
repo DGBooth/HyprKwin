@@ -717,6 +717,7 @@ function createDriver(env) {
             // keyboard, unless cursor:no_warps is set.
             pointerFollowsFocus: bool(rc("PointerFollowsFocus", true), true),
             warnKeyConflicts: bool(rc("WarnKeyConflicts", true), true),
+            animationsNotice: bool(rc("AnimationsNotice", true), true),
             // Tiles narrower or shorter than this show as their app's icon
             // until zoomed into (0: never).
             iconBelow: Math.max(0, num(rc("IconBelow", 120), 120)),
@@ -2046,7 +2047,11 @@ function createDriver(env) {
     }
 
     function checkKeys() {
-        if (stopped || !env.keyOwner || !SC || !SC.shortcutList || !SC.keyCode) return;
+        if (stopped) return;
+        if (!env.keyOwner || !SC || !SC.shortcutList || !SC.keyCode) {
+            noticeAnimations();
+            return;
+        }
         // The workspace keys as this layout has them.
         var list = SC.shortcutList().map(function (s) {
             return layoutDigitKeys[s.action] ? { action: s.action, name: s.name, key: layoutDigitKeys[s.action] } : s;
@@ -2057,7 +2062,10 @@ function createDriver(env) {
         });
         list = list.filter(function (s) { return s.key && SC.keyCode(s.key); });
         var pending = list.length, found = [];
-        if (!pending) return;
+        if (!pending) {
+            noticeAnimations();
+            return;
+        }
         list.forEach(function (s) {
             env.keyOwner(SC.keyCode(s.key), function (owner) {
                 // Nobody (or no answer) proves nothing; only another owner counts.
@@ -2069,16 +2077,84 @@ function createDriver(env) {
         });
     }
 
+    // Said once, not at every login: someone who keeps Plasma's keys has
+    // heard it. A key that comes to clash later (a Plasma update) is news,
+    // and is said again. The keys guide marks every one either way.
+    var noticeShownUntil = 0;
+    var noticesShown = [];          // this session's, for the state dump
+
     function reportKeys(found) {
         if (stopped) return;
         keyConflicts = found;
         found.forEach(function (c) {
             env.log("HyprKwin: " + c.key + " belongs to \"" + c.owner + "\", so " + c.action + " has no key");
         });
-        if (!found.length || !cfg.warnKeyConflicts) return;
-        var more = found.length > 1 ? " and " + (found.length - 1) + " more" : "";
-        announce(found[0].key + more + " still belong to other shortcuts.\n"
-                 + "HyprKwin's settings (Behaviour tab) say how to hand them over.", 12000, true);
+        var keys = found.map(function (c) { return c.key; }).sort();
+        if (!keys.length || !cfg.warnKeyConflicts) {
+            noticeAnimations();
+            return;
+        }
+        once("keyConflicts", keys.join(" "), function (heard) {
+            var said = heard ? heard.split(" ") : [];
+            var fresh = keys.filter(function (k) { return said.indexOf(k) < 0; });
+            if (heard !== null && !fresh.length) {
+                noticeAnimations();
+                return;
+            }
+            var more = keys.length > 1 ? " and " + (keys.length - 1) + " more" : "";
+            notice(keys[0] + more + " still belong to other shortcuts, so those do nothing yet.\n"
+                   + "Meta+K marks them. To hand them over, run in a terminal:\n"
+                   + "python3 ~/.local/share/kwin/scripts/hyprkwin/contents/tools/hyprkwin-shortcuts.py apply\n"
+                   + "(or rebind them in System Settings › Keyboard › Shortcuts)");
+            noticeAnimations();
+        });
+    }
+
+    // A message that stays up a while, after the one before it has gone.
+    function notice(text) {
+        var wait = Math.max(0, noticeShownUntil - Date.now());
+        noticeShownUntil = Date.now() + wait + 13000;
+        noticesShown.push(text);
+        var show = function () { if (!stopped) announce(text, 12000, true); };
+        if (wait > 0 && env.after) env.after(wait + 500, show);
+        else show();
+    }
+
+    // Has this notice been given, with this value? callback(the value it was
+    // given with, "" for never, or null where that cannot be known). The new
+    // value is remembered either way.
+    function once(key, value, callback) {
+        if (!env.notices) {
+            callback(null);
+            return;
+        }
+        env.notices.get(key, function (heard) {
+            if (stopped) return;
+            if (heard !== null && heard !== value) env.notices.set(key, value);
+            callback(heard);
+        });
+    }
+
+    // The animations are a separate KWin effect, which the store cannot make
+    // a dependency of this script, and which cannot say anything itself.
+    var animationsChecked = false;
+
+    function noticeAnimations() {
+        if (animationsChecked || stopped || !cfg.animationsNotice || !env.animationsState) return;
+        animationsChecked = true;
+        env.animationsState(function (state) {
+            if (stopped || !state || state.on) return;
+            var what = state.installed ? "off" : "missing";
+            once("animations", what, function (heard) {
+                if (heard === what) return;
+                notice(state.installed
+                    ? "Window animations are off: turn on \u201cHyprKwin animations\u201d in\n"
+                      + "System Settings › Window Management › Desktop Effects."
+                    : "Window animations: get \u201cHyprKwin animations\u201d from\n"
+                      + "System Settings › Window Management › Desktop Effects › Get New…,\n"
+                      + "then log out and back in (KWin finds new effects when it starts).");
+            });
+        });
     }
 
     // ---- submaps -----------------------------------------------------------
@@ -3083,6 +3159,7 @@ function createDriver(env) {
                 nativeDesktops: native(),
                 keyConflicts: keyConflicts,
                 keysGuide: keysOpen ? keysShown : null,
+                notices: noticesShown.slice(),
                 iconTiles: lastIconTiles,
                 zoomEscape: zoomKeysOn,
             };

@@ -74,7 +74,7 @@ class Skip(Exception):
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
                  effect=False, effect_config=None, xwayland=False, native_desktops=False,
-                 activities=0, keyboard=None, kwinrc=None):
+                 activities=0, keyboard=None, kwinrc=None, install_effect=True):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -86,7 +86,9 @@ class Sandbox:
         # only goes to hyprkwinctl, over D-Bus.
         # WarnKeyConflicts: the sandbox has Plasma's clashing keys too, and
         # the message about them would appear in every test.
-        self.config = dict({"StateToLog": "true", "WarnKeyConflicts": "false"}, **(config or {}))
+        # AnimationsNotice too: the effect is off in most tests.
+        self.config = dict({"StateToLog": "true", "WarnKeyConflicts": "false", "AnimationsNotice": "false"},
+                           **(config or {}))
         # HK_NATIVE=1 runs every test with KWin's native per-screen desktops.
         self.native_desktops = native_desktops or os.environ.get("HK_NATIVE") == "1"
         # KWin builds its effect list at startup, so the effect package has to
@@ -99,6 +101,9 @@ class Sandbox:
         self.activity_ids = []
         # A keyboard layout other than US, e.g. "gb" or ("fr", "azerty").
         self.keyboard = keyboard
+        # Whether the animations effect is installed at all (it is enabled
+        # only with effect=True).
+        self.install_effect = install_effect
         # KWin's own settings, {group: {key: value}}, e.g. its focus policy.
         self.kwinrc = kwinrc or {}
         self.socket = "hyprkwin-test-%d" % os.getpid()
@@ -162,8 +167,9 @@ class Sandbox:
             env.pop(var, None)
         subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(PACKAGE)], env=env,
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(EFFECT_PACKAGE)], env=env,
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if self.install_effect:
+            subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(EFFECT_PACKAGE)], env=env,
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self._write_config(env, "Plugins", {"hyprkwinEnabled": "true",
                                             "hyprkwinanimationsEnabled": "true" if self.effect else "false"})
         if self.effect_config:

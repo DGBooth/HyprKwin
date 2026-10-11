@@ -994,6 +994,75 @@ def layouts_survive_a_new_session(sb):
     eq(json.loads(store.read_text())["spaces"][space]["layout"], "master", "and starting up did not overwrite it")
 
 
+def fake_plasma(sb):
+    """The stand-in for plasmashell's scripting, where HyprKwin keeps its
+    layouts and the notices it has given. Returns the store file."""
+    import subprocess
+    store = sb.base / "saved-layouts.json"
+    fake = subprocess.Popen([sys.executable, str(ROOT_DIR / "tests" / "e2e" / "fakeplasma.py"), str(store)],
+                            env=sb.env, stdout=subprocess.PIPE, text=True)
+    sb.clients.append(fake)
+    fake.stdout.readline()
+    return store
+
+
+def wait_notices(sb, timeout=20):
+    """The notices given this session, once the start-up checks are done."""
+    end = time.time() + timeout
+    while time.time() < end:
+        s = sb.state()
+        if s.get("keyConflicts") is not None:
+            time.sleep(2.5)                 # the animations check comes after
+            return sb.state()["notices"]
+        time.sleep(0.3)
+    raise AssertionError("the start-up checks never ran")
+
+
+@test(config={"AnimationsNotice": "true"})
+def a_notice_says_the_animations_are_off_once(sb):
+    """The animations are a separate effect, which the store cannot make a
+    dependency of the script: installed but off, HyprKwin says so - once."""
+    fake_plasma(sb)
+    sb.reload_script()                      # with somewhere to remember it
+    notices = wait_notices(sb)
+    eq(len(notices), 1, "one notice: %r" % (notices,))
+    eq("turn on" in notices[0] and "Desktop Effects" in notices[0], True, notices[0])
+    sb.reload_script()
+    eq(wait_notices(sb), [], "said once: not at the next start")
+
+
+@test(config={"AnimationsNotice": "true"}, install_effect=False)
+def a_notice_says_where_to_get_the_animations(sb):
+    fake_plasma(sb)
+    sb.reload_script()
+    notices = wait_notices(sb)
+    eq(len(notices) == 1 and "Get New" in notices[0] and "log out" in notices[0], True, "%r" % (notices,))
+
+
+@test(config={"AnimationsNotice": "true"}, effect=True)
+def no_notice_when_the_animations_are_on(sb):
+    fake_plasma(sb)
+    sb.reload_script()
+    eq(wait_notices(sb), [], "nothing to say")
+
+
+@test(config={"WarnKeyConflicts": "true"})
+def the_keys_other_shortcuts_hold_are_mentioned_once(sb):
+    """Someone keeping Plasma's keys has heard it the first time; a key that
+    comes to clash later is news, and is said again."""
+    store = fake_plasma(sb)
+    sb.reload_script()
+    notices = wait_notices(sb)
+    eq(len(notices) == 1 and "hyprkwin-shortcuts.py apply" in notices[0], True, "the command is in it: %r" % (notices,))
+    sb.reload_script()
+    eq(wait_notices(sb), [], "not at the next start")
+    heard = json.loads((store.parent / (store.name + ".notices.json")).read_text())
+    heard["keyConflicts"] = " ".join(heard["keyConflicts"].split(" ")[1:])    # as if one were new
+    (store.parent / (store.name + ".notices.json")).write_text(json.dumps(heard))
+    sb.reload_script()
+    eq(len(wait_notices(sb)), 1, "a new clash is said again")
+
+
 @test
 def layouts_saved_before_0_16_are_still_read(sb):
     """Saved layouts had no version before 0.16: the bare map of workspaces
@@ -3242,7 +3311,7 @@ def main():
                               xwayland=opts.get("xwayland", False),
                               native_desktops=opts.get("native_desktops", False),
                               activities=opts.get("activities", 0), keyboard=opts.get("keyboard"),
-                              kwinrc=opts.get("kwinrc"))
+                              kwinrc=opts.get("kwinrc"), install_effect=opts.get("install_effect", True))
             with sandbox as sb:
                 try:
                     if opts.get("effect") and not sb.opengl:
