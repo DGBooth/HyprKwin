@@ -1,4 +1,4 @@
-// Prints the default keybindings as a Markdown table (used for README.md).
+// Prints the default keybindings as a Markdown table (used for docs/getting-started.md).
 // deno run --allow-read tools/keys-table.js
 const src = Deno.readTextFileSync(new URL("../package/contents/code/shortcuts.js", import.meta.url));
 const list = new Function(src + "\nreturn shortcutList();")();

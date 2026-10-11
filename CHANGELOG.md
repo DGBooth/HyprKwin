@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The README is now a short front page**, with the details in
+  [docs/](docs/): [getting started](docs/getting-started.md),
+  [settings](docs/settings.md), [rules and scripting](docs/rules-and-scripting.md),
+  [troubleshooting](docs/troubleshooting.md) (new: the common problems, and
+  how to report one) and [development](docs/development.md).
+
 - **`hyprkwinctl` comes with the KDE Store package** (in
   `~/.local/share/kwin/scripts/hyprkwin/contents/tools/`), and bug reports on
   GitHub have a form asking for what it says (`hyprkwinctl version`).
