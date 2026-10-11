@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **The animations effect keeps its own version** from now on: it only
+  changes when the animations do, so an update to the script no longer
+  brings an update to the effect with nothing in it. Every release says
+  which version of the animations goes with it, and has both files.
+  (`tools/release.sh` does the releasing.)
+
 ## 0.16.1
 
 ### Fixed

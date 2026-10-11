@@ -82,7 +82,9 @@ Updates arrive through the same "Get New…" dialogs.
 [latest release](https://github.com/DGBooth/HyprKwin/releases/latest), then
 KWin Scripts › "Install from File…" for the script, and
 `kpackagetool6 --type=KWin/Effect -i <file>` for the effect (the Desktop
-Effects page cannot install from a file).
+Effects page cannot install from a file). The animations keep their own
+version, which only moves when they change, so the two numbers can differ;
+every release has a pair that works together.
 
 **From the repository:** the steps below install both, hand the keys over and
 back up your shortcuts first.
