@@ -50,6 +50,12 @@ The way there:
 2. **0.17: first impressions.**
    - A one-time notice for KDE Store installs, offering to sort out the
      Plasma shortcuts that HyprKwin's keys clash with.
+   - A one-time notice when the animations effect is missing ("get HyprKwin
+     animations from Desktop Effects › Get New") or installed but off (KWin
+     only finds a new effect after logging in again, and then it still has
+     to be switched on). The store cannot make one depend on the other, and
+     the effect cannot tell anyone anything, so the script says it. Shown
+     once, remembered, and with a switch on the settings page.
    - The README split into a short front page and a few docs pages
      (getting started, settings, rules and submaps, troubleshooting).
    - An issue template asking for the Plasma version and a `hyprkwinctl`
