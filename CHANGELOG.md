@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- **Meta+→ (or any direction) to a monitor a window had just left did
+  nothing.** With nothing that way on its own monitor, HyprKwin asked KWin
+  for "the screen to the right", which KWin counts from its own idea of the
+  active screen, and just after a window went to the other monitor and came
+  back that was still the other one. The monitor that way is now found from
+  where the focus is.
+
 - **A script error loop with two monitors** (in every release since at least
   0.12, emulated per-monitor workspaces): a window sent back to its monitor
   just after the split beside it was nudged took the focus while still on its
