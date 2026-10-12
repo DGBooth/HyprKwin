@@ -36,6 +36,16 @@ tile, class:^(steam)$, title:^Steam$
 | `noborder` | no border and no title bar |
 | `focusonactivate [on\|off]` | whether it may pull you to it when it asks for attention |
 
+**Some of these are moving to Plasma's own window rules.** `size`, `move`,
+`center`, `monitor`, `opacity`, `noborder`, `pin` and `focusonactivate` do
+what Plasma's window rules (System Settings › Window Management › Window
+Rules) already do. After 1.0 they will become Plasma window rules:
+importing a `hyprland.conf` will write them there, and rules you already have
+will be moved across for you when you upgrade. HyprKwin's own rules will then
+cover what only a tiler needs: `float`/`tile`, `floating:`, `pseudo`, `group`,
+workspaces and scratchpads. Until then they all keep working as they are, and
+nothing you have set will be lost when they move.
+
 Match on `class:` (the Wayland app id or X11 class) and `title:`, both
 regular expressions, and on `floating:1` or `floating:0`. Rules are checked
 inside KWin itself, so keep the patterns simple: a pathological one, with

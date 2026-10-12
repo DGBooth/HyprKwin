@@ -74,6 +74,24 @@ translations.
 
 ## Next
 
+- **Plasma's window rules for what Plasma already does.** Several of
+  HyprKwin's window rule actions duplicate Plasma's own window rules: `size`,
+  `move`, `center`, `monitor`, `opacity`, `noborder`, `pin` and
+  `focusonactivate`. Two rule systems that do the same thing is one too many,
+  so they move across (raised on r/kde by a KDE contributor):
+  - The `hyprland.conf` importer writes those as Plasma window rules
+    (`kwinrulesrc`), so they show up in System Settings › Window Rules with
+    everything else.
+  - A migration, run when HyprKwin starts, moves existing ones there and
+    drops them from HyprKwin's list, once. The 1.0 promise covers this: no
+    setup breaks.
+  - HyprKwin's rules keep what only a tiler needs: `float`/`tile`,
+    `floating:`, `pseudo`, `group`, workspaces and scratchpads. The moved
+    actions are still read for a release or two, with a notice saying where
+    they went.
+  - To work out: how Hyprland's matchers (regular expressions on class and
+    title) map onto Plasma's match types, and what happens to a rule that
+    sets both a tiler action and a moved one.
 - **Separate workspaces for each activity** ([#2](https://github.com/DGBooth/HyprKwin/issues/2)).
   Windows on another activity drop out of the layout, focus stays on the
   current activity, and each activity remembers what every monitor shows.
