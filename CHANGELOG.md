@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Window rules are for what Plasma's own cannot do.** `fullscreen` and
+  `maximize` rules did exactly what Plasma's window rules (System Settings ›
+  Window Rules) do, so they move there by themselves when HyprKwin starts,
+  with a message saying so; a rule with a `floating:` matcher, which Plasma's
+  rules cannot express, stays and keeps working. Plasma's own rules are kept
+  as they are, in whichever format your Plasma keeps them. The `hyprland.conf`
+  importer likewise writes `fullscreen`, `maximize`, `minsize`, `maxsize` and
+  `nofocus` rules as Plasma window rules (once, however often it runs). The
+  rest of HyprKwin's rules are about tiling, workspaces, scratchpads and
+  floating windows, or override HyprKwin's own settings. Raised on r/kde by a
+  KDE contributor.
+
+- **Descriptions say what things do, for Plasma users.** The settings page,
+  the animations' settings, shortcut descriptions, the store description and
+  the docs explained features by comparison with Hyprland ("like Hyprland",
+  `dwindle:force_split`, "Inner gaps (gaps_in)"). They now describe each
+  setting plainly; Hyprland comes up where it helps someone moving over (the
+  default keys, the rule syntax, the importer). A few shortcuts read
+  differently — "Keep window at its own size in its tile" (was "Pseudotile
+  window"), "Send window to workspace N (stay here)" (was "Move window
+  silently…"), "Back to the workspace you were on" (was "Former workspace")
+  — with the same names and keys.
+
 ## 1.0.0-rc1
 
 *HyprKwin animations unchanged: 0.16.1 is still current.*

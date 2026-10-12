@@ -67,6 +67,14 @@ The way there:
    - Layout speed with 30 or more windows.
    - Upgrades rehearsed from 0.10, 0.12 and 0.15 with real settings.
    - A couple of weeks of feedback.
+   - Window rules only for what Plasma's own cannot do (raised on r/kde by a
+     KDE contributor): `fullscreen` and `maximize` rules move to Plasma's
+     window rules on their own, and the `hyprland.conf` importer writes
+     those, `minsize`, `maxsize` and `nofocus` as Plasma rules. Everything
+     else HyprKwin's rules do is about tiling, or overrides HyprKwin's own
+     settings, which Plasma's rules cannot express.
+   - User-facing text that says what things do in Plasma's terms, rather than
+     by comparison with Hyprland.
 4. **1.0.**
 
 Not part of 1.0: separate workspaces for each activity, more layouts,
@@ -74,24 +82,6 @@ translations.
 
 ## Next
 
-- **Plasma's window rules for what Plasma already does.** Several of
-  HyprKwin's window rule actions duplicate Plasma's own window rules: `size`,
-  `move`, `center`, `monitor`, `opacity`, `noborder`, `pin` and
-  `focusonactivate`. Two rule systems that do the same thing is one too many,
-  so they move across (raised on r/kde by a KDE contributor):
-  - The `hyprland.conf` importer writes those as Plasma window rules
-    (`kwinrulesrc`), so they show up in System Settings › Window Rules with
-    everything else.
-  - A migration, run when HyprKwin starts, moves existing ones there and
-    drops them from HyprKwin's list, once. The 1.0 promise covers this: no
-    setup breaks.
-  - HyprKwin's rules keep what only a tiler needs: `float`/`tile`,
-    `floating:`, `pseudo`, `group`, workspaces and scratchpads. The moved
-    actions are still read for a release or two, with a notice saying where
-    they went.
-  - To work out: how Hyprland's matchers (regular expressions on class and
-    title) map onto Plasma's match types, and what happens to a rule that
-    sets both a tiler action and a moved one.
 - **Rules from the window menu** (1.1). Alt+F3 › Extensions › HyprKwin ›
   "Always float *app*", "Always tile *app*", "Always open *app* in the
   scratchpad": a click writes the rule for that app into the settings page's

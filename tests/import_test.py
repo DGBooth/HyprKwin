@@ -95,6 +95,58 @@ class Rules(unittest.TestCase):
         self.assertIn("noanim", plan["notes"][0][0])
         self.assertIn("xwayland:1", plan["notes"][1][0])
 
+    def test_rules_plasma_does_become_plasma_rules(self):
+        plan = read("windowrulev2 = fullscreen, class:^(steam_app_.*)$\n"
+                    "windowrulev2 = maximize, class:^(gimp)$, title:^GNU\n"
+                    "windowrulev2 = minsize 400 300, class:^(mpv)$\n"
+                    "windowrulev2 = nofocus, class:^(conky)$\n"
+                    "windowrulev2 = maximize, floating:1, class:^(x)$\n"
+                    "windowrulev2 = maxsize 50% 50%, class:^(y)$\n"
+                    "windowrulev2 = float, class:^(kcalc)$")
+        self.assertEqual(plan["rules"], ["float, class:^(kcalc)$"], "the rest stay HyprKwin's")
+        full, maxi, minsize, nofocus = plan["plasma_rules"]
+        self.assertEqual(full, {"types": "1", "wmclass": "^(steam_app_.*)$", "wmclassmatch": "3",
+                                "wmclasscomplete": "false", "fullscreen": "true", "fullscreenrule": "3",
+                                "Description": "Full screen: ^(steam_app_.*)$ (from hyprland.conf)"})
+        self.assertEqual((maxi["maximizehoriz"], maxi["maximizevert"], maxi["title"]), ("true", "true", "^GNU"))
+        self.assertEqual((minsize["minsize"], minsize["minsizerule"]), ("400,300", "2"))
+        self.assertEqual((nofocus["acceptfocus"], nofocus["acceptfocusrule"]), ("false", "2"))
+        self.assertEqual(len(plan["notes"]), 2, "floating: and a percentage cannot be Plasma rules")
+        self.assertIn("floating:1", plan["notes"][0][0])
+        self.assertIn("pixels", plan["notes"][1][0])
+
+    @unittest.skipUnless(__import__("shutil").which("kwriteconfig6"), "needs kwriteconfig6 (KDE)")
+    def test_plasma_rules_are_added_in_the_format_plasma_keeps(self):
+        import os
+        rules = read("windowrulev2 = fullscreen, class:^(a)$\nwindowrulev2 = nofocus, class:^(b)$")["plasma_rules"]
+        old = os.environ.get("XDG_CONFIG_HOME")
+        try:
+            for version, start, key in [((6, 7, 5), "count=1\nrules=mine\n", "rules"),
+                                        ((6, 7, 91), "Order=mine\n", "Order"),
+                                        ((6, 7, 91), "count=1\nrules=mine\n", "rules"),
+                                        ((6, 6, 6), "", "rules"),
+                                        ((6, 8, 0), "", "Order")]:
+                with tempfile.TemporaryDirectory() as d:
+                    os.environ["XDG_CONFIG_HOME"] = d
+                    if start:
+                        (Path(d) / "kwinrulesrc").write_text("[General]\n" + start + "\n[mine]\nDescription=Mine\n")
+                    self.assertEqual(imp.write_plasma_rules(rules, version), 2)
+                    got = imp.read_ini(Path(d) / "kwinrulesrc")
+                    listed = got["General"][key].split(",")
+                    self.assertEqual(listed[:-2], ["mine"] if start else [], (version, start))
+                    self.assertEqual([got[g]["Description"] for g in listed[-2:]],
+                                     [r["Description"] for r in rules])
+                    other = "Order" if key == "rules" else "rules"
+                    self.assertNotIn(other, got["General"], "only the one list: %r" % (got["General"],))
+                    if key == "rules":
+                        self.assertEqual(got["General"]["count"], str(len(listed)))
+                    self.assertEqual(imp.write_plasma_rules(rules, version), 0, "an import run twice adds nothing")
+        finally:
+            if old is None:
+                os.environ.pop("XDG_CONFIG_HOME", None)
+            else:
+                os.environ["XDG_CONFIG_HOME"] = old
+
     def test_workspace_rules(self):
         plan = read("workspace = 3, monitor:DP-2, default:true, persistent:true\n"
                     "workspace = special:magic, gapsout:0\n"

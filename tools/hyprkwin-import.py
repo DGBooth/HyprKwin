@@ -11,7 +11,9 @@
 Nothing is written without --apply. Settings go to kwinrc (the same place the
 settings page writes), window and workspace rules to their lists, and binds to
 KDE's global shortcuts, after snapshotting them the way install.sh does, so
-uninstall.sh can put them back.
+uninstall.sh can put them back. Window rules that Plasma's own window rules
+do just as well (fullscreen, maximize, minsize, maxsize, nofocus) become
+Plasma window rules, in System Settings > Window Management > Window Rules.
 
 Whatever cannot be translated is listed at the end rather than guessed at.
 """
@@ -104,9 +106,11 @@ SETTINGS = {
     "cursor:no_warps": ("PointerFollowsFocus", as_not),
 }
 
-# Window rule actions HyprKwin understands; the rest are reported.
-RULE_ACTIONS = ["float", "tile", "pseudo", "fullscreen", "maximize", "group", "special", "pin",
+# Window rule actions HyprKwin understands. Those Plasma's own window rules
+# do just as well go there instead (PLASMA_ACTIONS); the rest are reported.
+RULE_ACTIONS = ["float", "tile", "pseudo", "group", "special", "pin",
                 "workspace", "focusonactivate", "size", "move", "center", "monitor", "opacity", "noborder"]
+PLASMA_ACTIONS = ["fullscreen", "maximize", "minsize", "maxsize", "nofocus"]
 WORKSPACE_PROPERTIES = ["monitor", "default", "layout", "gapsin", "gapsout"]
 
 DIRECTIONS = {"l": "Left", "left": "Left", "r": "Right", "right": "Right",
@@ -294,14 +298,53 @@ def translate_settings(items):
     return out, notes
 
 
+def plasma_rule(action, args, matchers):
+    """A Plasma window rule (kwinrulesrc entries) for a Hyprland rule that
+    Plasma's own rules do just as well. Raises ValueError when it cannot be
+    expressed there."""
+    entries = {"types": "1"}                # normal windows, as HyprKwin's rules
+    shown = []
+    for m in matchers:
+        key, _, pattern = m.partition(":")
+        key = key.strip().lower()
+        pattern = pattern.strip()
+        if key in ("class", "initialclass"):
+            entries.update(wmclass=pattern, wmclassmatch="3", wmclasscomplete="false")
+            shown.append(pattern)
+        elif key in ("title", "initialtitle"):
+            entries.update(title=pattern, titlematch="3")
+            shown.append("title " + pattern)
+        else:
+            raise ValueError("Plasma's window rules match on class: and title: only, not %s" % m)
+    # Rule types: 2 is "Force", 3 "Apply initially" (the window opens that
+    # way, and can be changed).
+    if action == "fullscreen":
+        entries.update(fullscreen="true", fullscreenrule="3")
+    elif action == "maximize":
+        entries.update(maximizehoriz="true", maximizehorizrule="3", maximizevert="true", maximizevertrule="3")
+    elif action in ("minsize", "maxsize"):
+        if len(args) != 2 or not all(re.match(r"^\d+$", a) for a in args):
+            raise ValueError("%s takes a width and a height in pixels" % action)
+        entries.update({action: "%s,%s" % tuple(args), action + "rule": "2"})
+    elif action == "nofocus":
+        entries.update(acceptfocus="false", acceptfocusrule="2")
+    label = {"fullscreen": "Full screen", "maximize": "Maximized", "minsize": "Minimum size %s",
+             "maxsize": "Maximum size %s", "nofocus": "No focus"}[action]
+    if "%s" in label:
+        label = label % "x".join(args)
+    entries["Description"] = "%s: %s (from hyprland.conf)" % (label, ", ".join(shown))
+    return entries
+
+
 def translate_window_rules(items):
-    rules, notes = [], []
+    rules, plasma, notes = [], [], []
     for item in items:
         if item.key not in ("windowrule", "windowrulev2"):
             continue
         parts = [p.strip() for p in item.value.split(",")]
-        action = parts[0].split()[0].lower() if parts[0] else ""
-        if action not in RULE_ACTIONS:
+        words = parts[0].split() if parts[0] else []
+        action = words[0].lower() if words else ""
+        if action not in RULE_ACTIONS + PLASMA_ACTIONS:
             notes.append(("windowrule %s: HyprKwin has no such rule" % (action or item.value), item.origin))
             continue
         matchers = parts[1:]
@@ -318,8 +361,14 @@ def translate_window_rules(items):
             continue
         for d in dropped:
             notes.append(("windowrule %s: dropped the matcher '%s'" % (action, d), item.origin))
+        if action in PLASMA_ACTIONS:
+            try:
+                plasma.append(plasma_rule(action, words[1:], kept))
+            except ValueError as e:
+                notes.append(("windowrule %s: %s" % (action, e), item.origin))
+            continue
         rules.append(", ".join([parts[0]] + kept))
-    return rules, notes
+    return rules, plasma, notes
 
 
 def translate_workspace_rules(items):
@@ -509,11 +558,11 @@ def translate_binds(items):
 
 def translate(items):
     settings, notes = translate_settings(items)
-    rules, rule_notes = translate_window_rules(items)
+    rules, plasma, rule_notes = translate_window_rules(items)
     spaces, space_notes = translate_workspace_rules(items)
     binds, scratchpads, bind_notes = translate_binds(items)
     return {
-        "settings": settings, "rules": rules, "workspaces": spaces,
+        "settings": settings, "rules": rules, "plasma_rules": plasma, "workspaces": spaces,
         "binds": binds, "scratchpads": scratchpads,
         "notes": notes + rule_notes + space_notes + bind_notes,
     }
@@ -530,6 +579,62 @@ def kwrite_list(key, values):
     kwrite(key, joined)
 
 
+def config_home():
+    return Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+
+
+def read_ini(path):
+    """A KDE config file as {group: {key: value}} (values as written)."""
+    groups, group = {}, None
+    if path.exists():
+        for line in path.read_text().splitlines():
+            if line.startswith("[") and line.endswith("]"):
+                group = groups.setdefault(line[1:-1], {})
+            elif "=" in line and group is not None:
+                k, v = line.split("=", 1)
+                group[k] = v
+    return groups
+
+
+def kwin_version():
+    """KWin's version as a tuple, e.g. (6, 7, 5); None if it cannot tell."""
+    try:
+        out = subprocess.run(["kwin_wayland", "--version"], capture_output=True, text=True).stdout
+        return tuple(int(v) for v in re.search(r"(\d+)\.(\d+)\.(\d+)", out).groups())
+    except (OSError, AttributeError):
+        return None
+
+
+def write_plasma_rules(rules, version):
+    """Add Plasma window rules to kwinrulesrc, leaving out any already there
+    (an import run twice). Plasma 6.8 keeps their order in General/Order;
+    before that in General/rules, with a count, and 6.8 still reads that one
+    when it is there, so it is added to whenever it exists. Never the other
+    way round: 6.8 deletes every rule a rules list it finds does not name.
+    Returns how many were added."""
+    import uuid
+    path = config_home() / "kwinrulesrc"
+    existing = read_ini(path)
+    have = {g.get("Description") for name, g in existing.items() if name != "General"}
+    rules = [r for r in rules if r["Description"] not in have]
+    if not rules:
+        return 0
+    general = existing.get("General", {})
+    order = [g for g in general.get("Order", "").split(",") if g]
+    listed = [g for g in general.get("rules", "").split(",") if g]
+    ids = [str(uuid.uuid4()) for _ in rules]
+    for gid, entries in zip(ids, rules):
+        for key, value in entries.items():
+            kwrite(key, value, file="kwinrulesrc", group=gid)
+    new_format = version is not None and version >= (6, 7, 80)
+    if listed or not new_format:
+        kwrite("rules", ",".join(listed + ids), file="kwinrulesrc", group="General")
+        kwrite("count", str(len(listed) + len(ids)), file="kwinrulesrc", group="General")
+    else:
+        kwrite("Order", ",".join(order + ids), file="kwinrulesrc", group="General")
+    return len(ids)
+
+
 def apply(plan, parts):
     if "settings" in parts:
         for key, value in sorted(plan["settings"].items()):
@@ -539,6 +644,9 @@ def apply(plan, parts):
             kwrite_list("WindowRuleList", plan["rules"])
         if plan["workspaces"]:
             kwrite_list("WorkspaceRuleList", plan["workspaces"])
+        if plan["plasma_rules"]:
+            added = write_plasma_rules(plan["plasma_rules"], kwin_version())
+            print("added  %d Plasma window rule%s" % (added, "" if added == 1 else "s"))
     if plan["scratchpads"]:
         kwrite_list("ScratchpadNames", plan["scratchpads"])
     subprocess.run(["qdbus6" if shutil_which("qdbus6") else "qdbus", "org.kde.KWin", "/KWin", "reconfigure"],
@@ -595,6 +703,10 @@ def report(plan, unread, parts):
         print("\nWindow rules (%d):" % len(plan["rules"]))
         for r in plan["rules"]:
             print("    " + r)
+        if plan["plasma_rules"]:
+            print("\nPlasma window rules (%d), in System Settings > Window Rules:" % len(plan["plasma_rules"]))
+            for r in plan["plasma_rules"]:
+                print("    " + r["Description"])
         print("\nWorkspace rules (%d):" % len(plan["workspaces"]))
         for r in plan["workspaces"]:
             print("    " + r)

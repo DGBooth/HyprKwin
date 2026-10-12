@@ -419,6 +419,63 @@ def old_window_rules_move_into_the_settings_list(sb):
     eq(s["config"]["windowRules"].count("Old"), 1, "once")
 
 
+def kwinrules(sb):
+    """kwinrulesrc as {group: {key: value}}."""
+    groups, group = {}, None
+    path = sb.base / "config" / "kwinrulesrc"
+    for line in (path.read_text() if path.exists() else "").splitlines():
+        if line.startswith("[") and line.endswith("]"):
+            group = groups.setdefault(line[1:-1], {})
+        elif "=" in line and group is not None:
+            k, v = line.split("=", 1)
+            group[k] = v
+    return groups
+
+
+@test(config={"WindowRuleList": ["float, title:^Floater$", "fullscreen, title:^Big$",
+                                 "maximize, floating:1, title:^Odd$"]})
+def fullscreen_and_maximize_rules_become_plasma_rules(sb):
+    """Plasma's own window rules open a window full screen or maximized just
+    as well, so those rules move there, once, with a notice. A rule Plasma's
+    cannot express (floating:) stays, and Plasma's own rules are kept, in
+    whichever format this Plasma keeps their order."""
+    new_format = kwin_version() >= (6, 7, 80)
+    (sb.base / "config" / "kwinrulesrc").write_text(
+        "[General]\n" + ("Order=mine\n" if new_format else "count=1\nrules=mine\n")
+        + "\n[mine]\nDescription=Mine\nabove=true\naboverule=3\ntitle=^Above$\ntitlematch=3\ntypes=1\n")
+    if with_panel(sb) is None:
+        raise Skip("needs plasmashell")
+    sb.reload_script()                      # starts again, plasmashell up
+    end = time.time() + 15
+    while time.time() < end and "fullscreen" in read_rules_of(sb):
+        time.sleep(0.3)
+    eq(read_rules_of(sb), r"float\, title:^Floater$,maximize\, floating:1\, title:^Odd$",
+       "the fullscreen rule left HyprKwin's list; the floating: one stayed")
+    rules = kwinrules(sb)
+    # Plasma 6.8 has rules of its own as well (one for Steam), listed first.
+    order = rules["General"].get("Order" if new_format else "rules", "").split(",")
+    eq(order[-2], "mine", "the rule set in Plasma is still there: %r" % (rules["General"],))
+    moved = rules[order[-1]]
+    eq((moved.get("title"), moved.get("titlematch"), moved.get("fullscreen"), moved.get("fullscreenrule")),
+       ("^Big$", "3", "true", "3"), "the moved rule: %r" % (moved,))
+    if not new_format:
+        eq(rules["General"].get("count"), str(len(order)), "with its count")
+    sb.settle(3.0)                          # KWin reads its rules again
+    sb.spawn("A")
+    sb.spawn("Big")
+    sb.wait_for(lambda s: sb.geometry("Big", s) == (0, 0, 1920, 1080), "Big opens full screen")
+    sb.spawn("Above")
+    eq(sb.window("Above")["keepAbove"], True, "Plasma's own rule still applies")
+    notices = sb.state()["notices"]
+    eq(any("Plasma's window rules" in n or "Plasma\u2019s window rules" in n for n in notices), True,
+       "a notice says where it went: %r" % (notices,))
+    # Once only: the next start finds nothing to move.
+    sb.reload_script()
+    sb.settle(4.0)
+    eq(len(kwinrules(sb)["General"].get("Order" if new_format else "rules", "").split(",")), len(order),
+       "nothing moves twice")
+
+
 @test(outputs=2, config={"BorderSize": 4, "WindowRules": "\n".join([
     "monitor 1, title:^Right$", "opacity 0.9 0.6, title:^Dim$", "noborder, title:^Plain$",
 ])})

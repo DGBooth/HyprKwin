@@ -2947,9 +2947,41 @@ function createDriver(env) {
         env.moveRules(items);
     }
 
+    // Fullscreen and maximize rules move to Plasma's own window rules, which
+    // do the same (see plasmaRule in rules.js), once and for good: a line
+    // added to the list later moves at the next start or settings change.
+    // Lines Plasma's rules cannot express (floating:) stay and keep working,
+    // as do all of them without plasmashell, until it is there.
+    var plasmaRulesMoving = false;
+
+    function movePlasmaRules() {
+        if (plasmaRulesMoving || !env.toPlasmaRules) return;
+        var rc = env.readConfig;
+        if (String(rc("WindowRules", "") || "").trim()) return;     // moveLegacyRules goes first
+        var items = ruleText(rc("WindowRuleList", ""), "").split("\n").filter(function (l) { return l.trim(); });
+        var moved = [], keep = [];
+        items.forEach(function (line) {
+            var p = R.plasmaRule(line);
+            if (p && p.entries) moved.push(p.entries);
+            else keep.push(line);
+            if (p && p.why) log("window rule kept:", line, "-", p.why);
+        });
+        if (!moved.length) return;
+        plasmaRulesMoving = true;
+        log("moving", moved.length, "window rules to Plasma's window rules");
+        env.toPlasmaRules(moved, keep, function (done) {
+            plasmaRulesMoving = false;
+            if (!done || stopped) return;
+            notice(moved.length === 1
+                ? "A fullscreen or maximize window rule is now one of Plasma's window rules, which do the same: System Settings › Window Management › Window Rules"
+                : moved.length + " fullscreen and maximize window rules are now Plasma's window rules, which do the same: System Settings › Window Management › Window Rules");
+        });
+    }
+
     function reloadConfig() {
         loadConfig();
         moveLegacyRules();
+        movePlasmaRules();
         reloads++;
         log("configuration reloaded");
         for (var id in tracked) {
@@ -2964,6 +2996,7 @@ function createDriver(env) {
     function start() {
         loadConfig();
         moveLegacyRules();
+        movePlasmaRules();
         // A previous instance (an upgrade, or a crash) can leave its overlay
         // windows behind; they are ownerless, so close them before we draw ours.
         var stale = ws.windows || [];

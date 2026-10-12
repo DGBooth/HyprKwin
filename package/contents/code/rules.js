@@ -106,6 +106,8 @@ function parseRules(text) {
             var key = /class/i.test(m[1]) ? "class" : "title";
             try {
                 rule.match[key] = new RegExp(m[2]);
+                rule.patterns = rule.patterns || {};
+                rule.patterns[key] = m[2];
             } catch (e) {
                 errors.push("line " + (lineNo + 1) + ": bad regex '" + m[2] + "'");
                 ok = false;
@@ -182,6 +184,57 @@ function matchRules(rules, win) {
         }
     }
     return out;
+}
+
+// ---- rules Plasma does itself -----------------------------------------
+//
+// Plasma's own window rules (System Settings > Window Rules) open a window
+// full screen or maximized just as well, so HyprKwin hands those rules over
+// to it rather than keep a second way of doing the same thing.
+
+var PLASMA_ACTIONS = ["fullscreen", "maximize"];
+
+// A Plasma window rule for one of HyprKwin's rule lines: {entries, title},
+// the kwinrulesrc entries and a description, for a line Plasma's rules can
+// take over; {why} for a fullscreen or maximize line they cannot express;
+// null for any other line, which stays HyprKwin's.
+function plasmaRule(line) {
+    var parsed = parseRules(line);
+    if (parsed.rules.length !== 1) return null;
+    var r = parsed.rules[0];
+    if (PLASMA_ACTIONS.indexOf(r.action) < 0) return null;
+    if (r.match.floating !== undefined) {
+        return { why: "Plasma's window rules cannot tell whether HyprKwin tiles a window (floating:)" };
+    }
+    var p = r.patterns;
+    // Regular expressions, matched anywhere in the class or title (as
+    // HyprKwin matches them); normal windows only, which are the ones
+    // HyprKwin's rules apply to.
+    var e = { types: 1 };
+    if (p["class"] !== undefined) {
+        e.wmclass = p["class"];
+        e.wmclassmatch = 3;
+        e.wmclasscomplete = false;
+    }
+    if (p.title !== undefined) {
+        e.title = p.title;
+        e.titlematch = 3;
+    }
+    // Rule type 3 is "Apply initially": the window opens that way and can
+    // still be changed, as HyprKwin's rule did.
+    if (r.action === "fullscreen") {
+        e.fullscreen = true;
+        e.fullscreenrule = 3;
+    } else {
+        e.maximizehoriz = true;
+        e.maximizehorizrule = 3;
+        e.maximizevert = true;
+        e.maximizevertrule = 3;
+    }
+    var what = [p["class"] !== undefined ? p["class"] : null, p.title !== undefined ? "title " + p.title : null]
+        .filter(function (x) { return x; }).join(", ");
+    e.Description = (r.action === "fullscreen" ? "Full screen: " : "Maximized: ") + what + " (from HyprKwin)";
+    return { entries: e, title: e.Description };
 }
 
 // ---- workspace rules ---------------------------------------------------

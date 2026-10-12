@@ -27,7 +27,7 @@ tile, class:^(steam)$, title:^Steam$
 | Action | Does |
 |---|---|
 | `float` / `tile` | never / always tile the window |
-| `pseudo`, `fullscreen`, `maximize`, `pin`, `group` | open it that way |
+| `pseudo`, `pin`, `group` | open it that way (pin: floating, above everything, on every workspace) |
 | `special [name]` | send it to the scratchpad, or to a named one |
 | `workspace special:name` | the same, as `hyprland.conf` writes it |
 | `workspace N [silent]` | open it on workspace N (and stay where you are with `silent`) |
@@ -37,15 +37,21 @@ tile, class:^(steam)$, title:^Steam$
 | `noborder` | no border and no title bar |
 | `focusonactivate [on\|off]` | whether it may pull you to it when it asks for attention |
 
-**Some of these are moving to Plasma's own window rules.** `size`, `move`,
-`center`, `monitor`, `opacity`, `noborder`, `pin` and `focusonactivate` do
-what Plasma's window rules (System Settings › Window Management › Window
-Rules) already do. After 1.0 they will become Plasma window rules:
-importing a `hyprland.conf` will write them there, and rules you already have
-will be moved across for you when you upgrade. HyprKwin's own rules will then
-cover what only a tiler needs: `float`/`tile`, `floating:`, `pseudo`, `group`,
-workspaces and scratchpads. Until then they all keep working as they are, and
-nothing you have set will be lost when they move.
+**What these rules are for.** HyprKwin's rules cover what Plasma's own
+window rules cannot: whether a window is tiled, which workspace or
+scratchpad it opens on, where a floating window goes on its monitor (in
+percentages too, and only once HyprKwin floats it), and exceptions to
+HyprKwin's own settings (its border, its opacity, following a window that
+asks for attention). For anything else — opening full screen or maximized,
+keep above, minimum or maximum size, no focus, and much more — use Plasma's
+own: System Settings › Window Management › Window Rules, or *More Actions ›
+Configure Special Application Settings* in a window's menu (Alt+F3), which
+fills in the app for you.
+
+`fullscreen` and `maximize` were HyprKwin rules until 1.0. They move to
+Plasma's window rules by themselves when HyprKwin starts (with plasmashell
+running), with a message saying so; one with a `floating:` matcher, which
+Plasma's rules cannot express, stays and keeps working.
 
 Match on `class:` (the Wayland app id or X11 class) and `title:`, both
 regular expressions, and on `floating:1` or `floating:0`. Rules are checked
@@ -148,7 +154,11 @@ equivalent for:
 
 - `general`, `decoration`, `dwindle`, `master`, `misc` and `input` settings,
   including `col.active_border` gradients
-- `windowrule` and `windowrulev2` lines (v1's bare regex becomes `class:`)
+- `windowrule` and `windowrulev2` lines (v1's bare regex becomes `class:`).
+  Those Plasma's own window rules do just as well — `fullscreen`,
+  `maximize`, `minsize`, `maxsize` and `nofocus` — become Plasma window
+  rules, in System Settings › Window Rules, rather than HyprKwin ones;
+  running the import twice does not add them twice
 - `workspace = ` rules
 - `bind` lines, for every dispatcher HyprKwin has an action for, including
   named scratchpads, which take the four numbered slots in the order they

@@ -1,7 +1,7 @@
 import { assertEquals } from "./assert.js";
 
 const src = Deno.readTextFileSync(new URL("../package/contents/code/rules.js", import.meta.url));
-const R = new Function(src + "\nreturn { parseRules, matchRules, parseWorkspaceRules, DEFAULT_RULES };")();
+const R = new Function(src + "\nreturn { parseRules, matchRules, parseWorkspaceRules, plasmaRule, DEFAULT_RULES };")();
 
 Deno.test("parses hyprland windowrule lines", () => {
     const { rules, errors } = R.parseRules(`
@@ -116,4 +116,22 @@ Deno.test("a workspace rule's number is a whole number", () => {
     const { rules, errors } = R.parseWorkspaceRules("3abc, layout:master");
     assertEquals(Object.keys(rules), []);
     assertEquals(errors.length, 1);
+});
+
+Deno.test("fullscreen and maximize rules become Plasma window rules", () => {
+    const full = R.plasmaRule("fullscreen, class:^(steam_app_.*)$");
+    assertEquals(full.entries, {
+        types: 1, wmclass: "^(steam_app_.*)$", wmclassmatch: 3, wmclasscomplete: false,
+        fullscreen: true, fullscreenrule: 3, Description: "Full screen: ^(steam_app_.*)$ (from HyprKwin)",
+    });
+    const max = R.plasmaRule("windowrule = maximize, class:^(gimp)$, title:^GNU Image");
+    assertEquals([max.entries.maximizehoriz, max.entries.maximizehorizrule, max.entries.maximizevert,
+                  max.entries.maximizevertrule, max.entries.title, max.entries.titlematch],
+                 [true, 3, true, 3, "^GNU Image", 3], "maximize, matching the title too");
+    assertEquals(typeof R.plasmaRule("maximize, floating:1, class:^(x)$").why, "string", "floating: stays");
+    assertEquals(R.plasmaRule("float, class:^(steam)$"), null, "other rules stay HyprKwin's");
+    assertEquals(R.plasmaRule("size 800 600, class:^(x)$"), null);
+    assertEquals(R.plasmaRule("fullscreen, colour:red"), null, "a broken line is left alone");
+    // The pattern goes over as written, slashes and all.
+    assertEquals(R.plasmaRule("fullscreen, title:^a/b$").entries.title, "^a/b$");
 });

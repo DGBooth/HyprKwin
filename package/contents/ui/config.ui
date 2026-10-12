@@ -459,8 +459,8 @@
         <widget class="QLabel" name="rulesHelp">
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
-         <property name="text"><string>&lt;p&gt;Rules decide how windows open, each an action, then what to match, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;size 800 600, floating:1, class:^(pavucontrol)$&lt;/tt&gt;. The first rule that matches wins, so order matters.&lt;/p&gt;
-&lt;p&gt;&lt;b&gt;Actions:&lt;/b&gt; float · tile · pseudo · fullscreen · maximize · pin · group · special [name] · workspace N [silent] · workspace special:name · size W H · move X Y · center · monitor N|name · opacity A [I] · noborder · focusonactivate [on|off]&lt;br/&gt;
+         <property name="text"><string>&lt;p&gt;Rules for what Plasma's own window rules cannot do: whether a window is tiled, which workspace or scratchpad it opens on, where a floating window goes, and exceptions to HyprKwin's own settings. For anything else — full screen, maximized, keep above, minimum size… — use System Settings › Window Management › Window Rules; full screen and maximize rules put here move there by themselves.&lt;/p&gt; &lt;p&gt;Each rule is an action, then what to match, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;size 800 600, floating:1, class:^(pavucontrol)$&lt;/tt&gt;. The first rule that matches wins, so order matters.&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Actions:&lt;/b&gt; float · tile · pseudo · pin · group · special [name] · workspace N [silent] · workspace special:name · size W H · move X Y · center · monitor N|name · opacity A [I] · noborder · focusonactivate [on|off]&lt;br/&gt;
 &lt;b&gt;Match on:&lt;/b&gt; class:… and title:… (regular expressions), floating:1 or floating:0&lt;br/&gt;
 Sizes and positions are pixels or a percentage of the monitor; monitors count from 0, or use a name such as DP-2.&lt;/p&gt;
 &lt;p&gt;Rules are checked inside KWin itself whenever a window opens, so keep the patterns simple: a pathological one (nested repeats such as &lt;tt&gt;(a+)+&lt;/tt&gt;) can stall the whole desktop.&lt;/p&gt;

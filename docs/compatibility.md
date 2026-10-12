@@ -44,7 +44,9 @@ animations:
 
 **Rule syntax.** The window rules, workspace rules and submaps written in
 the settings page. Existing rules keep
-working; new actions and matchers may be added.
+working; new actions and matchers may be added. (The one change, in 1.0:
+`fullscreen` and `maximize` window rules became Plasma window rules, moved
+across on their own.)
 
 **`hyprkwinctl`.** These commands are stable:
 

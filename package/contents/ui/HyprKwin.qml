@@ -282,6 +282,57 @@ Item {
         call.failed.connect(() => call.destroy());
         call.call();
     }
+    // Window rules that become Plasma's own (kwinrulesrc), written through
+    // plasmashell together with what is left of HyprKwin's list. Plasma 6.8
+    // keeps the rules' order in General/Order; before that, in General/rules
+    // (with a count), and 6.8 still reads that one when it is there, so it is
+    // added to whenever it exists. Never the other way round: 6.8 deletes
+    // every rule a rules list it finds does not name.
+    function toPlasmaRules(rules, keep, callback) {
+        kwinVersion(version => {
+            if (!version) { callback(false); return; }
+            const newFormat = version[0] > 6 || version[0] === 6 && (version[1] > 7 || version[1] === 7 && version[2] >= 80);
+            const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.plasmashell"; '
+                + 'path: "/PlasmaShell"; dbusInterface: "org.kde.PlasmaShell"; method: "evaluateScript" }', root);
+            call.arguments = ['(function () {'
+                + ' const rules = ' + JSON.stringify(rules) + ', keep = ' + JSON.stringify(keep) + ';'
+                + ' const g = ConfigFile("kwinrulesrc", "General");'
+                + ' const split = v => String(v || "").split(",").map(x => x.trim()).filter(x => x);'
+                + ' const order = split(g.readEntry("Order")), list = split(g.readEntry("rules"));'
+                + ' const hex = n => { let h = ""; while (h.length < n) h += Math.floor(Math.random() * 16).toString(16); return h; };'
+                + ' const ids = rules.map(() => [hex(8), hex(4), "4" + hex(3), hex(4), hex(12)].join("-"));'
+                + ' ids.forEach((id, i) => { const c = ConfigFile("kwinrulesrc", id);'
+                + '   Object.keys(rules[i]).forEach(k => c.writeEntry(k, rules[i][k])); });'
+                + ' if (list.length || !' + newFormat + ') { const all = list.concat(ids);'
+                + '   g.writeEntry("rules", all); g.writeEntry("count", all.length); }'
+                + ' else g.writeEntry("Order", order.concat(ids));'
+                + ' ConfigFile("kwinrc", "Script-hyprkwin").writeEntry("WindowRuleList", keep);'
+                + ' print("moved"); })()'];
+            call.finished.connect(ret => {
+                call.destroy();
+                const done = String(ret && ret.length ? ret[0] : "").trim() === "moved";
+                if (done) rulesMovedTimer.start();     // KWin reads its rules again on reconfigure
+                callback(done);
+            });
+            call.failed.connect(() => { call.destroy(); callback(false); });
+            call.call();
+        });
+    }
+    // [major, minor, patch] of the KWin this runs in, or null.
+    property var kwinVersionCache: null
+    function kwinVersion(callback) {
+        if (kwinVersionCache) { callback(kwinVersionCache); return; }
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.KWin"; '
+            + 'path: "/KWin"; dbusInterface: "org.kde.KWin"; method: "supportInformation" }', root);
+        call.finished.connect(ret => {
+            call.destroy();
+            const m = /KWin version: (\d+)\.(\d+)\.(\d+)/.exec(String(ret && ret.length ? ret[0] : ""));
+            kwinVersionCache = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+            callback(kwinVersionCache);
+        });
+        call.failed.connect(() => { call.destroy(); callback(null); });
+        call.call();
+    }
     // plasmashell writes its changes 1.5s later.
     Timer {
         id: rulesMovedTimer
@@ -734,6 +785,7 @@ Item {
             shortcutInfos: (callback) => root.shortcutInfos(callback),
             digitTable: DigitRow.DIGIT_ROW,
             moveRules: (items) => root.moveRules(items),
+            toPlasmaRules: (rules, keep, callback) => root.toPlasmaRules(rules, keep, callback),
             notices: {
                 get: (key, callback) => root.noticeGet(key, callback),
                 set: (key, value) => root.noticeSet(key, value),
