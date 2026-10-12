@@ -87,12 +87,18 @@ text = open(path).read()
 text = re.sub(r"\]\((?!https?:|#|mailto:)([^)\s]+)\)", lambda m: "](" + base + m.group(1) + ")", text)
 open(path, "w").write(text)
 EOF
-gh release create "v$VERSION" --title "HyprKwin $VERSION" --notes-file "$DIST/notes.md" \
+# A version with a suffix (1.0.0-rc1) is a pre-release: on GitHub only, not
+# shown as the latest release, and not for the KDE Store.
+PRE=()
+[[ $VERSION == *-* ]] && PRE=(--prerelease)
+gh release create "v$VERSION" "${PRE[@]}" --title "HyprKwin $VERSION" --notes-file "$DIST/notes.md" \
     "$DIST/hyprkwin-$VERSION.kwinscript" "$DIST/hyprkwinanimations-$EFFECT_VERSION.kwineffect"
 
 tools/install.sh >/dev/null
 echo "Released $VERSION (animations $EFFECT_VERSION): $(gh release view "v$VERSION" --json url --jq .url)"
-if [ -n "$EFFECT_CHANGES" ]; then
+if [ ${#PRE[@]} -gt 0 ]; then
+    echo "A pre-release: GitHub only, nothing for the KDE Store."
+elif [ -n "$EFFECT_CHANGES" ]; then
     echo "KDE Store: upload both files."
 else
     echo "KDE Store: upload the script only; the animations are unchanged."
