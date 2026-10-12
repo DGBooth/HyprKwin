@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Fixed
+
+- **A script error loop with two monitors** (in every release since at least
+  0.12, emulated per-monitor workspaces): a window sent back to its monitor
+  just after the split beside it was nudged took the focus while still on its
+  way; the current desktop followed it, KWin focused a window on that
+  desktop, the desktop followed that one back, and so on until HyprKwin ran
+  out of stack ("Maximum call stack size exceeded" in the log). A focus
+  change HyprKwin's own desktop switch caused no longer moves the desktop
+  again. Found by the new soak test (`tests/e2e/soak.py`), which runs hours
+  of everyday use on two monitors and watches for errors, leaks and slowdown.
+
 - **Upgrades are rehearsed:** the tests install 0.10, 0.12 and 0.15 from
   their release tags, with lived-in settings (an old-style rule, a submap, a
   workspace rule, colours and gaps, a key of your own, a saved layout),

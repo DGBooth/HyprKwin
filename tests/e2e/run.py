@@ -994,6 +994,32 @@ def layouts_survive_a_new_session(sb):
     eq(json.loads(store.read_text())["spaces"][space]["layout"], "master", "and starting up did not overwrite it")
 
 
+@test(outputs=2)
+def focus_following_a_window_back_does_not_loop(sb):
+    """Found by the soak test: a window sent back to its monitor just after
+    the split next to it was nudged took the focus while still on its way,
+    the current desktop followed it, KWin focused a window on that desktop,
+    the desktop followed that one back, and so on until the script ran out
+    of stack - in every release since at least 0.12. The emulated per-monitor
+    workspaces only: natively KWin keeps each screen's desktop itself."""
+    if sb.native_desktops:
+        raise Skip("the loop was in the emulated per-monitor workspaces")
+    sb.spawn("L0")
+    sb.spawn("L1")
+    sb.invoke("windowToMonitorRight")
+    sb.invoke("focusRight")
+    sb.spawn("R0")
+    sb.invoke("resizeRight")
+    sb.invoke("focusLeft")
+    sb.invoke("windowToMonitorLeft")
+    sb.settle(1)
+    s = sb.state()
+    eq(active_caption(sb, s), "L1", "L1 has the focus")
+    eq(sb.window("L1", s)["output"], sb.window("L0", s)["output"], "back beside L0")
+    eq(sb.window("R0", s)["output"] != sb.window("L0", s)["output"], True, "R0 stays on the other monitor")
+    # The test runner fails it on the script error ("Maximum call stack size exceeded") too.
+
+
 @test
 def many_windows_stay_quick(sb):
     """Forty windows on one workspace: laying them out and drawing their

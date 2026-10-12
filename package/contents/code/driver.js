@@ -3044,8 +3044,12 @@ function createDriver(env) {
                 var space = engine.spaceOf(st.id);
                 if (space && engine.layoutOf(space) === "scrolling") schedule();
                 // The focused monitor is the one Plasma's current desktop
-                // follows, so focus crossing monitors brings it along.
-                if (perOutput() && !native() && w.output && !st.special && !st.pinned) {
+                // follows, so focus crossing monitors brings it along. Not
+                // for a focus change our own switch made: KWin focuses a
+                // window on the desktop it has just switched to, which may
+                // belong to another (one still on its way to its monitor),
+                // and following that back and forth never ends.
+                if (perOutput() && !native() && !syncing && w.output && !st.special && !st.pinned) {
                     // Its own workspace, not the output's: a window that has
                     // just been moved may not have landed yet.
                     var d = desktopById(st.desktop) || desktopFor(w.output);
@@ -3185,6 +3189,9 @@ function createDriver(env) {
                 keysGuide: keysOpen ? keysShown : null,
                 notices: noticesShown.slice(),
                 timing: JSON.parse(JSON.stringify(timing)),
+                // HyprKwin's own windows that KWin has: borders, tab bars,
+                // icon tiles, messages. The soak test watches for a leak.
+                overlayWindows: (ws.windows || []).filter(isOverlay).length,
                 iconTiles: lastIconTiles,
                 zoomEscape: zoomKeysOn,
             };
