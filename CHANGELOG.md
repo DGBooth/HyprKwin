@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **Rules from the window menu.** Alt+F3 on a window (or right-click its
+  title bar) › Extensions › HyprKwin › *Always float*, *Always tile* or
+  *Always open in the scratchpad*: the rule for that app goes into the
+  settings page's list, replacing an earlier one of those for it, and the
+  window follows it at once. KWin only lets JavaScript scripts add to that
+  menu, so HyprKwin starts a small one (`code/menu.js`) alongside itself. The
+  three are shortcuts too, unbound.
+
 ### Changed
 
 - **Window rules are for what Plasma's own cannot do.** `fullscreen` and

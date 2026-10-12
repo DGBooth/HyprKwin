@@ -63,6 +63,14 @@ Dialogs, transient windows, fixed-size windows and Plasma's own system
 windows (polkit prompts, KRunner, Spectacle, the file-chooser portal, …)
 float anyway.
 
+**From the window menu.** The quickest way to make the commonest rules:
+press Alt+F3 on a window (or right-click its title bar) and pick
+*Extensions › HyprKwin › Always float …*, *Always tile …* or *Always open …
+in the scratchpad*. The rule for that app goes into the list above, in place
+of an earlier float, tile or scratchpad rule for it, and the window follows
+it straight away. The same three are shortcuts too, unbound, in System
+Settings › Keyboard › Shortcuts › KWin ("HyprKwin: Always float this app").
+
 **Finding an app's class:** in System Settings › Window Management › Window
 Rules, add a rule and use *Detect Window Properties*, then click the window.
 From a terminal, the helper lists your open windows and writes the rule for

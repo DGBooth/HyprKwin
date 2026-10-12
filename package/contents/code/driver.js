@@ -2403,6 +2403,28 @@ function createDriver(env) {
         relayout();
     }
 
+    // "Always float this app" and the like, from the window menu (or a key):
+    // a rule for the focused window's app, added to the settings page's list
+    // in place of an earlier float, tile or scratchpad rule for that app, and
+    // applied to the window straight away.
+    function appRule(action) {
+        var st = active();
+        if (!st || !env.moveRules) return;
+        var cls = String(st.w.resourceClass || "");
+        if (!cls) return;
+        var match = "class:^(" + cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")$";
+        var items = ruleText(env.readConfig("WindowRuleList", ""), "").split("\n").filter(function (l) {
+            var parts = l.split(",");
+            return l.trim() && !(parts.length === 2 && parts[1].trim() === match
+                                 && /^(float|tile|special)\b/.test(parts[0].trim()));
+        });
+        items.push(action + ", " + match);
+        log("window menu:", items[items.length - 1]);
+        env.moveRules(items);
+        if ((action === "float") === isTiled(st) && action !== "special") toggleFloating();
+        if (action === "special" && !st.special) toggleActiveSpecial("special");
+    }
+
     function togglePseudo() {
         var st = active();
         if (!st || !isTiled(st)) return;
@@ -2781,6 +2803,9 @@ function createDriver(env) {
         },
         swapSplit: function () { var st = active(); if (st && engine.swapSplit(st.id)) relayout(); },
         toggleFloating: toggleFloating,
+        ruleFloatApp: function () { appRule("float"); },
+        ruleTileApp: function () { appRule("tile"); },
+        ruleScratchpadApp: function () { appRule("special"); },
         pseudo: togglePseudo,
         fullscreen: function () { var w = ws.activeWindow; if (w) w.fullScreen = !w.fullScreen; },
         maximize: function () { var w = ws.activeWindow; if (w) w.setMaximize(!isMaximized(w), !isMaximized(w)); },

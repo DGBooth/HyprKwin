@@ -219,7 +219,7 @@ table below shows the US keys.
 | `Meta+Alt+Tab` / `Meta+Alt+Shift+Tab` | Next / previous window in group |
 | `Meta+Ctrl+Left` / `Right` | Previous / next window in group |
 | `Meta+Alt+1…5` | Switch to group window 1–5 |
-| unbound | Pick a layout directly, previous layout, move the master area back, focus next/previous window in the layout, swap the two sides of the split, move window in direction, reload & retile |
+| unbound | Pick a layout directly, previous layout, move the master area back, focus next/previous window in the layout, swap the two sides of the split, move window in direction, always float / tile / open in the scratchpad this app (a rule, as from the window menu), reload & retile |
 
 Mouse: hold Meta and drag with the left button to move a window (drop it on
 another tile to re-tile there, or on another monitor), or with the right

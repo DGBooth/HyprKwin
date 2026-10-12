@@ -3517,6 +3517,34 @@ def kwin_version():
         return (0,)
 
 
+@test
+def the_window_menu_can_float_an_app(sb):
+    """HyprKwin's entries in the window menu (Alt+F3 > Extensions >
+    HyprKwin, added by the small script code/menu.js): "Always float" floats
+    the window, as a rule for its app."""
+    eq(sb._qdbus("org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.isScriptLoaded", "hyprkwin-menu",
+                 check=False).strip(), "true", "the menu script is running")
+    sb.spawn("A"); sb.spawn("B")
+    inp = sb.input()
+
+    def popups():
+        got = sb.kwin_js("JSON.stringify(Workspace.stackingOrder.filter(w => w.popupWindow).map(w => "
+                         "[w.frameGeometry.x, w.frameGeometry.y, w.frameGeometry.width, w.frameGeometry.height]))")
+        return json.loads(got)
+    sb.invoke("Window Operations Menu", raw=True, settle=False)
+    time.sleep(1.0)
+    menu = popups()[-1]
+    # Extensions is the row above Close, the last one.
+    row = (menu[3] - 16) / 6
+    inp.move_to(menu[0] + 90, menu[1] + menu[3] - 8 - row * 1.5); time.sleep(1.0)
+    sub = popups()[-1]
+    inp.move_to(sub[0] + 30, sub[1] + sub[3] / 2); time.sleep(1.0)
+    items = popups()[-1]
+    inp.move_to(items[0] + 60, items[1] + 17); time.sleep(0.5)
+    inp.click(items[0] + 60, items[1] + 17); time.sleep(2)
+    eq(sb.window("B")["tiled"], False, "B floats after Always float")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]

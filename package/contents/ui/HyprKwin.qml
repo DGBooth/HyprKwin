@@ -833,6 +833,7 @@ Item {
             },
         });
         driver.start();
+        startMenu();
         keysTimer.start();
     }
 
@@ -849,8 +850,26 @@ Item {
         for (const icon of spareIconTiles) icon.hide();
     }
 
+    // The window menu's HyprKwin entries come from a small JavaScript script
+    // (code/menu.js): KWin only lets those add to the menu. Started afresh
+    // each time HyprKwin starts, so an upgrade brings its new entries too.
+    function scriptingCall(method, args, then) {
+        const call = Qt.createQmlObject('import org.kde.kwin; DBusCall { service: "org.kde.KWin"; '
+            + 'path: "/Scripting"; dbusInterface: "org.kde.kwin.Scripting"; method: "' + method + '" }', root);
+        call.arguments = args;
+        call.finished.connect(() => { call.destroy(); if (then && !root.shuttingDown) then(); });
+        call.failed.connect(() => { console.warn("HyprKwin: " + method + " failed"); call.destroy(); });
+        call.call();
+    }
+    function startMenu() {
+        const path = decodeURIComponent(Qt.resolvedUrl("../code/menu.js").toString().replace(/^file:\/\//, ""));
+        scriptingCall("unloadScript", ["hyprkwin-menu"], () =>
+            scriptingCall("loadScript", [path, "hyprkwin-menu"], () => scriptingCall("start", [])));
+    }
+
     Component.onDestruction: {
         shuttingDown = true;
+        scriptingCall("unloadScript", ["hyprkwin-menu"]);
         layoutTimer.stop();
         laterTimer.stop();
         decorationTimer.stop();

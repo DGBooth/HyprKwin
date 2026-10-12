@@ -75,6 +75,8 @@ The way there:
      settings, which Plasma's rules cannot express.
    - User-facing text that says what things do in Plasma's terms, rather than
      by comparison with Hyprland.
+   - Rules from the window menu: Alt+F3 › Extensions › HyprKwin › Always
+     float / tile / open in the scratchpad.
 4. **1.0.**
 
 Not part of 1.0: separate workspaces for each activity, more layouts,
@@ -82,19 +84,16 @@ translations.
 
 ## Next
 
-- **Rules from the window menu** (1.1). Alt+F3 › Extensions › HyprKwin ›
-  "Always float *app*", "Always tile *app*", "Always open *app* in the
-  scratchpad": a click writes the rule for that app into the settings page's
-  list and applies it at once. Proven by a spike (branch
-  `spike/window-menu`) on Plasma 6.6, 6.7 and 6.8. KWin only lets JavaScript
-  scripts add to the window menu, so a small one (`code/menu.js`) is started
-  by HyprKwin; the click runs a new HyprKwin action (also bindable as a
-  shortcut), and HyprKwin writes the rule itself. Still to do:
+- **More from the window menu.** Alt+F3 › Extensions › HyprKwin › Always
+  float / tile / open in the scratchpad came in 1.0. KWin only lets
+  JavaScript scripts add to the window menu, so a small one (`code/menu.js`)
+  is started by HyprKwin; a click runs a HyprKwin action, which writes the
+  rule. Still to do:
   - Entries straight under Extensions ("HyprKwin: Always float …") rather
     than a submenu of their own.
   - The app's name rather than its class (`org.kde.dolphin`).
   - More entries: open on workspace 1–10, no border.
-  - A proper test, and checking the menu's style matches on a real desktop.
+  - Checking the menu's style matches on a real desktop.
   - Upstream: KWin has a TODO to let QML scripts add window-menu entries
     themselves; with that, the helper script goes. Worth raising with KWin's
     developers, along with a rules-panel hook for tiling scripts.

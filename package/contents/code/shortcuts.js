@@ -17,6 +17,9 @@ function shortcutList() {
         ["fullscreen", "Full screen", "Meta+F"],
         ["maximize", "Full width (maximize)", "Meta+Alt+F"],
         ["pin", "Pop window out (float & pin)", "Meta+O"],
+        ["ruleFloatApp", "Always float this app", ""],
+        ["ruleTileApp", "Always tile this app", ""],
+        ["ruleScratchpadApp", "Always open this app in the scratchpad", ""],
 
         ["Focus and moving"],
         ["focusLeft", "Focus window left", "Meta+Left"],
