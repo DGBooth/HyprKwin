@@ -26,23 +26,28 @@ without a terminal.
 
 ## HyprKwin
 
-**Summary:** Hyprland-style tiling for KDE Plasma 6
+**Summary:** Automatic, keyboard-driven tiling for Plasma 6
 
-Tiling the way Hyprland does it, inside Plasma: Hyprland's layouts, keys and
-rules, with Plasma's panels, settings and apps still there.
+Windows arrange themselves as they open, with no dragging or snapping,
+and you move between them from the keyboard. Your panels, widgets,
+Overview, KRunner and System Settings all stay as they are.
 
-**Layouts** — dwindle (with Hyprland's split rules), master (including the
-centred three-column layout), monocle and a scrolling strip, chosen per
-workspace and kept between sessions. Zoom into any part of the dwindle layout
-with Meta+Z.
+**Four layouts**, chosen per workspace and kept between sessions: dwindle
+(each new window halves the focused one), master (one big window beside a
+stack, or in the middle with columns either side), monocle (one window at a
+time) and scrolling (a strip of columns you move along). Meta+Z zooms into
+any part of the dwindle layout.
 
-**Workspaces per monitor**, as in Hyprland — or Plasma 6.7's own per-screen
-desktops, if you have them on.
+**Workspaces per monitor**: switching workspace changes only the monitor
+you are on, and each monitor keeps its own. On Plasma 6.7 and later this is
+Plasma's own per-screen desktops.
 
-**Hyprland's keys**, window rules and workspace rules in Hyprland's syntax,
-named scratchpads, tabbed groups, submaps, focus-on-activate, a focus border
-with gradients and rounding, and per-window opacity. `hyprland.conf` can be
-imported. Meta+K shows every shortcut on the key it actually has.
+**And more:** tabbed groups, scratchpads that slide over any workspace,
+window and workspace rules, modes for keys (a resize mode, for example), a
+focus border with gradients and rounded corners, and opacity for unfocused
+windows. Meta+K shows every shortcut on the key it actually has. Coming from
+Hyprland? The default keys are Hyprland's, and your `hyprland.conf` can be
+imported.
 
 **Set up in System Settings**: everything is in the script's settings page.
 
@@ -52,8 +57,7 @@ tells you which, and its settings page (Behaviour tab) has a one-line command
 to hand them over — undoably. Install "HyprKwin animations" too for windows
 that slide into place.
 
-Requires Plasma 6.6 or later on Wayland (Plasma 6.7's per-screen desktops
-are used when they are on). Source, issues and the full manual:
+Requires Plasma 6.6, 6.7 or 6.8 on Wayland. Source, issues and the full manual:
 <https://github.com/DGBooth/HyprKwin>
 
 ---

@@ -54,8 +54,8 @@ back up your shortcuts first.
    them all back. It then installs the script and the animations effect into
    `~/.local/share/kwin/`, enables both and starts the script.
 
-2. **Give HyprKwin its keys.** Plasma already uses several of the
-   Hyprland-style keys (Meta+Left, Meta+1…, Meta+Tab, …), and the first
+2. **Give HyprKwin its keys.** Plasma already uses several of
+   HyprKwin's keys (Meta+Left, Meta+1…, Meta+Tab, …), and the first
    action to claim a key keeps it:
 
    ```bash
@@ -103,7 +103,7 @@ once if it finds the effect missing or turned off (a switch on its settings
 page turns that off). Its settings
 (duration, curve, what to animate) are behind the effect's configure button:
 
-| Setting | Hyprland equivalent | Default |
+| Setting | In `hyprland.conf` | Default |
 |---|---|---|
 | Duration | `animation = windows, 1, 4, …` | 200 ms |
 | Curve | `bezier` | ease out (cubic) |
@@ -141,7 +141,7 @@ animation entirely. Window open and close animations stay Plasma's own
 ### Keybindings and Plasma conflicts
 
 KDE's shortcut daemon gives a key to whichever action claimed it first, so
-HyprKwin's Hyprland-style keys only work once conflicting Plasma shortcuts
+HyprKwin's keys only work once conflicting Plasma shortcuts
 (Meta+Left quick tiling, Meta+1 task manager entries, Meta+Tab, Meta+T tile
 editor, zoom on Meta+= / Meta+-, …) let go of them:
 
@@ -170,7 +170,8 @@ Your own shortcuts are safe either way: before changing anything,
 `kglobalshortcutsrc` next to it), and uninstalling puts them all back. The
 snapshot is never overwritten by a later install or upgrade.
 
-Defaults follow Omarchy's Hyprland bindings (Meta = SUPER). Plasma stores a
+The default keys are the ones Hyprland uses (as Omarchy sets it up), with
+SUPER as Meta. Plasma stores a
 shortcut by the character a key types, so the workspace keys (Meta, or
 Meta+Shift, with the digit row) are given the characters of the keyboard
 layout you use: Meta+Shift+3 is `Meta+#` on a US layout, `Meta+£` on a UK
@@ -185,13 +186,13 @@ table below shows the US keys.
 |---|---|
 | `Meta+K` | Show every HyprKwin shortcut, on the keys they have now |
 | `Meta+Q` | Close window |
-| `Meta+J` | Toggle window split (dwindle) |
+| `Meta+J` | Turn the split the other way (dwindle) |
 | `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling) |
 | `Meta+Z` / `Meta+Shift+Z` | Zoom in towards the focused window / back out (dwindle) |
 | `Meta+M` / `Meta+Shift+M` | Swap window with the master / focus the master |
 | `Meta+>` / `Meta+<` | One more / one fewer master window |
 | `Meta+Alt+M` | Move the master area round |
-| `Meta+P` | Pseudotile window |
+| `Meta+P` | Keep window at its own size in its tile |
 | `Meta+T` | Toggle window floating/tiling |
 | `Meta+F` | Full screen |
 | `Meta+Alt+F` | Full width (maximize) |
@@ -203,9 +204,9 @@ table below shows the US keys.
 | `Meta+Alt+…` / `Meta+Ctrl+…` with the above | Move it a little / a lot |
 | `Meta+1…0` | Switch to workspace 1–10 |
 | `Meta+Shift+1…0` (`Meta+!` … `Meta+)`) | Move window to workspace 1–10 and follow |
-| `Meta+Shift+Alt+1…0` | Move window to workspace 1–10 silently |
+| `Meta+Shift+Alt+1…0` | Send window to workspace 1–10 (stay here) |
 | `Meta+Tab` / `Meta+Shift+Tab` | Next / previous workspace |
-| `Meta+Ctrl+Tab` | Former workspace |
+| `Meta+Ctrl+Tab` | Back to the workspace you were on |
 | `Meta+S` | Toggle scratchpad |
 | `Meta+Alt+S` | Move window to / from scratchpad |
 | unbound | Toggle named scratchpad 1–4, and move a window to / from it |
@@ -218,7 +219,7 @@ table below shows the US keys.
 | `Meta+Alt+Tab` / `Meta+Alt+Shift+Tab` | Next / previous window in group |
 | `Meta+Ctrl+Left` / `Right` | Previous / next window in group |
 | `Meta+Alt+1…5` | Switch to group window 1–5 |
-| unbound | Pick a layout directly, previous layout, move the master area back, focus next/previous window in the layout, swap split halves, move window in direction (Hyprland `movewindow`), reload & retile |
+| unbound | Pick a layout directly, previous layout, move the master area back, focus next/previous window in the layout, swap the two sides of the split, move window in direction, reload & retile |
 
 Mouse: hold Meta and drag with the left button to move a window (drop it on
 another tile to re-tile there, or on another monitor), or with the right

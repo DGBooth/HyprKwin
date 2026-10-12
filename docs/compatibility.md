@@ -43,7 +43,7 @@ animations:
   them on different keyboard layouts.
 
 **Rule syntax.** The window rules, workspace rules and submaps written in
-the settings page, in the `hyprland.conf` style. Existing rules keep
+the settings page. Existing rules keep
 working; new actions and matchers may be added.
 
 **`hyprkwinctl`.** These commands are stable:

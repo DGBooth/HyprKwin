@@ -1,6 +1,6 @@
 # Rules and scripting
 
-Window rules, workspace rules and submaps, written as in `hyprland.conf`; `hyprkwinctl` for scripts and status bars; and importing an existing `hyprland.conf`.
+Window rules, workspace rules and submaps (key modes); `hyprkwinctl` for scripts and status bars; and importing a `hyprland.conf` if you are coming from Hyprland.
 
 ### Window rules
 
@@ -10,8 +10,9 @@ a list you can add to, edit, remove from and reorder, with a reference of
 every action and matcher beside it. Press Apply and they take effect for
 windows opened from then on.
 
-Rules use Hyprland's syntax (a leading `windowrule =` is accepted, so lines
-can be pasted from `hyprland.conf`): an action, then what to match.
+Each rule is an action, then what to match. This is Hyprland's rule syntax,
+so lines can be pasted from a `hyprland.conf` (a leading `windowrule =` is
+accepted).
 
 ```
 float, class:^(org\.kde\.kcalc)$
@@ -28,10 +29,10 @@ tile, class:^(steam)$, title:^Steam$
 | `float` / `tile` | never / always tile the window |
 | `pseudo`, `fullscreen`, `maximize`, `pin`, `group` | open it that way |
 | `special [name]` | send it to the scratchpad, or to a named one |
-| `workspace special:name` | the same, in Hyprland's own spelling |
+| `workspace special:name` | the same, as `hyprland.conf` writes it |
 | `workspace N [silent]` | open it on workspace N (and stay where you are with `silent`) |
 | `size W H`, `move X Y`, `center` | place a floating window; pixels or a percentage of the monitor |
-| `monitor N` or `monitor DP-2` | open it on that monitor (counting from 0, as in Hyprland) |
+| `monitor N` or `monitor DP-2` | open it on that monitor (counting from 0) |
 | `opacity A [I]` | opacity while focused (and while not) |
 | `noborder` | no border and no title bar |
 | `focusonactivate [on\|off]` | whether it may pull you to it when it asks for attention |
@@ -71,8 +72,8 @@ tools/hyprkwin-rules.py remove 2    # drop one
 
 ### Workspace rules
 
-Rules for the workspaces themselves, in Hyprland's own syntax, set in the
-settings page's **Workspace rules** tab:
+Rules for the workspaces themselves, one per line, set in the settings
+page's **Workspace rules** tab:
 
 ```
 workspace = 3, monitor:DP-2, default:true
@@ -94,7 +95,7 @@ rule with something wrong with it is reported rather than guessed at.
 
 A submap is a mode: one key puts the keyboard into it, plain keys then do
 something until Escape, and outside it those keys belong to your applications
-again — Hyprland's `submap`. Set them in the settings page's **Submaps** tab,
+again. Set them in the settings page's **Submaps** tab,
 one per line: the name, the key that enters it, then each key and what it
 does.
 

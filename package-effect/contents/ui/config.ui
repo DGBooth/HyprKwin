@@ -15,7 +15,7 @@
      <property name="minimum"><number>0</number></property>
      <property name="maximum"><number>2000</number></property>
      <property name="singleStep"><number>10</number></property>
-     <property name="toolTip"><string>Hyprland's animations:windows duration, in milliseconds. Plasma's global animation speed is applied on top of this.</string></property>
+     <property name="toolTip"><string>How long a window takes to reach its new tile, in milliseconds. Plasma's global animation speed is applied on top of this.</string></property>
     </widget>
    </item>
    <item row="1" column="0">
@@ -49,7 +49,7 @@
    <item row="5" column="1">
     <widget class="QCheckBox" name="kcfg_CrossFade">
      <property name="text"><string>Fade a window's old contents into its new ones when it resizes</string></property>
-     <property name="toolTip"><string>Without it, a window's picture is stretched while it grows, which is what Hyprland does. Fading makes KWin draw the window into an offscreen buffer, so it is limited to a couple of windows at a time and never used for borders; turn it off entirely if your graphics driver is unhappy with it.</string></property>
+     <property name="toolTip"><string>Without it, a window's picture is stretched while it grows. Fading makes KWin draw the window into an offscreen buffer, so it is limited to a couple of windows at a time and never used for borders; turn it off entirely if your graphics driver is unhappy with it.</string></property>
     </widget>
    </item>
    <item row="6" column="0">
@@ -57,7 +57,7 @@
    </item>
    <item row="6" column="1">
     <widget class="QComboBox" name="kcfg_OpenCloseEffect">
-     <property name="toolTip"><string>Hyprland's animations:windowsIn/windowsOut. These are Plasma's own effects; picking one here turns the others off, and "Leave to Plasma" keeps whatever you set in Desktop Effects.</string></property>
+     <property name="toolTip"><string>How windows appear when they open and disappear when they close. These are Plasma's own effects; picking one here turns the others off, and "Leave to Plasma" keeps whatever you set in Desktop Effects.</string></property>
      <item><property name="text"><string>Leave to Plasma</string></property></item>
      <item><property name="text"><string>Scale</string></property></item>
      <item><property name="text"><string>Fade</string></property></item>

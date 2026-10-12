@@ -8,7 +8,7 @@ How HyprKwin is built and tested.
 package/
   metadata.json                KWin script metadata (declarative script)
   contents/code/engine.js      pure dwindle tree: layout, gaps, splits, groups, resize, directions
-  contents/code/rules.js       Hyprland window-rule parser
+  contents/code/rules.js       window-rule parser
   contents/code/driver.js      binds the engine to KWin (spaces, windows, actions)
   contents/code/shortcuts.js   default shortcuts
   contents/ui/main.qml         entry point: loads the installed build (so upgrades apply without logging out)

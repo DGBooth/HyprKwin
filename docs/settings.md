@@ -6,7 +6,7 @@ Everything on HyprKwin's settings page (System Settings › Window Management �
 
 System Settings › Window Management › KWin Scripts › HyprKwin › configure.
 
-| Setting | Hyprland equivalent | Default |
+| Setting | In `hyprland.conf` | Default |
 |---|---|---|
 | Layout | `dwindle` / `master` / scrolling (hyprscrolling) | dwindle |
 | Column width (scrolling) | `hyprscrolling:column_width` | 0.5 |
@@ -45,10 +45,9 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 Border colours follow the colour scheme by default: the accent colour marks
 the focused window and the scheme's dimmed colour the rest, so they change
 with your Plasma theme. Either can be set to a fixed colour instead, and the
-focused one to a gradient between two colours at any angle, the way
-Hyprland's `col.active_border` takes two colours and `45deg`. The gradient can
-turn around the border as Hyprland's `borderangle` animation does; it is off
-by default, since it redraws the border continuously.
+focused one to a gradient between two colours at any angle. The gradient can
+turn slowly around the border; that is off by default, since it redraws the
+border continuously.
 
 Settings apply as soon as you press OK or Apply: Plasma doesn't notify
 scripts about their settings, so HyprKwin notices the change to `kwinrc` and
@@ -56,8 +55,9 @@ asks KWin to reload its configuration.
 
 ### Workspaces and monitors
 
-Hyprland gives every monitor its own workspaces; KWin's virtual desktops are
-global. HyprKwin emulates Hyprland's model on top of them:
+Plasma's virtual desktops normally span every monitor: switching desktop
+changes them all. HyprKwin gives every monitor its own workspaces instead,
+built on the same virtual desktops:
 
 - A second display comes up showing workspace 2 (a third shows 3, and so on),
   creating the desktop if it does not exist yet.
@@ -89,12 +89,12 @@ else behaves the same either way.
 
 ### The pointer follows keyboard focus
 
-As in Hyprland, focusing a window from the keyboard — Meta+arrow, a monitor
+Focusing a window from the keyboard — Meta+arrow, a monitor
 switch, focusing the master, cycling, or sending the window to another monitor
 — moves the pointer to it, unless it is already over the window. It is done
 through KWin's own "Move Mouse to Focus" action. Turn off "Move the pointer to
-a window focused from the keyboard" in the settings (Hyprland's
-`cursor:no_warps`, which the importer carries across).
+a window focused from the keyboard" in the settings to leave the pointer
+where it is.
 
 ### Focus after closing a window
 
@@ -125,16 +125,16 @@ focusonactivate off, class:^(discord|vesktop|org\.telegram\.desktop)$
 
 ### Layouts
 
-Three layouts, each workspace with its own:
+Four layouts, each workspace with its own:
 
-- **Dwindle** (the default), Hyprland's: every new window splits the one it
-  lands on, along its longer side.
+- **Dwindle** (the default): every new window splits the focused one in
+  two, along its longer side.
 - **Master**: a master area beside a stack. The master area can take any share
-  of the screen (`mfact`), hold several windows, and sit on any side or in the
+  of the screen, hold several windows, and sit on any side or in the
   middle, which gives the three-column layout.
 - **Monocle**: one window at a time, each filling the workspace, with
   everything else behind it.
-- **Scrolling**: a strip of columns, as in niri or hyprscrolling. Moving the
+- **Scrolling**: a strip of columns, wider than the screen. Moving the
   focus scrolls the strip, and the resize keys widen or narrow the focused
   column. Only whole columns are shown; the ones out of view wait past the
   last monitor, so nothing ever spills onto the screen next door.
@@ -183,8 +183,9 @@ it is taken from your apps only while a zoom lasts.
 ### Scratchpads
 
 `Meta+S` shows and hides the scratchpad, and `Meta+Alt+S` puts the focused
-window into it or takes it back out — Hyprland's `togglespecialworkspace` and
-`movetoworkspace special`.
+window into it or takes it back out. A scratchpad is a workspace of its own
+that slides over whichever one you are on: somewhere to keep a terminal, a
+music player or notes that you call up and dismiss.
 
 For more than one, name them in the settings page under **Extra scratchpads**:
 the first name is scratchpad 1, the second scratchpad 2, and so on, up to
@@ -196,8 +197,7 @@ goes into one with the matching move key, or with a rule:
 workspace special:music, class:^(spotify)$
 ```
 
-Only one scratchpad is on screen at a time, as in Hyprland: opening one puts
-the other away.
+Only one scratchpad is on screen at a time: opening one puts the other away.
 
 ### Focus indicator
 
@@ -206,7 +206,7 @@ there is no way to keep the frame and drop the title bar. So the two useful
 styles are exclusive, and you pick one in the settings:
 
 - **Coloured border** (default) — title bars are hidden for every tiled window
-  and a border is drawn in the gap, like Hyprland's `col.active_border`. This
+  and a coloured border is drawn in the gap around the focused one. This
   looks the same for every app, which is its main advantage: it does not care
   whether an app uses server- or client-side decorations. It costs a few thin
   overlay windows per border, since KWin scripts have no other way to draw on
@@ -217,21 +217,21 @@ styles are exclusive, and you pick one in the settings:
 - **The window decoration** — HyprKwin leaves decorations alone and the
   decoration marks the focused window, creating no overlay windows at all.
   With a normal theme that means a title bar on every tile; a *frame-only*
-  Aurorae theme gives the Hyprland look instead (see below). The catch is that
+  Aurorae theme gives a plain coloured frame instead (see below). The catch is that
   Chromium/Electron/GTK apps decorate themselves, so no theme can mark them —
   HyprKwin fills those in with its own border.
 - **Nothing** — title bars hidden, no border. Pair it with KWin's built-in
   *Dim Inactive* effect (System Settings › Desktop Effects) if you still want
   a focus cue without overlays.
 
-#### Hyprland-style borders without overlays
+#### A coloured border without overlays
 
 Aurorae decoration themes can have `TitleHeight=0`, i.e. a frame and no title
 bar. [Active Accent](https://github.com/nclarius/Plasma-window-decorations) by
 Natalie Clarius does exactly that: its **Frame** flavour draws the accent
 colour around the active window and the background colour around inactive
-ones. Combined with "The window decoration" above, that gives Hyprland's
-`col.active_border` look with zero overlay windows:
+ones. Combined with "The window decoration" above, that gives a coloured
+border with no overlay windows at all:
 
 1. System Settings › Colors & Themes › Window Decorations › *Get New Window
    Decorations…* › search "Active Accent" › install **Active Accent Frame**

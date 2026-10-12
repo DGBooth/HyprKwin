@@ -89,7 +89,7 @@ Deno.test("the keys guide shows the keys as they are bound, not the defaults", (
     assertEquals(guide.map((s) => s.title),
                  ["Windows", "Focus and moving", "Resizing", "Workspaces and monitors", "Scratchpads", "Layouts", "Groups", "Other"]);
     assertEquals(find(guide, "Close window"), { section: "Windows", label: "Close window", keys: ["Meta+W"] });
-    assertEquals(find(guide, "Pseudotile window").keys, [], "unbound");
+    assertEquals(find(guide, "Keep window at its own size in its tile").keys, [], "unbound");
     assertEquals(find(guide, "Show keyboard shortcuts").keys, ["Meta+K"]);
     assertEquals(guide.flatMap((s) => s.rows).some((r) => /Switch to Desktop/.test(r.label)), false, "only HyprKwin's own");
 });

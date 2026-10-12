@@ -18,24 +18,24 @@
        <item row="0" column="1">
         <widget class="QComboBox" name="kcfg_DefaultLayout">
          <property name="toolTip"><string>The layout new workspaces use. Each workspace can be switched separately with the "Next layout" shortcut (Meta+Shift+J by default).</string></property>
-         <item><property name="text"><string>Dwindle (Hyprland's default: each window splits the last)</string></property></item>
+         <item><property name="text"><string>Dwindle (each new window halves the focused one)</string></property></item>
          <item><property name="text"><string>Master (a master area beside a stack)</string></property></item>
          <item><property name="text"><string>Monocle (one window at a time, full size)</string></property></item>
          <item><property name="text"><string>Scrolling (a strip of columns you scroll through)</string></property></item>
         </widget>
        </item>
        <item row="1" column="0">
-        <widget class="QLabel" name="gapsInLabel"><property name="text"><string>Inner gaps (gaps_in):</string></property></widget>
+        <widget class="QLabel" name="gapsInLabel"><property name="text"><string>Gap between windows:</string></property></widget>
        </item>
        <item row="1" column="1">
         <widget class="QSpinBox" name="kcfg_GapsIn">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>200</number></property>
-         <property name="toolTip"><string>Space around each window. Two neighbouring windows are twice this apart, like Hyprland.</string></property>
+         <property name="toolTip"><string>Space around each window, so two windows side by side are twice this apart.</string></property>
         </widget>
        </item>
        <item row="2" column="0">
-        <widget class="QLabel" name="gapsOutLabel"><property name="text"><string>Outer gaps (gaps_out):</string></property></widget>
+        <widget class="QLabel" name="gapsOutLabel"><property name="text"><string>Gap at the screen edges:</string></property></widget>
        </item>
        <item row="2" column="1">
         <widget class="QSpinBox" name="kcfg_GapsOut">
@@ -52,7 +52,7 @@
          <property name="maximum"><double>1.9</double></property>
          <property name="singleStep"><double>0.05</double></property>
          <property name="decimals"><number>3</number></property>
-         <property name="toolTip"><string>dwindle:default_split_ratio. 1.0 is an even split; the first (left/top) window gets ratio / 2.</string></property>
+         <property name="toolTip"><string>How a new split shares the space. 1.0 is an even split; above 1 the first (left or top) window gets more, below 1 less (it gets ratio ÷ 2 of the space).</string></property>
         </widget>
        </item>
        <item row="4" column="0">
@@ -63,7 +63,7 @@
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>4.0</double></property>
          <property name="singleStep"><double>0.1</double></property>
-         <property name="toolTip"><string>dwindle:split_width_multiplier. Values above 1 favour side-by-side splits.</string></property>
+         <property name="toolTip"><string>A window splits along its longer side. Above 1, wide windows count as wider still, so you get more side-by-side splits and fewer stacked ones.</string></property>
         </widget>
        </item>
        <item row="5" column="0">
@@ -71,7 +71,7 @@
        </item>
        <item row="5" column="1">
         <widget class="QComboBox" name="kcfg_ForceSplit">
-         <property name="toolTip"><string>dwindle:force_split</string></property>
+         <property name="toolTip"><string>Which half of the split a new window takes: the half nearer the mouse pointer, or always the same one.</string></property>
          <item><property name="text"><string>Towards the mouse cursor</string></property></item>
          <item><property name="text"><string>Left / top</string></property></item>
          <item><property name="text"><string>Right / bottom</string></property></item>
@@ -79,7 +79,7 @@
        </item>
        <item row="6" column="1">
         <widget class="QCheckBox" name="kcfg_PreserveSplit">
-         <property name="text"><string>Preserve split direction when tiles change size (preserve_split)</string></property>
+         <property name="text"><string>Keep each split's direction when windows change size</string></property>
         </widget>
        </item>
        <item row="7" column="1">
@@ -129,7 +129,7 @@
          <property name="minimum"><double>0.05</double></property>
          <property name="maximum"><double>0.95</double></property>
          <property name="singleStep"><double>0.05</double></property>
-         <property name="toolTip"><string>master:mfact. The share of the screen the master area takes, adjustable per workspace with the resize keys.</string></property>
+         <property name="toolTip"><string>The share of the screen the master area takes. The resize keys change it for each workspace.</string></property>
         </widget>
        </item>
        <item row="11" column="0">
@@ -147,7 +147,7 @@
        </item>
        <item row="12" column="1">
         <widget class="QComboBox" name="kcfg_MasterOrientation">
-         <property name="toolTip"><string>master:orientation. "Centre" puts the master in the middle with the other windows either side, the three-column layout.</string></property>
+         <property name="toolTip"><string>Which side the master area is on. "Centre" puts it in the middle with the other windows in columns either side.</string></property>
          <item><property name="text"><string>Left</string></property></item>
          <item><property name="text"><string>Right</string></property></item>
          <item><property name="text"><string>Top</string></property></item>
@@ -181,7 +181,7 @@
          <property name="specialValueText"><string>never as icons</string></property>
          <property name="maximum"><number>1000</number></property>
          <property name="singleStep"><number>10</number></property>
-         <property name="toolTip"><string>After Trellis: a tile too narrow or short to use shows its app's icon instead, until you zoom into it. Clicking the icon zooms in until the window is big enough.</string></property>
+         <property name="toolTip"><string>A tile too narrow or short to use shows its app's icon instead, until you zoom into it. Clicking the icon zooms in until the window is big enough.</string></property>
         </widget>
        </item>
        <item row="17" column="1">
@@ -193,7 +193,7 @@
        <item row="13" column="1">
         <widget class="QCheckBox" name="kcfg_MasterNewIsMaster">
          <property name="text"><string>New windows become the master</string></property>
-         <property name="toolTip"><string>master:new_status. Off: a new window joins the end of the stack.</string></property>
+         <property name="toolTip"><string>On: a new window takes the master area. Off: it joins the end of the stack.</string></property>
         </widget>
        </item>
       </layout>
@@ -235,7 +235,7 @@
         <widget class="QSpinBox" name="kcfg_BorderRadius">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>40</number></property>
-         <property name="toolTip"><string>decoration:rounding. Rounds the focus border itself; the window's own corners stay square unless your decoration theme rounds them.</string></property>
+         <property name="toolTip"><string>Rounds the focus border's corners; the window's own corners stay square unless your decoration theme rounds them.</string></property>
         </widget>
        </item>
        <item row="12" column="1">
@@ -252,7 +252,7 @@
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>1.0</double></property>
          <property name="singleStep"><double>0.05</double></property>
-         <property name="toolTip"><string>decoration:active_opacity. At 1.00 HyprKwin leaves window opacity alone, so Plasma's own opacity rules still apply. Fullscreen windows always stay opaque.</string></property>
+         <property name="toolTip"><string>At 1.00 HyprKwin leaves window opacity alone, so Plasma's own opacity rules still apply. Fullscreen windows always stay opaque.</string></property>
         </widget>
        </item>
        <item row="14" column="0">
@@ -263,7 +263,7 @@
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>1.0</double></property>
          <property name="singleStep"><double>0.05</double></property>
-         <property name="toolTip"><string>decoration:inactive_opacity. A window rule "opacity A I" overrides both values for that app.</string></property>
+         <property name="toolTip"><string>For windows that do not have the focus. A window rule "opacity A I" overrides both values for that app.</string></property>
         </widget>
        </item>
        <item row="3" column="0">
@@ -274,7 +274,7 @@
          <property name="toolTip"><string>Following the colour scheme means the border changes with your Plasma theme and accent colour.</string></property>
          <item><property name="text"><string>Accent colour of the colour scheme</string></property></item>
          <item><property name="text"><string>Custom colour</string></property></item>
-         <item><property name="text"><string>Gradient (col.active_border with two colours)</string></property></item>
+         <item><property name="text"><string>Gradient between two colours</string></property></item>
         </widget>
        </item>
        <item row="4" column="0">
@@ -288,7 +288,7 @@
        </item>
        <item row="5" column="1">
         <widget class="KColorButton" name="kcfg_ActiveBorderColor2">
-         <property name="toolTip"><string>Only used with the gradient: the focused border runs from the custom colour above to this one, like Hyprland's default rgba(33ccffee) rgba(00ff99ee) 45deg.</string></property>
+         <property name="toolTip"><string>Only used with the gradient: the focused border runs from the custom colour above to this one.</string></property>
         </widget>
        </item>
        <item row="6" column="0">
@@ -309,7 +309,7 @@
         <widget class="QSpinBox" name="kcfg_BorderGradientSpin">
          <property name="suffix"><string>°/s</string></property>
          <property name="maximum"><number>720</number></property>
-         <property name="toolTip"><string>Hyprland's borderangle animation: the gradient turns around the focused window's border. 0 keeps it still. Anything above 0 redraws the border continuously, which costs a little power.</string></property>
+         <property name="toolTip"><string>The gradient turns slowly around the focused window's border. 0 keeps it still. Anything above 0 redraws the border continuously, which costs a little power.</string></property>
         </widget>
        </item>
        <item row="7" column="1">
@@ -349,8 +349,8 @@
       <layout class="QFormLayout" name="behaviourForm">
        <item row="0" column="1">
         <widget class="QCheckBox" name="kcfg_FocusFollowsMouse">
-         <property name="text"><string>Focus follows mouse (like follow_mouse = 1)</string></property>
-         <property name="toolTip"><string>Leave this off if you use Plasma's own "Focus follows mouse" policy.</string></property>
+         <property name="text"><string>Focus follows the mouse</string></property>
+         <property name="toolTip"><string>The window under the pointer takes the focus as you move over it. Leave this off if you use Plasma's own "Focus follows mouse" policy.</string></property>
         </widget>
        </item>
        <item row="1" column="1">
@@ -387,26 +387,26 @@
        </item>
        <item row="6" column="1">
         <widget class="QCheckBox" name="kcfg_PerOutputWorkspaces">
-         <property name="text"><string>Give every monitor its own workspaces (like Hyprland)</string></property>
+         <property name="text"><string>Give every monitor its own workspaces</string></property>
          <property name="toolTip"><string>Switching workspace then only changes the monitor you are on, and the others keep what they are showing. Off: a workspace spans every monitor, the way Plasma's virtual desktops normally work.</string></property>
         </widget>
        </item>
        <item row="7" column="1">
         <widget class="QCheckBox" name="kcfg_FocusOnActivate">
-         <property name="text"><string>Go to a window that asks to be activated (focus_on_activate)</string></property>
+         <property name="text"><string>Go to a window that asks to be activated</string></property>
          <property name="toolTip"><string>Launching an app that is already open on another workspace switches to it. Chat apps ask for attention the same way when a message arrives; add a rule such as "focusonactivate off, class:^(discord)$" to stop one pulling you over.</string></property>
         </widget>
        </item>
        <item row="8" column="1">
         <widget class="QCheckBox" name="kcfg_FocusNeighbourOnClose">
          <property name="text"><string>Closing a window focuses the neighbour that takes its place</string></property>
-         <property name="toolTip"><string>As in Hyprland: focus follows the window that grows into the gap — the other side of the split, or the next tab in a group. Off: Plasma decides, which means the window you used longest ago, wherever it happens to be.</string></property>
+         <property name="toolTip"><string>The focus goes to the window that grows into the gap — the other side of the split, or the next tab in a group. Off: Plasma decides, which means the window you used longest ago, wherever it happens to be.</string></property>
         </widget>
        </item>
        <item row="9" column="1">
         <widget class="QCheckBox" name="kcfg_PointerFollowsFocus">
          <property name="text"><string>Move the pointer to a window focused from the keyboard</string></property>
-         <property name="toolTip"><string>As Hyprland does unless cursor:no_warps is set: after Meta+arrow, a monitor switch or sending a window to another monitor, the pointer jumps to the focused window. It stays put if it is already over it.</string></property>
+         <property name="toolTip"><string>After Meta+arrow, a monitor switch or sending a window to another monitor, the pointer jumps to the focused window. It stays put if it is already over it.</string></property>
         </widget>
        </item>
        <item row="10" column="1">
@@ -442,7 +442,7 @@
         <widget class="KEditListWidget" name="kcfg_ScratchpadNames">
          <property name="kcfg_property" stdset="0"><string>items</string></property>
          <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
-         <property name="toolTip"><string>Named scratchpads, as in Hyprland's special workspaces. The first name here is scratchpad 1, the second scratchpad 2, and so on; give them keys in System Settings &gt; Keyboard &gt; Shortcuts &gt; KWin (HyprKwin: Toggle scratchpad 1...). A window goes into one with the matching "Move window to/from scratchpad" key, or a rule such as "workspace special:music, class:^(spotify)$". Only one scratchpad is on screen at a time.</string></property>
+         <property name="toolTip"><string>A scratchpad is a workspace of its own that slides over whichever one you are on, for a terminal or music player you call up and dismiss. The first name here is scratchpad 1, the second scratchpad 2, and so on; give them keys in System Settings &gt; Keyboard &gt; Shortcuts &gt; KWin (HyprKwin: Toggle scratchpad 1...). A window goes into one with the matching "Move window to/from scratchpad" key, or a rule such as "workspace special:music, class:^(spotify)$". Only one scratchpad is on screen at a time.</string></property>
         </widget>
        </item>
        <item row="13" column="1">
@@ -459,7 +459,7 @@
         <widget class="QLabel" name="rulesHelp">
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
-         <property name="text"><string>&lt;p&gt;Rules decide how windows open, written the way &lt;tt&gt;hyprland.conf&lt;/tt&gt; writes them: an action, then what to match, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;size 800 600, floating:1, class:^(pavucontrol)$&lt;/tt&gt;. The first rule that matches wins, so order matters.&lt;/p&gt;
+         <property name="text"><string>&lt;p&gt;Rules decide how windows open, each an action, then what to match, e.g. &lt;tt&gt;float, class:^(org\.kde\.kcalc)$&lt;/tt&gt; or &lt;tt&gt;size 800 600, floating:1, class:^(pavucontrol)$&lt;/tt&gt;. The first rule that matches wins, so order matters.&lt;/p&gt;
 &lt;p&gt;&lt;b&gt;Actions:&lt;/b&gt; float · tile · pseudo · fullscreen · maximize · pin · group · special [name] · workspace N [silent] · workspace special:name · size W H · move X Y · center · monitor N|name · opacity A [I] · noborder · focusonactivate [on|off]&lt;br/&gt;
 &lt;b&gt;Match on:&lt;/b&gt; class:… and title:… (regular expressions), floating:1 or floating:0&lt;br/&gt;
 Sizes and positions are pixels or a percentage of the monitor; monitors count from 0, or use a name such as DP-2.&lt;/p&gt;
@@ -482,7 +482,7 @@ Sizes and positions are pixels or a percentage of the monitor; monitors count fr
         <widget class="QLabel" name="workspaceRulesHelp">
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
-         <property name="text"><string>&lt;p&gt;Rules for the workspaces themselves, written the way &lt;tt&gt;hyprland.conf&lt;/tt&gt; writes them: the workspace number, then what it should do, e.g. &lt;tt&gt;3, monitor:DP-2, default:true&lt;/tt&gt; or &lt;tt&gt;2, layout:master, gapsin:0, gapsout:0&lt;/tt&gt;.&lt;/p&gt;
+         <property name="text"><string>&lt;p&gt;Rules for the workspaces themselves, each the workspace number, then what it should do, e.g. &lt;tt&gt;3, monitor:DP-2, default:true&lt;/tt&gt; or &lt;tt&gt;2, layout:master, gapsin:0, gapsout:0&lt;/tt&gt;.&lt;/p&gt;
 &lt;p&gt;&lt;b&gt;Properties:&lt;/b&gt; monitor:N|name pins the workspace to a monitor, so switching to it goes there · default:true makes it the workspace that monitor starts on · layout:dwindle|master|monocle|scrolling · gapsin:N and gapsout:N set its gaps&lt;/p&gt;
 &lt;p&gt;Monitors count from 0, or use a name such as DP-2 (System Settings › Display and Monitor lists them). A layout set here is the one the workspace starts with; Meta+Shift+J still changes it afterwards.&lt;/p&gt;</string></property>
         </widget>
@@ -502,7 +502,7 @@ Sizes and positions are pixels or a percentage of the monitor; monitors count fr
         <widget class="QLabel" name="submapsHelp">
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
-         <property name="text"><string>&lt;p&gt;A submap is a mode: one key puts the keyboard into it, and plain keys then do something until you press Escape — Hyprland's &lt;tt&gt;submap&lt;/tt&gt;. One per line: the name, the key that enters it, then each key and what it does.&lt;/p&gt;
+         <property name="text"><string>&lt;p&gt;A submap is a mode: one key puts the keyboard into it, and plain keys then do something until you press Escape. One per line: the name, the key that enters it, then each key and what it does.&lt;/p&gt;
 &lt;p&gt;&lt;tt&gt;resize = Meta+R, Left: resizeLeft, Right: resizeRight, Up: resizeUp, Down: resizeDown&lt;/tt&gt;&lt;br/&gt;
 &lt;tt&gt;layout = Meta+Shift+L, D: layoutDwindle, M: layoutMaster, O: layoutMonocle, S: layoutScrolling&lt;/tt&gt;&lt;/p&gt;
 &lt;p&gt;The keys inside a submap only exist while it is on, so they are free for your applications the rest of the time. The name shows on screen while you are in it, and the key that entered it leaves it again. Action names are the ones in System Settings › Keyboard › Shortcuts › KWin, without the "HyprKwin: " part — e.g. focusLeft, swapRight, toggleFloating, masterSwap.&lt;/p&gt;</string></property>

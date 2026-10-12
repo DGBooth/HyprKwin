@@ -79,15 +79,13 @@ it happen, then `journalctl --user --since "-10min" | grep HyprKwin`.
 ## Limitations
 
 - The pointer can only be moved to the focused window (through KWin's own
-  "Move Mouse to Focus" action), so `cursor:warp_on_change_workspace`, which
-  moves it to a workspace even when nothing there has focus, has no
-  equivalent.
-- In the scrolling layout, columns hold a single window; niri's stacking of
-  several windows in one column is not there yet.
-- Windows themselves are not rounded, only the border around them
-  (`decoration:rounding` rounds the window in Hyprland). A scripted effect can
-  load a fragment shader, but applying one to a window renders it black, so
-  this needs a compiled effect: the third-party
+  "Move Mouse to Focus" action), so switching to an empty workspace leaves it
+  where it was.
+- In the scrolling layout, columns hold a single window; stacking several
+  windows in one column is not there yet.
+- Windows themselves are not rounded, only the border around them. A
+  scripted effect can load a fragment shader, but applying one to a window
+  renders it black, so this needs a compiled effect: the third-party
   [Shape Corners](https://github.com/matinlotfali/KDE-Rounded-Corners) does it.
 - Animations come from a companion KWin effect, which cannot resize an app
   smoothly; see [Animations](getting-started.md#animations) for how resizes are handled.

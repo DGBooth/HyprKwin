@@ -1,4 +1,4 @@
-// Global shortcuts. Defaults follow Hyprland/Omarchy bindings (SUPER = Meta).
+// Global shortcuts. The defaults are Hyprland's (and Omarchy's) bindings, with SUPER as Meta.
 // Shifted symbols use the character they produce on a US layout, the way
 // Plasma stores them (Shift+1 is "Meta+!", Shift+- is "Meta+_").
 // Every entry can be rebound in System Settings > Keyboard > Shortcuts > KWin.
@@ -10,9 +10,9 @@ function shortcutList() {
     var list = [
         ["Windows"],
         ["close", "Close window", "Meta+Q"],
-        ["toggleSplit", "Toggle window split", "Meta+J"],
-        ["swapSplit", "Swap split halves", ""],
-        ["pseudo", "Pseudotile window", "Meta+P"],
+        ["toggleSplit", "Turn the split the other way", "Meta+J"],
+        ["swapSplit", "Swap the two sides of the split", ""],
+        ["pseudo", "Keep window at its own size in its tile", "Meta+P"],
         ["toggleFloating", "Toggle window floating/tiling", "Meta+T"],
         ["fullscreen", "Full screen", "Meta+F"],
         ["maximize", "Full width (maximize)", "Meta+Alt+F"],
@@ -49,7 +49,7 @@ function shortcutList() {
         ["Workspaces and monitors"],
         ["nextDesktop", "Next workspace", "Meta+Tab"],
         ["previousDesktop", "Previous workspace", "Meta+Shift+Tab"],
-        ["formerDesktop", "Former workspace", "Meta+Ctrl+Tab"],
+        ["formerDesktop", "Back to the workspace you were on", "Meta+Ctrl+Tab"],
         ["workspaceToMonitorLeft", "Move workspace to left monitor", "Meta+Shift+Alt+Left"],
         ["workspaceToMonitorRight", "Move workspace to right monitor", "Meta+Shift+Alt+Right"],
         ["workspaceToMonitorUp", "Move workspace to upper monitor", "Meta+Shift+Alt+Up"],
@@ -119,7 +119,7 @@ function shortcutList() {
         var key = String(i % 10);
         numbered.push(["desktop" + i, "Switch to workspace " + i, "Meta+" + key]);
         numbered.push(["moveToDesktop" + i, "Move window to workspace " + i, "Meta+" + SHIFTED_DIGITS[i - 1]]);
-        numbered.push(["moveToDesktopSilent" + i, "Move window silently to workspace " + i, "Meta+Alt+" + SHIFTED_DIGITS[i - 1]]);
+        numbered.push(["moveToDesktopSilent" + i, "Send window to workspace " + i + " (stay here)", "Meta+Alt+" + SHIFTED_DIGITS[i - 1]]);
         if (i <= 5) numbered.push(["groupWindow" + i, "Switch to group window " + i, "Meta+Alt+" + key]);
     }
     numbered.forEach(function (s) {
@@ -285,7 +285,7 @@ function keyText(code) {
 var FAMILIES = [
     ["desktop", "Switch to workspace 1–10"],
     ["moveToDesktop", "Move window to workspace 1–10"],
-    ["moveToDesktopSilent", "Move window silently to workspace 1–10"],
+    ["moveToDesktopSilent", "Send window to workspace 1–10 (stay here)"],
     ["groupWindow", "Switch to group window 1–5"],
 ];
 

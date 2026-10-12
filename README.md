@@ -1,8 +1,10 @@
 # HyprKwin
 
-Hyprland-style dwindle tiling for KDE Plasma 6, implemented as a KWin script.
-You keep all of Plasma: panels, widgets, the task manager, Overview, virtual
-desktops, activities, window rules, KRunner and System Settings.
+Automatic, keyboard-driven tiling for KDE Plasma 6, as a KWin script.
+Windows arrange themselves as they open, and you move between them, resize
+them and send them to other workspaces from the keyboard. You keep all of
+Plasma: panels, widgets, the task manager, Overview, virtual desktops,
+activities, window rules, KRunner and System Settings.
 
 On the KDE Store: [HyprKwin](https://www.opendesktop.org/p/2375015/) and
 [HyprKwin animations](https://www.opendesktop.org/p/2375020/) — both install
@@ -13,41 +15,44 @@ from System Settings' "Get New…".
 *Dwindle on Plasma 6.7 (Breeze Dark, no panel) with a gradient focus border:
 Alacritty, Dolphin, Gwenview and `hyprkwinctl`.*
 
-- **Dwindle layout** with Hyprland's semantics: splits along the longer side,
-  `gaps_in` / `gaps_out`, `default_split_ratio` (same units as Hyprland),
-  `preserve_split`, `force_split`, `split_width_multiplier`, `togglesplit`,
-  pseudotiling.
-- **Master, monocle and scrolling layouts** as well, chosen per workspace: a
-  master area with `mfact`, several masters, and the master area on any side
-  or in the middle (the three-column layout); or a niri-style strip of
-  columns you scroll through.
-- **Workspaces = Plasma virtual desktops** (created on demand), and every
-  monitor gets its own, as in Hyprland. Pager, Overview and the desktop
-  switcher keep working.
-- **Groups (tabbed windows)** with a clickable tab bar, like Hyprland's
-  `togglegroup` / `moveintogroup` / `changegroupactive`.
-- **Special workspaces (scratchpads)**: `togglespecialworkspace` and
-  `movetoworkspace special`, with up to four more you name yourself.
-- **Workspace rules**: pin a workspace to a monitor, say what each monitor
-  starts on, and give a workspace its own layout and gaps.
-- **Focus indicator** you choose: a Hyprland-style coloured border in the gap,
-  optionally with rounded corners, following your colour scheme — or Plasma's
-  own window decorations, or nothing.
-- **Mouse**: Meta+drag a tiled window onto another to re-tile it there,
-  Meta+right-drag (or drag an edge) to resize the split live. Optional
-  focus-follows-mouse.
-- **Window rules** in Hyprland syntax (`float, class:^(org\.kde\.kcalc)$`).
-- **Multi-monitor**: every monitor gets its own workspaces, as in Hyprland —
-  a second display comes up on workspace 2, and switching workspace only
-  changes the monitor you are on. Directional focus, swap and move across
-  monitors, plus swapping two monitors' workspaces.
-- **Animations**: a companion KWin effect slides and stretches windows into
-  their new tile, like Hyprland's `animations { windows }`.
-- **Settings page** in System Settings › Window Management › KWin Scripts.
-- **Importer** for an existing `hyprland.conf`: settings, window and
-  workspace rules, and keybindings.
-- **Submaps** — a key enters a mode where plain keys act until Escape — and
-  `hyprkwinctl`, a `hyprctl`-style command for scripts and status bars.
+- **Four layouts**, chosen per workspace and remembered between sessions:
+  - **dwindle**: each new window halves the focused one, along its longer
+    side;
+  - **master**: one big window (or several) beside a stack of the rest, on
+    any side or in the middle with a column either side;
+  - **monocle**: one window at a time, full size;
+  - **scrolling**: a strip of columns you move along, wider than the screen.
+- **Workspaces are Plasma's virtual desktops**, created as you need them.
+  Every monitor can have its own, so switching workspace only changes the
+  monitor you are on. Pager, Overview and the desktop switcher keep working.
+- **Multi-monitor**: focus, swap and move windows across monitors with the
+  same keys as within one, and swap two monitors' workspaces.
+- **Groups (tabbed windows)**: several windows share one tile, with a
+  clickable tab bar.
+- **Scratchpads**: a workspace of its own that slides over whichever one
+  you are on, for the terminal or music player you call up and dismiss.
+  Up to four more you name yourself.
+- **Zoom**: Meta+Z zooms into part of a crowded dwindle layout; tiles too
+  small to use show as their app's icon until you do.
+- **Focus indicator** you choose: a coloured border in the gap (one colour,
+  your colour scheme's accent, or a gradient, with rounded corners if you
+  like), Plasma's own window decorations, or nothing.
+- **Mouse too**: Meta+drag a window onto another to re-tile it there,
+  Meta+right-drag (or drag an edge) to resize. Optional focus-follows-mouse.
+- **Rules** for how particular apps open (float, size, workspace, monitor,
+  opacity, …) and for workspaces (which monitor, which layout, which gaps).
+- **Animations**: a companion KWin effect slides windows into their new
+  tile instead of jumping.
+- **Settings page** in System Settings › Window Management › KWin Scripts,
+  and **Meta+K** for every shortcut on the key it has now, searchable.
+- **For power users**: key modes you define (say, a key that makes the
+  arrows resize until Escape), and `hyprkwinctl` for scripts and status
+  bars.
+
+**Coming from Hyprland?** The default keys are Hyprland's, rules use
+`hyprland.conf` syntax, and your existing `hyprland.conf` can be imported:
+settings, window and workspace rules, and keybindings. See
+[Importing a hyprland.conf](docs/rules-and-scripting.md#importing-a-hyprlandconf).
 
 ## See it
 
@@ -90,8 +95,8 @@ your shortcuts up first) and uninstalling are in
   scratchpads, the focus indicator, and everything else on the settings
   page.
 - [Rules and scripting](docs/rules-and-scripting.md): window rules,
-  workspace rules and submaps in `hyprland.conf` syntax, `hyprkwinctl` for
-  scripts and status bars, and importing a `hyprland.conf`.
+  workspace rules and submaps (key modes), `hyprkwinctl` for scripts and
+  status bars, and importing a `hyprland.conf`.
 - [Troubleshooting](docs/troubleshooting.md): keys that do nothing, missing
   animations, what HyprKwin cannot do, and reporting a problem.
 - [Compatibility](docs/compatibility.md): what stays stable across upgrades.
