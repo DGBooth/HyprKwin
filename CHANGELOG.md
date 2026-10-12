@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Upgrades are rehearsed:** the tests install 0.10, 0.12 and 0.15 from
+  their release tags, with lived-in settings (an old-style rule, a submap, a
+  workspace rule, colours and gaps, a key of your own, a saved layout),
+  upgrade them as the KDE Store does, log in again, and check that all of it
+  carried over and that the new version is the one running.
+
 - **Faster layout switches with many windows open.** Switching layout on a
   workspace with 40 windows took up to 75 ms (a visible stutter), most of it
   making the icon tiles that stand in for tiles too small to use; those are

@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         dbus dbus-bin dbus-daemon qdbus-qt6 kpackagetool6 libkf6config-bin libkscreen-bin \
         python3 python3-dbus python3-gi python3-pil \
         python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets \
-        fonts-dejavu-core ca-certificates libcap2-bin \
+        fonts-dejavu-core ca-certificates libcap2-bin git \
     && rm -rf /var/lib/apt/lists/*
 
 # kwin_wayland is installed with CAP_SYS_NICE, for real-time scheduling. A

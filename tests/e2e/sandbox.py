@@ -74,7 +74,8 @@ class Skip(Exception):
 class Sandbox:
     def __init__(self, base=None, width=1920, height=1080, outputs=1, config=None, scale=None,
                  effect=False, effect_config=None, xwayland=False, native_desktops=False,
-                 activities=0, keyboard=None, kwinrc=None, install_effect=True):
+                 activities=0, keyboard=None, kwinrc=None, install_effect=True, package=None,
+                 effect_package=None):
         base = base or os.environ.get("HK_SANDBOX") or os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "hyprkwin-sandbox")
         self.base = Path(base)
         self.width, self.height, self.outputs = width, height, outputs
@@ -104,6 +105,10 @@ class Sandbox:
         # Whether the animations effect is installed at all (it is enabled
         # only with effect=True).
         self.install_effect = install_effect
+        # The packages to install: this checkout's, or another version's
+        # (the upgrade rehearsals).
+        self.package = Path(package) if package else PACKAGE
+        self.effect_package = Path(effect_package) if effect_package else EFFECT_PACKAGE
         # KWin's own settings, {group: {key: value}}, e.g. its focus policy.
         self.kwinrc = kwinrc or {}
         self.socket = "hyprkwin-test-%d" % os.getpid()
@@ -165,10 +170,10 @@ class Sandbox:
         # it) with this environment, and they would open their windows there.
         for var in ("WAYLAND_DISPLAY", "DISPLAY", "WAYLAND_SOCKET"):
             env.pop(var, None)
-        subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(PACKAGE)], env=env,
+        subprocess.run(["kpackagetool6", "--type=KWin/Script", "-i", str(self.package)], env=env,
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if self.install_effect:
-            subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(EFFECT_PACKAGE)], env=env,
+            subprocess.run(["kpackagetool6", "--type=KWin/Effect", "-i", str(self.effect_package)], env=env,
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self._write_config(env, "Plugins", {"hyprkwinEnabled": "true",
                                             "hyprkwinanimationsEnabled": "true" if self.effect else "false"})
@@ -193,7 +198,14 @@ class Sandbox:
             decoy.mkdir(parents=True)
             (decoy / "HyprKwin.qml").write_text(
                 'import QtQuick\nItem { Component.onCompleted: console.warn("HKEVIL") }\n')
+        self._prepared_env = env
+        self._launch(env)
+
+    def _launch(self, env):
+        env = dict(env)
         busfile = self.base / "bus"
+        if busfile.exists():
+            busfile.unlink()
         displayfile = self.base / "x-display"
         if displayfile.exists():
             displayfile.unlink()
@@ -254,6 +266,23 @@ class Sandbox:
             self.input().move_to(self.width // 2, self.height // 2)
             time.sleep(0.2)
             self.reload_script()
+
+    def restart(self):
+        """KWin stops and starts again on the same settings and data: the
+        next login, as far as HyprKwin can tell."""
+        self.stop()
+        self.clients = []
+        if getattr(self, "_input", None):
+            self._input = None
+        self._launch(self._prepared_env)
+
+    def upgrade(self, package=None, effect_package=None):
+        """Replace the installed packages, as the KDE Store's "Get New…"
+        does; the running KWin goes on with what it has until restart()."""
+        env = dict(self._prepared_env)
+        for kind, pkg in (("KWin/Script", package or PACKAGE), ("KWin/Effect", effect_package or EFFECT_PACKAGE)):
+            subprocess.run(["kpackagetool6", "--type=" + kind, "-u", str(pkg)], env=env, check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _activity_call(self, method, *args, check=True):
         return self._qdbus("org.kde.ActivityManager", "/ActivityManager/Activities",

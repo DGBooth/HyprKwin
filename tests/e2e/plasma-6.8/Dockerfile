@@ -14,7 +14,7 @@ RUN sed -i 's/^\[core\]/[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\
         kwin xorg-xwayland kglobalacceld kactivitymanagerd qt6-wayland breeze \
         kirigami qt6-declarative kpackage kconfig libkscreen qt6-tools \
         mesa dbus python python-dbus python-gobject python-pillow pyside6 \
-        ttf-dejavu libcap \
+        ttf-dejavu libcap git \
         plasma-workspace plasma-desktop zenity \
     && pacman -Scc --noconfirm
 

@@ -43,6 +43,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the tags: upgrades from earlier releases are rehearsed
 
       - name: End-to-end tests (Plasma 6.6)
         run: HK_ARTIFACTS=artifacts tools/test-plasma.sh 6.6

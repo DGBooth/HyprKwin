@@ -1027,6 +1027,89 @@ def many_windows_stay_quick(sb):
     eq(t["relayout"]["max"] < 50, True, "the layout itself never takes long: %r" % (t["relayout"],))
 
 
+# ---- upgrades from earlier releases ------------------------------------------
+
+def old_packages(tag):
+    """The script and effect packages of an earlier release, out of git."""
+    import subprocess
+    if not shutil.which("git"):
+        raise Skip("needs git, for %s's packages" % tag)
+    where = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "hyprkwin-old" / tag
+    if not (where / "package" / "metadata.json").exists():
+        where.mkdir(parents=True, exist_ok=True)
+        archive = subprocess.run(["git", "-C", str(ROOT_DIR), "archive", tag, "package", "package-effect"],
+                                 capture_output=True)
+        if archive.returncode:
+            raise Skip("no %s in this clone" % tag)
+        subprocess.run(["tar", "-x", "-C", str(where)], input=archive.stdout, check=True)
+    return where / "package", where / "package-effect"
+
+
+# Settings someone has lived with for a while: an old-style rule, the lists,
+# colours and sizes, a named scratchpad.
+LIVED_IN = {
+    "GapsOut": 20, "GapsIn": 8, "BorderSize": 3, "ActiveBorderColor": "#ff00ff",
+    "ScratchpadNames": "music",
+    "WindowRules": "float, title:^Floater$",
+    "WorkspaceRuleList": ["workspace = 3, layout:monocle"],
+    "SubmapList": ["resize = Meta+R, Left: resizeLeft"],
+}
+
+
+def upgrade_keeps_everything(sb, saves_layouts):
+    accel = Accel(sb)
+    fake_plasma(sb)
+    sb.reload_script()                      # the old one, with somewhere to save
+    mine = META | ALT | ord("W")
+    accel.set("moveToDesktop4", "Move window to workspace 4", [mine])
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.invoke("layoutMaster")
+    time.sleep(3)                           # saved
+    old = sb.state()
+    space = sb.window("A", old)["space"]
+    eq("timing" in old, False, "the old version is the one running")
+
+    # The store replaces the files; the new code runs from the next login.
+    sb.upgrade()
+    sb.restart()
+    fake_plasma(sb)
+    accel = Accel(sb)
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("Floater")
+    s = sb.wait_for(lambda s: s["layoutsRestored"] or not saves_layouts, "the saved layouts", timeout=15)
+    eq("timing" in s, True, "the new version is the one running")
+    c = s["config"]
+    eq((c["gapsOut"], c["gapsIn"], c["borderSize"], c["activeBorderColor"].lower(), c["scratchpadNames"]),
+       (20, 8, 3, "#ff00ff", ["music"]), "the settings carried over")
+    eq(sb.window("Floater", s)["tiled"], False, "the old-style rule still applies")
+    eq(accel.keys("moveToDesktop4"), [mine], "the key you chose carried over")
+    eq(accel.keys("showKeys"), [META | ord("K")], "a key the old version did not have is there")
+    eq(accel.keys("submap resize"), [META | ord("R")], "the submap's key")
+    if saves_layouts:
+        eq(s["layouts"].get(space, {}).get("layout"), "master", "the workspace is back in its layout")
+    sb.invoke("desktop3")
+    sb.spawn("C")
+    s = sb.state()
+    eq(s["layouts"][sb.window("C", s)["space"]]["layout"], "monocle", "the workspace rule applies")
+
+
+@test(from_tag="v0.10.0", config=LIVED_IN)
+def upgrading_from_0_10_keeps_everything(sb):
+    upgrade_keeps_everything(sb, saves_layouts=False)     # layouts were saved from 0.11
+
+
+@test(from_tag="v0.12.2", config=LIVED_IN)
+def upgrading_from_0_12_keeps_everything(sb):
+    upgrade_keeps_everything(sb, saves_layouts=True)
+
+
+@test(from_tag="v0.15.1", config=LIVED_IN)
+def upgrading_from_0_15_keeps_everything(sb):
+    upgrade_keeps_everything(sb, saves_layouts=True)
+
+
 def fake_plasma(sb):
     """The stand-in for plasmashell's scripting, where HyprKwin keeps its
     layouts and the notices it has given. Returns the store file."""
@@ -3352,7 +3435,8 @@ def main():
             continue
         start = time.time()
         try:
-            sandbox = Sandbox(outputs=opts.get("outputs", 1), config=opts.get("config"),
+            packages = old_packages(opts["from_tag"]) if opts.get("from_tag") else (None, None)
+            sandbox = Sandbox(package=packages[0], effect_package=packages[1],outputs=opts.get("outputs", 1), config=opts.get("config"),
                               effect=opts.get("effect", False), effect_config=opts.get("effect_config"),
                               xwayland=opts.get("xwayland", False),
                               native_desktops=opts.get("native_desktops", False),
