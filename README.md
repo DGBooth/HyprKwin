@@ -8,10 +8,10 @@ On the KDE Store: [HyprKwin](https://www.opendesktop.org/p/2375015/) and
 [HyprKwin animations](https://www.opendesktop.org/p/2375020/) — both install
 from System Settings' "Get New…".
 
-![Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7](docs/screenshot.png)
+![Five windows tiled by HyprKwin in the dwindle layout on Plasma 6.7, with a gradient focus border and no panel](docs/media/dwindle.png)
 
-*Alacritty, Gwenview and System Settings tiled by HyprKwin on Plasma 6.7
-(Breeze Dark), with the rounded focus border and the stock Plasma panel.*
+*Dwindle on Plasma 6.7 (Breeze Dark, no panel) with a gradient focus border:
+Alacritty, Dolphin, Gwenview and `hyprkwinctl`.*
 
 - **Dwindle layout** with Hyprland's semantics: splits along the longer side,
   `gaps_in` / `gaps_out`, `default_split_ratio` (same units as Hyprland),
@@ -48,6 +48,21 @@ from System Settings' "Get New…".
   workspace rules, and keybindings.
 - **Submaps** — a key enters a mode where plain keys act until Escape — and
   `hyprkwinctl`, a `hyprctl`-style command for scripts and status bars.
+
+## See it
+
+All four layouts on the same windows: dwindle, master (round every side),
+monocle and scrolling.
+
+![Switching one workspace through the dwindle, master, monocle and scrolling layouts](docs/media/layouts.gif)
+
+| Windows tile as they open | The scratchpad, over any workspace |
+|---|---|
+| ![Windows opening and animating into their tiles, then swapped, split the other way and floated](docs/media/tiling.gif) | ![A terminal scratchpad sliding in and out while the workspace changes underneath](docs/media/scratchpad.gif) |
+
+| Master, in the middle | Groups (tabbed windows) | The keys guide (Meta+K) |
+|---|---|---|
+| [![The centred master layout, code in the middle and a column either side](docs/media/master.png)](docs/media/master.png) | [![Two windows grouped into tabs in one tile](docs/media/groups.png)](docs/media/groups.png) | [![The searchable keyboard shortcuts guide over the tiled windows](docs/media/keys.png)](docs/media/keys.png) |
 
 ## Install
 

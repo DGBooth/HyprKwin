@@ -2,7 +2,7 @@
 """Take docs/zoom.png: the zoom feature, before and after, side by side.
 
 A clean desktop is staged in the nested test KWin (real apps, a real Plasma
-panel, Breeze Dark) as for docs/screenshot.png; nothing on your own desktop is
+panel, Breeze Dark) as in tools/showcase.py; nothing on your own desktop is
 involved. Five windows are tiled, the two smallest show as their app's icon,
 then Meta+Z twice zooms to the corner they are in.
 

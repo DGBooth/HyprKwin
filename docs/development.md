@@ -58,9 +58,12 @@ tools/test-plasma.sh 6.6            # everything, on Plasma 6.6
 tools/test-plasma.sh 6.8 groups     # some of it, on Plasma 6.8
 ```
 
-The screenshot at the top is staged in the same nested KWin, with real apps
-and a real Plasma panel, so it can be retaken when the UI changes:
-`python3 tools/readme-screenshot.py` (needs Alacritty, Gwenview and fastfetch).
+The README's screenshots and clips (`docs/media/`) are staged in the same
+nested KWin, with real apps, Plasma's wallpaper and a made-up home folder, so
+they can be retaken when the UI changes: `python3 tools/showcase.py` for all
+of them, or name some (`python3 tools/showcase.py layouts`). Each clip also
+comes out as a 1080p MP4 beside the GIF, for posting elsewhere; those are not
+committed. See the script's docstring for what it needs.
 
 Debug logging: enable "Debug logging" in the settings, then
 `journalctl --user -f | grep HyprKwin`.
