@@ -1800,8 +1800,18 @@ function createDriver(env) {
         var cands = visibleWindows().filter(function (c) { return c !== st && onSomeScreen(copyRect(c.w.frameGeometry)); })
             .map(function (c) { return { id: c.id, rect: copyRect(c.w.frameGeometry) }; });
         var id = E.pickInDirection(from, cands, dir, engine.focusHistory());
-        if (id) activate(tracked[id].w);
-        else if (ws[screenSlots[dir]]) ws[screenSlots[dir]]();
+        if (id) {
+            activate(tracked[id].w);
+            return;
+        }
+        // Nothing that way on this monitor: the monitor that way, found from
+        // where the focus is. KWin's own "switch to the screen on the right"
+        // goes from its idea of the active screen, which can still be the
+        // other monitor just after a window came back from it.
+        var here = focusedScreen();
+        var there = here ? screenInDirection(here, dir) : null;
+        if (there) focusScreen(there);
+        else if (!here && ws[screenSlots[dir]]) ws[screenSlots[dir]]();
     }
 
     function tiledNeighbour(st, dir) {

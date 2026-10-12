@@ -1020,6 +1020,23 @@ def focus_following_a_window_back_does_not_loop(sb):
     # The test runner fails it on the script error ("Maximum call stack size exceeded") too.
 
 
+@test(outputs=2)
+def focus_reaches_a_monitor_a_window_just_left(sb):
+    """Meta+→ with nothing to the right on this monitor goes to the next
+    monitor - also just after a window went there and came back, when KWin
+    still counted the other monitor as the active one, and the key did
+    nothing."""
+    sb.spawn("L0")
+    sb.spawn("L1")
+    sb.invoke("windowToMonitorRight")
+    sb.invoke("windowToMonitorLeft")
+    sb.invoke("focusRight")                 # from L1, the right-hand tile
+    sb.spawn("R0")
+    s = sb.state()
+    eq(sb.window("R0", s)["output"] != sb.window("L1", s)["output"], True,
+       "R0 opened on the monitor the focus went to: %r" % ({w["caption"]: w["output"] for w in s["windows"].values()},))
+
+
 @test
 def many_windows_stay_quick(sb):
     """Forty windows on one workspace: laying them out and drawing their
