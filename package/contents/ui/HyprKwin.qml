@@ -657,23 +657,40 @@ Item {
         osd.showMessage(text);
     }
 
+    // Icon tiles come and go by the dozen (a layout switch with many windows
+    // open), and making each a window of its own is what costs: the ones no
+    // longer needed wait, hidden, to be used again rather than destroyed.
+    property var spareIconTiles: []
+    readonly property int maxSpareIconTiles: 64
+
     function syncIconTiles(list) {
         revision++;
         const seen = {};
+        for (const tile of list) seen[tile.id] = true;
+        // Let go of the ones not needed first, so they can be used again now.
+        for (const key in iconTileObjects) {
+            if (seen[key]) continue;
+            const icon = iconTileObjects[key];
+            delete iconTileObjects[key];
+            icon.tile = null;               // hidden: not ready
+            if (spareIconTiles.length < maxSpareIconTiles) spareIconTiles.push(icon);
+            else icon.destroy();
+        }
         for (const tile of list) {
-            seen[tile.id] = true;
             let icon = iconTileObjects[tile.id];
             if (!icon) {
-                icon = iconTileComponent.createObject(root, {
-                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
-                });
-                icon.opened.connect(id => root.driver.openTile(id));
+                icon = spareIconTiles.pop();
+                if (!icon) {
+                    icon = iconTileComponent.createObject(root, {
+                        overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+                    });
+                    icon.opened.connect(id => root.driver.openTile(id));
+                }
                 iconTileObjects[tile.id] = icon;
             }
             icon.tile = tile;
             icon.revision = revision;
         }
-        dropMissing(iconTileObjects, seen);
     }
 
     function syncGroupBars(list, cfg) {
@@ -777,6 +794,7 @@ Item {
         for (const key in borderObjects) borderObjects[key].hideAll();
         for (const key in groupBarObjects) groupBarObjects[key].hide();
         for (const key in iconTileObjects) iconTileObjects[key].hide();
+        for (const icon of spareIconTiles) icon.hide();
     }
 
     Component.onDestruction: {

@@ -1396,7 +1396,27 @@ function createDriver(env) {
         }
     }
 
-    function relayout() {
+    // How long the layout and the decorations take, for the state dump: the
+    // test suite holds them to a budget with many windows open.
+    var timing = {};
+
+    function timeIt(name, fn) {
+        var t0 = Date.now();
+        try {
+            fn();
+        } finally {
+            var ms = Date.now() - t0;
+            var t = timing[name] || (timing[name] = { count: 0, last: 0, max: 0, total: 0 });
+            t.count++;
+            t.last = ms;
+            t.total += ms;
+            if (ms > t.max) t.max = ms;
+        }
+    }
+
+    function relayout() { timeIt("relayout", relayoutNow); }
+
+    function relayoutNow() {
         if (stopped) return;
         refreshShown();
         // Natively, a window changes desktop only once it has reached its
@@ -1565,7 +1585,9 @@ function createDriver(env) {
             r.width >= 1 && r.height >= 1;
     }
 
-    function updateDecorations() {
+    function updateDecorations() { timeIt("decorations", updateDecorationsNow); }
+
+    function updateDecorationsNow() {
         if (stopped) return;
         if (slideGrowers) return;   // see slideGrowers
         var borders = [];
@@ -3162,6 +3184,7 @@ function createDriver(env) {
                 keyConflicts: keyConflicts,
                 keysGuide: keysOpen ? keysShown : null,
                 notices: noticesShown.slice(),
+                timing: JSON.parse(JSON.stringify(timing)),
                 iconTiles: lastIconTiles,
                 zoomEscape: zoomKeysOn,
             };

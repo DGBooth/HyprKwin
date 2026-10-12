@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Faster layout switches with many windows open.** Switching layout on a
+  workspace with 40 windows took up to 75 ms (a visible stutter), most of it
+  making the icon tiles that stand in for tiles too small to use; those are
+  now kept and used again, and the same switch takes about 25 ms. HyprKwin
+  times its layout and drawing, and the tests hold them to a budget.
+
 ## 0.17.0
 
 *HyprKwin animations unchanged: 0.16.1 is still current.*

@@ -994,6 +994,39 @@ def layouts_survive_a_new_session(sb):
     eq(json.loads(store.read_text())["spaces"][space]["layout"], "master", "and starting up did not overwrite it")
 
 
+@test
+def many_windows_stay_quick(sb):
+    """Forty windows on one workspace: laying them out and drawing their
+    borders, tab bars and icon tiles keeps within budgets - generous ones,
+    for slow machines, but far below what any slowdown that grows with the
+    number of windows would cost."""
+    n = 40
+    for i in range(n):
+        sb.spawn("W%02d" % i, wait=False)
+        time.sleep(0.15)
+    sb.wait_for(lambda s: len(s["windows"]) >= n, "%d windows" % n, timeout=120)
+    sb.settle(2)
+    def spent(actions):
+        before = sb.state()["timing"]
+        for a in actions:
+            sb.invoke(a, settle=False)
+            time.sleep(0.4)
+        after = sb.state()["timing"]
+        return {k: (after[k]["total"] - before.get(k, {}).get("total", 0),
+                    after[k]["count"] - before.get(k, {}).get("count", 0)) for k in after}
+    # Moving about: each costs next to nothing.
+    moves = spent(["focusLeft", "swapRight", "focusUp", "swapDown", "toggleSplit", "toggleGroup", "toggleGroup"] * 2)
+    for k, (ms, count) in moves.items():
+        eq(ms / max(1, count) < 15, True, "%s: %d ms over %d runs while moving about" % (k, ms, count))
+    # Switching layout: dozens of tiles become icons, or stop being.
+    for a in ("layoutMaster", "layoutMonocle", "layoutScrolling", "layoutDwindle", "layoutMonocle", "layoutDwindle"):
+        took = spent([a])
+        total = sum(ms for ms, _ in took.values())
+        eq(total < 150, True, "%s took %d ms: %r" % (a, total, took))
+    t = sb.state()["timing"]
+    eq(t["relayout"]["max"] < 50, True, "the layout itself never takes long: %r" % (t["relayout"],))
+
+
 def fake_plasma(sb):
     """The stand-in for plasmashell's scripting, where HyprKwin keeps its
     layouts and the notices it has given. Returns the store file."""
