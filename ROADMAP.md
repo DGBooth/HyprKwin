@@ -92,6 +92,21 @@ translations.
   - To work out: how Hyprland's matchers (regular expressions on class and
     title) map onto Plasma's match types, and what happens to a rule that
     sets both a tiler action and a moved one.
+- **Say what it does, not what Hyprland does.** Hyprland is mentioned about
+  130 times: the settings page (tooltips like "like Hyprland", "Hyprland's
+  default"), the store description, the README and docs, and code comments.
+  Most of those explain a feature by comparison, which means nothing to
+  someone who has never used Hyprland and reads as a clone to people who know
+  Plasma. Go through them all:
+  - Settings page and keys guide: describe the behaviour plainly. These are
+    what Plasma users read first.
+  - README, docs and store description: lead with what HyprKwin does in
+    Plasma. Mention Hyprland where it helps a convert: the importer, the rule
+    syntax, the default keys, and a "coming from Hyprland" section in
+    getting started that maps Hyprland's settings onto HyprKwin's.
+  - Code comments: keep a mention where it records why something behaves the
+    way it does (matching Hyprland on purpose); drop the rest.
+  - The name stays (1.0 freezes it).
 - **Separate workspaces for each activity** ([#2](https://github.com/DGBooth/HyprKwin/issues/2)).
   Windows on another activity drop out of the layout, focus stays on the
   current activity, and each activity remembers what every monitor shows.
