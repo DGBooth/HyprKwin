@@ -3545,6 +3545,34 @@ def the_window_menu_can_float_an_app(sb):
     eq(sb.window("B")["tiled"], False, "B floats after Always float")
 
 
+@test(config={"WindowRuleList": ["float, class:^(org\\.kde\\.kcalc)$"]})
+def always_float_this_app_writes_its_rule(sb):
+    """The window menu's actions write a rule for the app into the settings
+    page's list (through plasmashell): float, then tile in its place, and new
+    windows of the app follow it after a restart."""
+    if with_panel(sb) is None:
+        raise Skip("needs plasmashell")
+    sb.spawn("A")
+    sb.spawn("B")
+
+    def rules_become(text):
+        end = time.time() + 15
+        while time.time() < end and read_rules_of(sb) != text:
+            time.sleep(0.3)
+        eq(read_rules_of(sb), text, "the rules")
+    sb.invoke("ruleFloatApp")
+    eq(sb.window("B")["tiled"], False, "B floats at once")
+    rules_become(r"float\, class:^(org\\.kde\\.kcalc)$,float\, class:^(hyprkwin\\.test)$")
+    sb.invoke("ruleTileApp")
+    eq(sb.window("B")["tiled"], True, "and tiles again")
+    rules_become(r"float\, class:^(org\\.kde\\.kcalc)$,tile\, class:^(hyprkwin\\.test)$")
+    sb.invoke("ruleFloatApp")
+    rules_become(r"float\, class:^(org\\.kde\\.kcalc)$,float\, class:^(hyprkwin\\.test)$")
+    sb.restart()
+    sb.spawn("C")
+    eq(sb.window("C")["tiled"], False, "a new window of the app floats after a restart")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]
