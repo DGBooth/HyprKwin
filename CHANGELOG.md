@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+**HyprKwin 1.0.** No headline feature: a promise that what is there stays
+put and keeps working. From here on, your settings, shortcut names and keys,
+window and workspace rules, submaps, saved layouts and `hyprkwinctl`'s
+commands and JSON carry over every upgrade (a change that would break one
+waits for 2.0); [docs/compatibility.md](docs/compatibility.md) lists exactly
+what is kept.
+
+Coming from the KDE Store's 0.17, everything in 1.0.0-rc1 and rc2 below is
+new to you. In short:
+
+- **Rules from the window menu** (Alt+F3 › Extensions › HyprKwin › Always
+  float / tile / open in the scratchpad).
+- **Fullscreen and maximize rules move to Plasma's own window rules** by
+  themselves; HyprKwin's rules are for what Plasma's cannot do.
+- **Plain descriptions** throughout the settings page and shortcuts.
+- **Fixes:** a script error loop with two monitors (found by a new,
+  hours-long soak test), and directional focus to a monitor a window had
+  just left.
+
+### Changed
+
+- **Supported: Plasma's LTS and current releases**, on Wayland — 6.6 (the
+  LTS) and 6.8 — both tested before every release, the LTS now with
+  plasmashell too. 6.7 should keep working, but is no longer tested now that
+  6.8 has replaced it.
+
 ## 1.0.0-rc2
 
 *HyprKwin animations 1.0.0-rc2 (changed in this release).*

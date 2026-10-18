@@ -47,6 +47,11 @@ set_version package "$VERSION"
 if [ -n "$EFFECT_CHANGES" ]; then
     set_version package-effect "$VERSION"
     EFFECT_NOTE="HyprKwin animations $VERSION (changed in this release)."
+elif [[ $(version_of package-effect) == *-* && $VERSION != *-* ]]; then
+    # Last changed in a pre-release: a final release does not ship a
+    # pre-release's version.
+    EFFECT_NOTE="HyprKwin animations $VERSION (unchanged since $(version_of package-effect))."
+    set_version package-effect "$VERSION"
 else
     EFFECT_NOTE="HyprKwin animations unchanged: $(version_of package-effect) is still current."
 fi
