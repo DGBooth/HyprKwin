@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+*HyprKwin animations 1.0.0 (unchanged since 1.0.0-rc2).*
 
 **HyprKwin 1.0.** No headline feature: a promise that what is there stays
 put and keeps working. From here on, your settings, shortcut names and keys,
