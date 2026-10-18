@@ -103,8 +103,14 @@ tools/install.sh >/dev/null
 echo "Released $VERSION (animations $EFFECT_VERSION): $(gh release view "v$VERSION" --json url --jq .url)"
 if [ ${#PRE[@]} -gt 0 ]; then
     echo "A pre-release: GitHub only, nothing for the KDE Store."
-elif [ -n "$EFFECT_CHANGES" ]; then
-    echo "KDE Store: upload both files."
 else
-    echo "KDE Store: upload the script only; the animations are unchanged."
+    # The store has the last final release; pre-releases never went there.
+    STORE_TAG=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' "$LAST" 2>/dev/null || true)
+    STORE_EFFECT=$([ -n "$STORE_TAG" ] && git show "$STORE_TAG:package-effect/metadata.json" \
+        | python3 -c 'import json, sys; print(json.load(sys.stdin)["KPlugin"]["Version"])' || true)
+    if [ "$STORE_EFFECT" != "$EFFECT_VERSION" ]; then
+        echo "KDE Store: upload both files (the store's animations are ${STORE_EFFECT:-unknown})."
+    else
+        echo "KDE Store: upload the script only; the animations are unchanged."
+    fi
 fi
