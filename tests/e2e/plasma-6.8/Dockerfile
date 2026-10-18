@@ -1,6 +1,5 @@
-# The end-to-end tests against Plasma 6.8, from Arch Linux's kde-unstable
-# repository (its betas and release candidates until 6.8.0 is out, then the
-# release itself). KWin runs nested on its virtual backend, with a real
+# The end-to-end tests against Plasma 6.8, the current release, from Arch
+# Linux's own repositories. KWin runs nested on its virtual backend, with a real
 # plasmashell for the panel tests:
 #
 #   tools/test-plasma.sh 6.8 [test names...]
@@ -8,9 +7,7 @@
 # The repository is mounted at /src when it runs; nothing of it is copied in.
 FROM archlinux:latest
 
-# kde-unstable comes before the usual repositories, so its Plasma wins.
-RUN sed -i 's/^\[core\]/[kde-unstable]\nInclude = \/etc\/pacman.d\/mirrorlist\n\n[core]/' /etc/pacman.conf \
-    && pacman -Syu --noconfirm --needed \
+RUN pacman -Syu --noconfirm --needed \
         kwin xorg-xwayland kglobalacceld kactivitymanagerd qt6-wayland breeze \
         kirigami qt6-declarative kpackage kconfig libkscreen qt6-tools \
         mesa dbus python python-dbus python-gobject python-pillow pyside6 \

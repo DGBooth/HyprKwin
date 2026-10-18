@@ -36,7 +36,7 @@ jobs:
           for f in package/metadata.json package-effect/metadata.json; do python3 -m json.tool "$f" > /dev/null; done
           python3 -c "import xml.dom.minidom as m; [m.parse(f) for f in ['package/contents/ui/config.ui', 'package/contents/config/main.xml', 'package-effect/contents/ui/config.ui', 'package-effect/contents/config/main.xml']]"
 
-  # The whole end-to-end suite against Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04
+  # The whole end-to-end suite against Plasma 6.6, the LTS (as Ubuntu 26.04
   # LTS ships it), nested on KWin's virtual backend in a container.
   e2e-plasma-6_6:
     runs-on: ubuntu-latest

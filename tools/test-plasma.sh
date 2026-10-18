@@ -5,10 +5,11 @@
 #   tools/test-plasma.sh 6.6                 # the whole suite on Plasma 6.6
 #   tools/test-plasma.sh 6.8 scratchpad -v   # some tests, as run.py takes them
 #
-# 6.6 is KWin 6.6.6 as Ubuntu 26.04 LTS ships it; 6.8 comes from Arch's
-# kde-unstable repository (rebuild with HK_REBUILD=1 to pick up a newer
-# release candidate). Needs Docker (or podman with its docker
-# command). Tests that need Plasma 6.7's per-screen desktops say SKIP on 6.6.
+# 6.6, the LTS release, is Plasma as Ubuntu 26.04 LTS ships it; 6.8, the
+# current one, comes from Arch's own repositories (rebuild with HK_REBUILD=1
+# to pick up newer packages). Needs Docker (or podman with its docker
+# command). Tests that need Plasma's per-screen desktops (6.7 and later) say
+# SKIP on 6.6.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)

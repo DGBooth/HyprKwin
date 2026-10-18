@@ -9,8 +9,10 @@ migration that runs on its own, so your settings carry over either way.
 
 ## Supported
 
-- Plasma 6.6 (the LTS release), 6.7 and 6.8, on Wayland. Each is tested
-  before every release.
+- Plasma's LTS release and its current one, on Wayland: today 6.6 (LTS)
+  and 6.8. Both are tested before every release. 6.7 should keep working —
+  nothing it needs has gone — but is no longer tested, now that 6.8 has
+  replaced it.
 - Any keyboard layout. The workspace keys follow the layout's digit row.
 - X11 and Plasma before 6.6 are not supported. Plasma 6.8 is Wayland only.
 

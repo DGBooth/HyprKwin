@@ -71,7 +71,7 @@ monocle and scrolling.
 
 ## Install
 
-Plasma 6.6, 6.7 or 6.8, on Wayland.
+Plasma 6.6 (the LTS release) or 6.8, on Wayland.
 
 1. System Settings › Window Management › KWin Scripts › "Get New…", search
    for **HyprKwin**, install it and tick it.
@@ -104,7 +104,8 @@ your shortcuts up first) and uninstalling are in
 
 ## Compatibility
 
-HyprKwin supports Plasma 6.6, 6.7 and 6.8 on Wayland. Your settings, your
+HyprKwin supports Plasma's LTS and current releases on Wayland: 6.6 and
+6.8, both tested before every release. Your settings, your
 own key choices, your rules and the `hyprkwinctl` commands scripts use carry
 over every upgrade; [docs/compatibility.md](docs/compatibility.md) lists
 exactly what is kept stable, and what is not.

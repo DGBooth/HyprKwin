@@ -45,11 +45,13 @@ python3 tests/e2e/run.py groups     # tests whose name contains "groups"
 ```
 
 The same suite runs in a container against other Plasma releases, whatever
-Plasma your machine has: Plasma 6.6 (KWin 6.6.6, as Ubuntu 26.04 LTS ships
-it, also in CI on every push) and Plasma 6.8 (from Arch's kde-unstable
-repository; `HK_REBUILD=1` picks up a newer release candidate). It needs
-Docker or podman; the tests for Plasma 6.7's per-screen desktops are skipped
-on 6.6. Locally the container is given the first GPU render node that Mesa
+Plasma your machine has: Plasma 6.6, the LTS release (as Ubuntu 26.04 LTS
+ships it, also in CI on every push), and Plasma 6.8, the current one (from
+Arch's own repositories; `HK_REBUILD=1` picks up newer packages). Before a
+release the suite runs on both, and on this machine's Plasma with and
+without its own per-screen desktops (`HK_NATIVE=1`). It needs Docker or
+podman; the tests for Plasma's per-screen desktops (6.7 and later) are
+skipped on 6.6. Locally the container is given the first GPU render node that Mesa
 drives (an Intel or AMD GPU, not NVIDIA's), so the screenshot and effect
 tests run too; CI has no GPU and skips them.
 

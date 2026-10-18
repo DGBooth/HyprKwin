@@ -33,7 +33,8 @@ there stays put and keeps working.
   breaks a setup means 2.0.
 - **It never takes the desktop down:** no KWin crashes, no stuck windows, a
   clean uninstall.
-- **Plasma 6.6 to 6.8, on Wayland**, each tested before every release.
+- **Plasma's LTS and current releases, on Wayland** (6.6 and 6.8 at 1.0),
+  each tested before every release.
 - **Any keyboard layout, any setup**, not only a US keyboard.
 
 The way there:

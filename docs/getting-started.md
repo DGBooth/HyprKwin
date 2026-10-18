@@ -4,9 +4,10 @@ Installing HyprKwin and its animations, handing Plasma's clashing keys over, and
 
 ## Install
 
-Requires Plasma 6.6, 6.7 or 6.8 on Wayland (each tested before every release;
-X11 is not supported). Plasma 6.7's own per-screen desktops are used when they are
-on; on 6.6, HyprKwin gives each monitor its own workspaces itself. A full Plasma install has everything HyprKwin
+Requires Plasma 6.6 (the LTS release) or 6.8 on Wayland, both tested before
+every release (6.7 should work too, but is no longer tested; X11 is not
+supported). Plasma's own per-screen desktops (6.7 and later) are used when
+they are on; on 6.6, HyprKwin gives each monitor its own workspaces itself. A full Plasma install has everything HyprKwin
 needs; a minimal one also needs Qt's `QtCore` and `Qt.labs.folderlistmodel`
 QML modules (`qml6-module-qtcore` and `qml6-module-qt-labs-folderlistmodel` on
 Debian and Ubuntu, part of `qt6-declarative` on Arch). The helper scripts also need `python3` with dbus-python

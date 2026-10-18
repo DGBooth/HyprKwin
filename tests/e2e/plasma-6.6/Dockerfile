@@ -1,6 +1,8 @@
-# The end-to-end tests against Plasma 6.6, as Ubuntu 26.04 LTS ships it
-# (KWin 6.6.6). KWin runs nested on its virtual backend with software
-# rendering, so no GPU or display is needed:
+# The end-to-end tests against Plasma 6.6, the LTS, as Ubuntu 26.04 LTS ships
+# it, with a real plasmashell for the panel and settings-migration tests
+# (Ubuntu does not package kcmshell6, so the settings-page test says SKIP).
+# KWin runs nested on its virtual backend with software rendering, so no GPU
+# or display is needed:
 #
 #   tools/test-plasma.sh 6.6 [test names...]
 #
@@ -18,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-dbus python3-gi python3-pil \
         python3-pyside6.qtcore python3-pyside6.qtgui python3-pyside6.qtwidgets \
         fonts-dejavu-core ca-certificates libcap2-bin git \
+        plasma-workspace plasma-desktop zenity \
     && rm -rf /var/lib/apt/lists/*
 
 # kwin_wayland is installed with CAP_SYS_NICE, for real-time scheduling. A
