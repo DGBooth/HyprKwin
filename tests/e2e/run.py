@@ -21,11 +21,6 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 TESTS = []
 
-SIDES = ("Top", "Right", "Bottom", "Left")
-
-def gaps_out_keys(n):
-    return {"GapsOut" + s: n for s in SIDES}
-
 def gaps_out_state(n):
     return {"left": n, "top": n, "right": n, "bottom": n}
 

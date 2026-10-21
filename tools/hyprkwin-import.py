@@ -42,8 +42,8 @@ def as_int(v):
 
 def as_gaps_out(v):
     parts = [str(int(float(x))) for x in v.split()]
-    if not parts:
-        raise ValueError("expected gap size")
+    if not 1 <= len(parts) <= 4:
+        raise ValueError("gaps_out takes 1 to 4 values")
     if len(parts) == 1:
         top = right = bottom = left = parts[0]
     elif len(parts) == 2:
@@ -55,7 +55,7 @@ def as_gaps_out(v):
         bottom = parts[2]
     else:
         top, right, bottom, left = parts[:4]
-    sides = {"Left": left, "Top": top, "Right": right, "Bottom": bottom}
+    sides = {"Top": top, "Right": right, "Bottom": bottom, "Left": left}
     base = max(sides.values(), key=list(sides.values()).count)
     out = {"GapsOut": base}
     for s, val in sides.items():

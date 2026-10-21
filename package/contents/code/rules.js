@@ -325,16 +325,6 @@ function parseWorkspaceRules(text) {
                 Object.keys(sides).forEach(function (s) { if (rule.gapsOut[s] === null) rule.gapsOut[s] = sides[s]; });
                 break;
             }
-            case "gapsoutleft":
-            case "gapsouttop":
-            case "gapsoutright":
-            case "gapsoutbottom": {
-                var px = parseInt(value, 10);
-                if (!(px >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
-                var side = key.slice(7);
-                if (rule.gapsOut[side] === null) rule.gapsOut[side] = px;
-                break;
-            }
             default:
                 errors.push(where + "unknown property '" + m[1] + "'");
                 ok = false;
