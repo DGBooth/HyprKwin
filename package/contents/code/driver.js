@@ -679,7 +679,12 @@ function createDriver(env) {
         if (activeSource < 0) activeSource = bool(rc("UseAccentColor", true), true) ? 0 : 1;
         cfg = {
             gapsIn: num(rc("GapsIn", 5), 5),
-            gapsOut: num(rc("GapsOut", 10), 10),
+            gapsOut: {
+                left: num(rc("GapsOutLeft", 10), 10),
+                top: num(rc("GapsOutTop", 10), 10),
+                right: num(rc("GapsOutRight", 10), 10),
+                bottom: num(rc("GapsOutBottom", 10), 10),
+            },
             splitRatio: num(rc("SplitRatio", "1.0"), 1.0),
             splitWidthMultiplier: num(rc("SplitWidthMultiplier", "1.0"), 1.0),
             preserveSplit: bool(rc("PreserveSplit", true), true),

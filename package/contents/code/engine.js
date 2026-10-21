@@ -10,7 +10,7 @@
 // the first child receives ratio / 2 of the space.
 var DEFAULT_CONFIG = {
     gapsIn: 5,
-    gapsOut: 10,
+    gapsOut: { left: 10, top: 10, right: 10, bottom: 10},
     splitRatio: 1.0,
     splitWidthMultiplier: 1.0,
     preserveSplit: true,
@@ -387,9 +387,14 @@ function createEngine(userConfig) {
     var spaceGaps = {};
     function gapsFor(space) {
         var g = spaceGaps[space] || {};
+        var o = g.outer || {};
+        var outer = {};
+        ["left", "top", "right", "bottom"].forEach(function (s) {
+            outer[s] = (o[s] === undefined || o[s] === null) ? cfg.gapsOut[s] : o[s];
+        });
         return {
-            inner: g.inner === undefined || g.inner === null ? cfg.gapsIn : g.inner,
-            outer: g.outer === undefined || g.outer === null ? cfg.gapsOut : g.outer,
+            inner: (g.inner === undefined || g.inner === null) ? cfg.gapsIn : g.inner,
+            outer: outer,
         };
     }
 
@@ -411,7 +416,7 @@ function createEngine(userConfig) {
         var area = areas[space] || rect(0, 0, 1920, 1080);
         if (!roots[space]) return;
         var gOut = gapsFor(space).outer;
-        arrange(space, shrink(area, gOut, gOut, gOut, gOut));
+        arrange(space, shrink(area, gOut.left, gOut.top, gOut.right, gOut.bottom));
     }
 
     // A subtree is shown if any window in it is visible. Hidden subtrees
@@ -799,8 +804,8 @@ function createEngine(userConfig) {
             var only = all.length === 1 && cfg.noGapsWhenOnly;
             var g = gapsFor(space);
             var gIn = only ? 0 : g.inner;
-            var gOut = only ? 0 : g.outer;
-            var inner = shrink(area, gOut, gOut, gOut, gOut);
+            var gOut = only ? { left: 0, top: 0, right: 0, bottom: 0 } : g.outer;
+            var inner = shrink(area, gOut.left, gOut.top, gOut.right, gOut.bottom);
             arrange(space, inner, result.offscreen, result);
             var eps = 0.5;
             all.forEach(function (leaf) {

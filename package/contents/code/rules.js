@@ -242,7 +242,7 @@ function plasmaRule(line) {
 // Hyprland's workspace rules, one per line:
 //
 //   workspace = 3, monitor:DP-2, default:true, layout:master
-//   2, monitor:1, gapsin:0, gapsout:0
+//   2, monitor:1, gapsin:0, gapsoutleft:0, gapsouttop:0, gapsoutright:0, gapsoutbottom:0
 //
 // Supported properties: monitor:<n|name> pins the workspace to a monitor,
 // default:true makes it the one that monitor starts on, layout:<name> gives
@@ -266,7 +266,20 @@ function parseWorkspaceRules(text) {
             errors.push(where + "a workspace rule starts with a workspace number, e.g. workspace = 3, monitor:DP-2");
             return;
         }
-        var rule = rules[index] || { index: index, monitor: null, isDefault: false, layout: null, gapsIn: null, gapsOut: null };
+        var rule = rules[index]
+            || {
+                index: index,
+                monitor: null,
+                isDefault: false,
+                layout: null,
+                gapsIn: null,
+                gapsOut: {
+                    left: null,
+                    top: null,
+                    right: null,
+                    bottom: null
+                }
+        };
         var ok = true;
         parts.forEach(function (p) {
             var m = /^([A-Za-z_]+)\s*:\s*(.*)$/.exec(p);
@@ -277,33 +290,41 @@ function parseWorkspaceRules(text) {
             }
             var key = m[1].toLowerCase().replace(/_/g, ""), value = m[2].trim();
             switch (key) {
-            case "monitor":
-                if (!value) { errors.push(where + "monitor: needs a number or a name, e.g. monitor:DP-2"); ok = false; return; }
-                if (rule.monitor === null) rule.monitor = value;
-                break;
-            case "default":
-                if (!/^(1|0|true|false|yes|no)$/i.test(value)) { errors.push(where + "default: takes true or false"); ok = false; return; }
-                rule.isDefault = rule.isDefault || /^(1|true|yes)$/i.test(value);
-                break;
-            case "layout":
-                if (WORKSPACE_LAYOUTS.indexOf(value.toLowerCase()) < 0) {
-                    errors.push(where + "layout: is one of " + WORKSPACE_LAYOUTS.join(", "));
-                    ok = false;
-                    return;
+                case "monitor":
+                    if (!value) { errors.push(where + "monitor: needs a number or a name, e.g. monitor:DP-2"); ok = false; return; }
+                    if (rule.monitor === null) rule.monitor = value;
+                    break;
+                case "default":
+                    if (!/^(1|0|true|false|yes|no)$/i.test(value)) { errors.push(where + "default: takes true or false"); ok = false; return; }
+                    rule.isDefault = rule.isDefault || /^(1|true|yes)$/i.test(value);
+                    break;
+                case "layout":
+                    if (WORKSPACE_LAYOUTS.indexOf(value.toLowerCase()) < 0) {
+                        errors.push(where + "layout: is one of " + WORKSPACE_LAYOUTS.join(", "));
+                        ok = false;
+                        return;
+                    }
+                    if (rule.layout === null) rule.layout = value.toLowerCase();
+                    break;
+                case "gapsin": {
+                    var n = parseInt(value, 10);
+                    if (!(n >= 0)) { errors.push(where + "gapsin: needs a number of pixels"); ok = false; return; }
+                    if (rule.gapsIn === null) rule.gapsIn = n;
+                    break;
                 }
-                if (rule.layout === null) rule.layout = value.toLowerCase();
-                break;
-            case "gapsin":
-            case "gapsout": {
-                var n = parseInt(value, 10);
-                if (!(n >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
-                var field = key === "gapsin" ? "gapsIn" : "gapsOut";
-                if (rule[field] === null) rule[field] = n;
-                break;
-            }
-            default:
-                errors.push(where + "unknown property '" + m[1] + "'");
-                ok = false;
+                case "gapsoutleft":
+                case "gapsouttop":
+                case "gapsoutright":
+                case "gapsoutbottom": {
+                    var px = parseInt(value, 10);
+                    if (!(px >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
+                    var side = key.slice(7);
+                    if (rule.gapsOut[side] === null) rule.gapsOut[side] = px;
+                    break;
+                }
+                default:
+                    errors.push(where + "unknown property '" + m[1] + "'");
+                    ok = false;
             }
         });
         if (ok) rules[index] = rule;

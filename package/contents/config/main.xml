@@ -6,7 +6,10 @@
     <group name="">
         <!-- Layout -->
         <entry name="GapsIn" type="Int"><default>5</default></entry>
-        <entry name="GapsOut" type="Int"><default>10</default></entry>
+        <entry name="GapsOutLeft" type="Int"><default>10</default></entry>
+        <entry name="GapsOutTop" type="Int"><default>10</default></entry>
+        <entry name="GapsOutRight" type="Int"><default>10</default></entry>
+        <entry name="GapsOutBottom" type="Int"><default>10</default></entry>
         <entry name="SplitRatio" type="Double"><default>1.0</default></entry>
         <entry name="SplitWidthMultiplier" type="Double"><default>1.0</default></entry>
         <entry name="PreserveSplit" type="Bool"><default>true</default></entry>
