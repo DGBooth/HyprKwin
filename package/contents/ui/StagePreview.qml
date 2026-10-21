@@ -31,6 +31,14 @@ Window {
 
     x: ready ? preview.x - margin : 0
     y: ready ? preview.y - margin : 0
+    // Moving along the strip (another window joining it at the top), it
+    // glides there at Plasma's animation speed; its first place it simply
+    // takes.
+    property bool placed: false
+    Behavior on y {
+        enabled: win.placed && win.visible
+        NumberAnimation { duration: Kirigami.Units.longDuration; easing.type: Easing.OutCubic }
+    }
     width: ready ? preview.width + 2 * margin : 1
     height: ready ? preview.height + 2 * margin : 1
 
@@ -43,7 +51,11 @@ Window {
         if (ready && !overlaysHidden) show();
         else hide();
     }
-    onReadyChanged: sync()
+    onVisibleChanged: if (!visible) placed = false
+    onReadyChanged: {
+        if (ready) Qt.callLater(() => placed = true);
+        sync();
+    }
     onPreviewChanged: sync()
     onOverlaysHiddenChanged: sync()
     Component.onCompleted: sync()

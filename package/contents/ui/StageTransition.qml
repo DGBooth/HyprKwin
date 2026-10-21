@@ -24,11 +24,30 @@ Window {
     flags: Qt.X11BypassWindowManagerHint | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
     color: "transparent"
 
+    // Shown once and kept, parked out of sight between switches: showing a
+    // window brings KWin's open animation with it, and a card must not fade
+    // in. Moved into place for a switch, it is never animated.
+    readonly property int parked: -32000
+    x: parked
+    y: parked
+    width: 1
+    height: 1
+
     function hideAll() {
         anim.stop();
         hide();
     }
-    onOverlaysHiddenChanged: if (overlaysHidden) hideAll()
+    function park() {
+        x = parked;
+        y = parked;
+        width = 1;
+        height = 1;
+    }
+    onOverlaysHiddenChanged: {
+        if (overlaysHidden) hideAll();
+        else { park(); show(); }
+    }
+    Component.onCompleted: if (!overlaysHidden) show()
     Component.onDestruction: hide()
 
     function play(t) {
@@ -44,7 +63,7 @@ Window {
         height = Math.max(1, t.height);
         place(incoming, t.incoming.from, 1);
         place(outgoing, t.outgoing.from, 0);
-        show();
+        if (!visible) show();
         anim.restart();
     }
 
@@ -57,7 +76,7 @@ Window {
     }
 
     function done() {
-        hide();
+        park();
         const id = transition && transition.incoming ? transition.incoming.id : "";
         transition = null;
         finished(id);

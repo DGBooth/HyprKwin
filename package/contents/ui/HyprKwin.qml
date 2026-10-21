@@ -765,19 +765,30 @@ Item {
             preview.preview = entry;
         }
         dropMissing(stagePreviewObjects, seen);
+        // A workspace with a strip has its transition overlay ready, shown
+        // and parked, before the first switch (see StageTransition.qml).
+        const spaces = {};
+        for (const entry of list) spaces[entry.space] = true;
+        for (const space in spaces) stageTransition(space);
+        dropMissing(stageTransitionObjects, spaces);
     }
 
-    // The switch between stage and strip, one overlay per workspace.
-    property var stageTransitionObjects: ({})
-    function playStageTransition(t) {
-        let overlay = stageTransitionObjects[t.id];
+    function stageTransition(space) {
+        let overlay = stageTransitionObjects[space];
         if (!overlay) {
             overlay = stageTransitionComponent.createObject(root, {
                 overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
             });
             overlay.finished.connect(id => root.driver.stageTransitionDone(id));
-            stageTransitionObjects[t.id] = overlay;
+            stageTransitionObjects[space] = overlay;
         }
+        return overlay;
+    }
+
+    // The switch between stage and strip, one overlay per workspace.
+    property var stageTransitionObjects: ({})
+    function playStageTransition(t) {
+        const overlay = stageTransition(t.id);
         // The outgoing window's preview waits for its card to land on it.
         const landing = stagePreviewObjects[t.outgoing.id];
         if (landing && overlay.duration > 0) landing.holdFor(overlay.duration);

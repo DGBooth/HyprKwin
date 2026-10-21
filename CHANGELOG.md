@@ -17,6 +17,15 @@
   the stage layout" shortcut (unbound), the default layout setting,
   `layout:stage` in a workspace rule, or `hyprkwinctl layout stage`.
 
+### Changed
+
+- **Animations: HyprKwin's own borders, tab bars and stage previews no
+  longer fade or scale in and out with Plasma's popup and window effects**
+  (Fading Popups, Scale, Glide, Fade). They come and go with the windows they
+  belong to; the animations effect now claims their opening and closing, the
+  way Plasma's effects leave a window to whichever effect claimed it. This is
+  what lets a stage switch land without anything fading half way.
+
 ## HyprKwin animations 1.0.1
 
 *The script is unchanged: HyprKwin 1.0.0 is still current.*

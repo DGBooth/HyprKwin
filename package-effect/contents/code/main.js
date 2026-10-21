@@ -83,6 +83,18 @@ class HyprKwinAnimations {
             if (window.hkCoverWatch === id) this.uncover(window);
         });
         effect.configChanged.connect(this.loadConfig.bind(this));
+        // HyprKwin's own overlay windows (borders, tab bars, the stage
+        // layout's previews and its switch) come and go with the windows they
+        // belong to and must not fade or scale on their own: claiming their
+        // opening and closing makes Plasma's effects for those (Fading Popups,
+        // Scale, Glide, Fade) leave them alone, as they leave any window
+        // another effect has claimed.
+        effects.windowAdded.connect((window) => {
+            if (window.caption === OVERLAY_TITLE) effect.grab(window, Effect.WindowAddedGrabRole, true);
+        });
+        effects.windowClosed.connect((window) => {
+            if (window.caption === OVERLAY_TITLE) effect.grab(window, Effect.WindowClosedGrabRole, true);
+        });
         effects.windowAdded.connect(this.manage.bind(this));
         // Plasma 6.8 can load its own open/close effect after this one at
         // login, and nothing says when: check again as each window opens,

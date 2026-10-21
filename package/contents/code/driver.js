@@ -1451,8 +1451,9 @@ function createDriver(env) {
                 if (held && (id === held.incoming || id === held.outgoing)) continue;
                 if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
             }
-            // KWin pulls a window it focuses part way back on screen; the one
-            // coming onto the stage stays out of sight until its card lands.
+            // The window coming onto the stage waits out of sight until its
+            // card lands: KWin pulls a window it focuses part way back on
+            // screen.
             if (held && tracked[held.incoming]) {
                 var hw = tracked[held.incoming].w, hp = parkingSpot(), hg = hw.frameGeometry;
                 if (hg.x < hp.x) apply(tracked[held.incoming], { x: hp.x, y: hp.y, width: hg.width, height: hg.height }, false);
@@ -1462,11 +1463,16 @@ function createDriver(env) {
             // than half on the neighbouring screen.
             if (L.offscreen.length) {
                 var park = parkingSpot();
+                // In the stage layout they wait at the stage's size, so the
+                // previews have its shape and a switch has nothing to resize
+                // (a window redrawing at a new size shows half transparent in
+                // its thumbnail until it catches up).
+                var stageRect = stageStrips[vs.space] ? stageStrips[vs.space].stageRect : null;
                 L.offscreen.forEach(function (id) {
                     var st = tracked[id];
                     if (!st) return;
                     if (held && (id === held.incoming || id === held.outgoing)) return;
-                    var g = st.w.frameGeometry;
+                    var g = stageRect || st.w.frameGeometry;
                     apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
                 });
             }
@@ -1835,7 +1841,7 @@ function createDriver(env) {
             if (!items.length) continue;
             var top = a.y + Math.round((a.height - used) / 2);
             items.forEach(function (it) { it.y += top; });
-            items.forEach(function (it) { it.side = cfg.stageSide; });
+            items.forEach(function (it) { it.side = cfg.stageSide; it.space = space; });
             out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height,
                        side: cfg.stageSide, items: items, stageId: strip.stageId, stageRect: strip.stageRect });
         }
