@@ -907,6 +907,7 @@ function createDriver(env) {
             natural: { width: w.width, height: w.height }, placed: null, floatGeom: null,
         };
         tracked[id] = st;
+        st.fresh = !initial;        // opened just now: not placed by HyprKwin yet
         st.desktop = desktopIdFor(w);
         st.output = w.output ? w.output.name : null;
         connectWindow(st);
@@ -943,8 +944,16 @@ function createDriver(env) {
         // where it goes and how it looks (floating: rules included).
         applyWindowRules(st, R.matchRules(rules, { "class": w.resourceClass, title: w.caption, floating: !isTiled(st) }),
                          !initial && !rule.workspace);
-        // KWin may activate a window before announcing it.
-        if (w.active) engine.focused(id);
+        // KWin may activate a window before announcing it (a new one, as it
+        // opens): it is the focused one for closing it, too.
+        if (w.active) {
+            engine.focused(id);
+            if (lastActiveId !== id) {
+                prevActiveId = lastActiveId;
+                lastActiveId = id;
+                lastActivation = Date.now();
+            }
+        }
         return st;
     }
 
@@ -1040,7 +1049,21 @@ function createDriver(env) {
         engine.remove(id);
         forgetConnections(st);
         delete tracked[id];
-        if (heir) takeOver(heir);
+        if (heir) {
+            // KWin will not focus a window waiting off screen: in the stage
+            // layout the heir is brought onto the stage first...
+            var heirSpace = engine.spaceOf(heir);
+            if (heirSpace && engine.layoutOf(heirSpace) === "stage") {
+                // ... and focused once it is there: in the same tick, while
+                // KWin is still seeing the closed window out, the focus is
+                // lost.
+                relayout();
+                if (env.after) env.after(50, function () { takeOver(heir); });
+                else takeOver(heir);
+            } else {
+                takeOver(heir);
+            }
+        }
     }
 
     // Whether this window is the one the user was on. KWin hands the focus
@@ -1061,6 +1084,14 @@ function createDriver(env) {
         // A dialog hands the focus back to the window it belongs to, which
         // KWin already does; its neighbour in the layout is not the point.
         if (st.w.transient || st.w.transientFor) return null;
+        // In the stage layout, the window that takes the stage: the top of
+        // the strip.
+        var where = engine.spaceOf(st.id);
+        var strip = where ? stageStrips[where] : null;
+        if (strip && strip.stageId === st.id) {
+            var top = strip.ids.filter(function (i) { return i !== st.id && tracked[i]; })[0];
+            if (top) return top;
+        }
         var next = engine.neighbourOf(st.id);
         if (!next) {
             // Floating windows are not in the layout: fall back to the last
@@ -1446,10 +1477,22 @@ function createDriver(env) {
                 delete stageHeld[vs.space];          // no strip any more: no transition
             }
             var held = stageHeld[vs.space];
+            var stage = engine.layoutOf(vs.space) === "stage";
             for (var id in L.windows) {
                 var st = tracked[id];
                 if (held && (id === held.incoming || id === held.outgoing)) continue;
-                if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
+                if (!st) continue;
+                // A window opening onto the stage would be animated in from
+                // where KWin first put it, across the strip. Out of sight
+                // first (at the stage's size, so the two moves are not taken
+                // as one), it is not animated at all: it appears on the stage,
+                // with Plasma's own open animation.
+                if (st.fresh && stage) {
+                    var fp = parkingSpot(), fr = L.windows[id];
+                    apply(st, { x: fp.x, y: fp.y, width: fr.width, height: fr.height }, false);
+                }
+                st.fresh = false;
+                apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
             }
             // The window coming onto the stage waits out of sight until its
             // card lands: KWin pulls a window it focuses part way back on
@@ -1472,6 +1515,7 @@ function createDriver(env) {
                     var st = tracked[id];
                     if (!st) return;
                     if (held && (id === held.incoming || id === held.outgoing)) return;
+                    st.fresh = false;
                     var g = stageRect || st.w.frameGeometry;
                     apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
                 });

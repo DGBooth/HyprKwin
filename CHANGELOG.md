@@ -26,6 +26,14 @@
   way Plasma's effects leave a window to whichever effect claimed it. This is
   what lets a stage switch land without anything fading half way.
 
+### Fixed
+
+- **Closing a window you had not focused since it opened left nothing
+  focused**, or Plasma's own pick, rather than the window taking its place.
+  KWin focuses a new window before HyprKwin hears of it, so it never counted
+  as the focused one. In the stage layout, where the other windows wait off
+  screen, nothing got the focus at all.
+
 ## HyprKwin animations 1.0.1
 
 *The script is unchanged: HyprKwin 1.0.0 is still current.*

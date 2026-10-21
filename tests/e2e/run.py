@@ -3717,6 +3717,33 @@ def stage_switch_flies_the_windows_across(sb):
     eq(overlays_at(sb, 960, 540), [], "the transition has gone")
 
 
+@test(config={"DefaultLayout": 4}, effect=True, effect_config={"Duration": 2000, "Curve": 4})
+def stage_new_windows_open_on_the_stage(sb):
+    """A window opening onto the stage appears there, not animated in from
+    where KWin first put it, across the strip. Closing the stage window from
+    the keyboard gives the focus to the one taking the stage: the top of the
+    strip."""
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#00ff00")
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.spawn("C", color="#0000ff", wait=False)
+    seen = []
+    for i in range(12):
+        path = shots / ("open%d.png" % i)
+        sb.screenshot(path)
+        seen.append(pixel(sb, path, 60, 60))       # the strip, above its previews
+        time.sleep(0.1)
+    eq([c for c in seen if c[2] > 150 and c[0] < 80], [], "C never drawn over the strip: %r" % (seen,))
+    sb.settle(2.5)
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "C", "C has the focus")
+    eq([c for c, _ in stage_previews(sb, s)], ["B", "A"], "B tops the strip")
+    sb.invoke("close")
+    sb.wait_for(lambda s: s["active"] and s["windows"].get(s["active"], {}).get("caption") == "B", "B focused after C closes")
+    sb.wait_for(lambda s: sb.geometry("B", s)[:2] == (235, 10), "and on the stage")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]
