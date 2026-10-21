@@ -21,6 +21,14 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 TESTS = []
 
+SIDES = ("Top", "Right", "Bottom", "Left")
+
+def gaps_out_keys(n):
+    return {"GapsOut" + s: n for s in SIDES}
+
+def gaps_out_state(n):
+    return {"left": n, "top": n, "right": n, "bottom": n}
+
 
 def test(fn=None, **opts):
     def wrap(f):
@@ -746,14 +754,14 @@ def settings_apply_without_reconfigure(sb):
     time.sleep(5)  # past the startup quiet period
     subprocess.run(["kwriteconfig6", "--file", "kwinrc", "--group", "Script-hyprkwin", "--key", "GapsOut", "0"],
                    env=sb.env, check=True)
-    s = sb.wait_for(lambda s: s["config"]["gapsOut"] == 0, "new gaps picked up", timeout=6)
+    s = sb.wait_for(lambda s: s["config"]["gapsOut"] == gaps_out_state(0), "new gaps picked up", timeout=6)
     sb.settle()
     eq(sb.geometry("A"), (0, 0, 955, 1080), "relaid out with the new gaps")
     # A change made right after a reconfigure (inside the watcher's quiet
     # period) must still be applied, not swallowed.
     subprocess.run(["kwriteconfig6", "--file", "kwinrc", "--group", "Script-hyprkwin", "--key", "GapsOut", "40"],
                    env=sb.env, check=True)
-    sb.wait_for(lambda s: s["config"]["gapsOut"] == 40, "change during the quiet period still applied", timeout=12)
+    sb.wait_for(lambda s: s["config"]["gapsOut"] == gaps_out_state(40), "change during the quiet period still applied", timeout=12)
     before = sb.state()["configReloads"]
     time.sleep(8)
     after = sb.state()["configReloads"]

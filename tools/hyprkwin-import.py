@@ -55,12 +55,12 @@ def as_gaps_out(v):
         bottom = parts[2]
     else:
         top, right, bottom, left = parts[:4]
-    return {
-        "GapsOutTop": top,
-        "GapsOutRight": right,
-        "GapsOutBottom": bottom,
-        "GapsOutLeft": left,
-    }
+    sides = {"Left": left, "Top": top, "Right": right, "Bottom": bottom}
+    base = max(sides.values(), key=list(sides.values()).count)
+    out = {"GapsOut": base}
+    for s, val in sides.items():
+        out["GapsOut" + s] = "-1" if val == base else val
+    return out
 
 
 def as_float(v):

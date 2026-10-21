@@ -50,7 +50,7 @@ master {
 }
 """)
         self.assertEqual(plan["settings"], {
-            "GapsIn": "4", "GapsOutTop": "8", "GapsOutRight": "8", "GapsOutBottom": "8", "GapsOutLeft": "8", "BorderSize": "3", "DefaultLayout": "1",
+            "GapsIn": "4", "GapsOut": "8", "BorderSize": "3", "DefaultLayout": "1",
             "BorderRadius": "10", "ActiveOpacity": "0.95",
             "MasterFactor": "0.6", "MasterOrientation": "4", "MasterNewIsMaster": "true",
         })
