@@ -656,7 +656,8 @@ Item {
     }
     Component { id: groupBarComponent; GroupBar {} }
     Component { id: iconTileComponent; IconTile {} }
-    Component { id: stageStripComponent; StageStrip {} }
+    Component { id: stagePreviewComponent; StagePreview {} }
+    Component { id: stageTransitionComponent; StageTransition {} }
 
     function dropMissing(map, seen) {
         for (const key in map) {
@@ -745,23 +746,42 @@ Item {
         }
     }
 
-    // The stage layout's strips of previews, one per workspace showing it.
-    property var stageStripObjects: ({})
-    function syncStageStrips(list, cfg) {
+    // The stage layout's previews, one small window each (so the strip
+    // between them stays the desktop's), kept per window so a live thumbnail
+    // is never made again just because the strip moved.
+    property var stagePreviewObjects: ({})
+    function syncStagePreviews(list) {
         const seen = {};
         for (const entry of list) {
             seen[entry.id] = true;
-            let strip = stageStripObjects[entry.id];
-            if (!strip) {
-                strip = stageStripComponent.createObject(root, {
+            let preview = stagePreviewObjects[entry.id];
+            if (!preview) {
+                preview = stagePreviewComponent.createObject(root, {
                     overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
                 });
-                strip.opened.connect(id => root.driver.openStage(id));
-                stageStripObjects[entry.id] = strip;
+                preview.opened.connect(id => root.driver.openStage(id));
+                stagePreviewObjects[entry.id] = preview;
             }
-            strip.strip = entry;
+            preview.preview = entry;
         }
-        dropMissing(stageStripObjects, seen);
+        dropMissing(stagePreviewObjects, seen);
+    }
+
+    // The switch between stage and strip, one overlay per workspace.
+    property var stageTransitionObjects: ({})
+    function playStageTransition(t) {
+        let overlay = stageTransitionObjects[t.id];
+        if (!overlay) {
+            overlay = stageTransitionComponent.createObject(root, {
+                overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+            });
+            overlay.finished.connect(id => root.driver.stageTransitionDone(id));
+            stageTransitionObjects[t.id] = overlay;
+        }
+        // The outgoing window's preview waits for its card to land on it.
+        const landing = stagePreviewObjects[t.outgoing.id];
+        if (landing && overlay.duration > 0) landing.holdFor(overlay.duration);
+        overlay.play(t);
     }
 
     function syncGroupBars(list, cfg) {
@@ -834,7 +854,8 @@ Item {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
                 setIconTiles: (list) => root.syncIconTiles(list),
-                setStageStrips: (list, cfg) => root.syncStageStrips(list, cfg),
+                setStagePreviews: (list) => root.syncStagePreviews(list),
+                playStageTransition: (t) => root.playStageTransition(t),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
                 hideOsd: () => osd.hide(),
                 showKeys: (sections, area) => { if (!root.shuttingDown) keysGuide.open(sections, area); },
@@ -869,7 +890,8 @@ Item {
         for (const key in groupBarObjects) groupBarObjects[key].hide();
         for (const key in iconTileObjects) iconTileObjects[key].hide();
         for (const icon of spareIconTiles) icon.hide();
-        for (const key in stageStripObjects) stageStripObjects[key].hideAll();
+        for (const key in stagePreviewObjects) stagePreviewObjects[key].hideAll();
+        for (const key in stageTransitionObjects) stageTransitionObjects[key].hideAll();
     }
 
     // The window menu's HyprKwin entries come from a small JavaScript script

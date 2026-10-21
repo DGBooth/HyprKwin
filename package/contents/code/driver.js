@@ -1437,10 +1437,25 @@ function createDriver(env) {
             applyWorkspaceRule(vs);
             var L = engine.layout(vs.space, vs.area);
             if (vs.visible && engine.layoutOf(vs.space) === "stage") stageSpaces[vs.space] = true;
-            if (vs.visible && L.stripArea && L.strip.length) stageStrips[vs.space] = { area: L.stripArea, ids: L.strip };
+            if (vs.visible && L.stripArea && L.strip.length) {
+                var onStage = engine.lastFocused(vs.space, true);
+                stageStrips[vs.space] = { area: L.stripArea, ids: L.strip, stageId: onStage,
+                                          stageRect: onStage ? L.windows[onStage] : null };
+                stageSwitch(vs.space, onStage);
+            } else if (stageHeld[vs.space]) {
+                delete stageHeld[vs.space];          // no strip any more: no transition
+            }
+            var held = stageHeld[vs.space];
             for (var id in L.windows) {
                 var st = tracked[id];
+                if (held && (id === held.incoming || id === held.outgoing)) continue;
                 if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
+            }
+            // KWin pulls a window it focuses part way back on screen; the one
+            // coming onto the stage stays out of sight until its card lands.
+            if (held && tracked[held.incoming]) {
+                var hw = tracked[held.incoming].w, hp = parkingSpot(), hg = hw.frameGeometry;
+                if (hg.x < hp.x) apply(tracked[held.incoming], { x: hp.x, y: hp.y, width: hg.width, height: hg.height }, false);
             }
             // A scrolling layout keeps only whole columns on screen. The rest
             // wait past the last monitor, where KWin draws nothing, rather
@@ -1450,6 +1465,7 @@ function createDriver(env) {
                 L.offscreen.forEach(function (id) {
                     var st = tracked[id];
                     if (!st) return;
+                    if (held && (id === held.incoming || id === held.outgoing)) return;
                     var g = st.w.frameGeometry;
                     apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
                 });
@@ -1692,7 +1708,79 @@ function createDriver(env) {
             return { space: s.id, ids: s.items.map(function (i) { return i.id; }),
                      rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }) };
         });
-        if (env.ui.setStageStrips) env.ui.setStageStrips(strips, cfg);
+        var flat = [];
+        strips.forEach(function (s) { flat = flat.concat(s.items); });
+        if (env.ui.setStagePreviews) env.ui.setStagePreviews(flat);
+        stageTransitions(strips);
+    }
+
+    // A new window on the stage: it grows out of its preview while the one
+    // it replaces shrinks into the strip (see StageTransition.qml), when both
+    // have a place there to fly from and to. Meanwhile both real windows stay
+    // where they were, the new one parked (so its thumbnail keeps drawing) and
+    // the old one on the stage (so the stage is never empty), and swap places
+    // when the cards land.
+    var lastStage = {};             // space -> {id, rect, slots: {id: rect}} as last drawn
+    var stageHeld = {};             // space -> {incoming, outgoing, from, played, until}
+
+    function stageSwitch(space, onStage) {
+        var held = stageHeld[space];
+        if (held) {
+            if (held.incoming === onStage && Date.now() < held.until) return;
+            delete stageHeld[space];                 // switched again: no waiting
+        }
+        var before = lastStage[space];
+        if (!before || !before.id || !onStage || before.id === onStage || !before.rect) return;
+        if (!before.slots[onStage] || !tracked[before.id] || !tracked[onStage]) return;
+        if (!env.ui.playStageTransition) return;
+        stageHeld[space] = { incoming: onStage, outgoing: before.id, from: before.slots[onStage],
+                             fromRect: before.rect, played: false, until: Date.now() + 1500 };
+        if (env.after) env.after(1600, function () {
+            if (stageHeld[space] && Date.now() >= stageHeld[space].until) {
+                delete stageHeld[space];             // in case it never says it is done
+                relayout();
+            }
+        });
+    }
+
+    function stageTransitions(strips) {
+        var now = {};
+        strips.forEach(function (s) {
+            var slots = {};
+            s.items.forEach(function (i) { slots[i.id] = { x: i.x, y: i.y, width: i.width, height: i.height }; });
+            now[s.id] = { id: s.stageId, rect: s.stageRect, slots: slots, strip: s };
+        });
+        for (var space in now) {
+            var cur = now[space], held = stageHeld[space];
+            if (!held || held.played) continue;
+            var to = cur.slots[held.outgoing], inc = tracked[held.incoming], out = tracked[held.outgoing];
+            if (!to || !inc || !out || !cur.rect) {
+                delete stageHeld[space];
+                relayout();
+                continue;
+            }
+            held.played = true;
+            var a = cur.strip, r = cur.rect;
+            var x0 = Math.min(a.x, r.x), y0 = Math.min(a.y, r.y);
+            var x1 = Math.max(a.x + a.width, r.x + r.width), y1 = Math.max(a.y + a.height, r.y + r.height);
+            env.ui.playStageTransition({
+                id: space, side: cfg.stageSide, x: x0, y: y0, width: x1 - x0, height: y1 - y0,
+                incoming: { id: inc.id, window: inc.w, icon: inc.w.icon, from: held.from, to: r },
+                outgoing: { id: out.id, window: out.w, icon: out.w.icon, from: held.fromRect, to: to },
+            });
+        }
+        for (var sp in now) lastStage[sp] = now[sp];
+        for (var gone in lastStage) if (!now[gone]) delete lastStage[gone];
+    }
+
+    // The cards have landed: the windows swap places for real.
+    function stageTransitionDone(id) {
+        for (var space in stageHeld) {
+            if (stageHeld[space].incoming === id) {
+                delete stageHeld[space];
+                relayout();
+            }
+        }
     }
 
     // In the stage layout a floating window would sink behind the stage
@@ -1747,8 +1835,9 @@ function createDriver(env) {
             if (!items.length) continue;
             var top = a.y + Math.round((a.height - used) / 2);
             items.forEach(function (it) { it.y += top; });
+            items.forEach(function (it) { it.side = cfg.stageSide; });
             out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height,
-                       side: cfg.stageSide, items: items });
+                       side: cfg.stageSide, items: items, stageId: strip.stageId, stageRect: strip.stageRect });
         }
         return out;
     }
@@ -3301,6 +3390,7 @@ function createDriver(env) {
         checkKeyboard: checkKeyboard,
         openTile: openTile,
         openStage: openStage,
+        stageTransitionDone: stageTransitionDone,
         onCursorMoved: onCursorMoved,
         actions: actions,
         typeKeys: typeKeys,

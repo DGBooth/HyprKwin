@@ -146,7 +146,10 @@ Five layouts, each workspace with its own:
   their own, on the left or right ("Stage previews" on the Layout tab, with
   its width), so the stage window never covers them. The windows waiting
   there are still running, off screen, which is how their previews stay
-  live. With only one window there is no strip.
+  live. Switching, the new window grows out of its preview while the old
+  one shrinks into the strip, at Plasma's animation speed (none at
+  Instant). Floating windows stay in front of the stage. With only one
+  window there is no strip.
 
 In the scrolling layout, `Meta+Left` / `Meta+Right` move along the strip and
 `Meta+Shift+Left` / `Meta+Shift+Right` move the column itself, rather than

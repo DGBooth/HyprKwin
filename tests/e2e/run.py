@@ -3675,6 +3675,48 @@ def floating_windows_stay_in_front_of_the_stage(sb):
     eq(sb.state()["windows"][s["active"]]["caption"], stage, "which keeps the focus")
 
 
+def overlays_at(sb, x, y):
+    """HyprKwin's overlay windows over a point: [(x, y, width, height)]."""
+    got = sb.kwin_js("JSON.stringify(Workspace.stackingOrder.filter(w => w.caption === 'HyprKwin overlay' && !w.hidden"
+                     " && w.frameGeometry.x <= %d && %d < w.frameGeometry.x + w.frameGeometry.width"
+                     " && w.frameGeometry.y <= %d && %d < w.frameGeometry.y + w.frameGeometry.height)"
+                     ".map(w => [w.frameGeometry.x, w.frameGeometry.y, w.frameGeometry.width, w.frameGeometry.height]))"
+                     % (x, x, y, y))
+    return json.loads(got)
+
+
+@test(config={"DefaultLayout": 4})
+def stage_switch_flies_the_windows_across(sb):
+    """The strip between previews is the desktop's. Switching, the new
+    window's card grows out of its preview while the old one's shrinks into
+    the strip; the real windows stay put until the cards land, then swap.
+    Slowed down (Plasma's animation speed) so the middle can be seen."""
+    (sb.base / "config" / "kdeglobals").write_text("[KDE]\nAnimationDurationFactor=8\n")
+    sb.restart()
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("C")
+    previews = dict(stage_previews(sb))
+    eq(overlays_at(sb, 100, 100), [], "nothing over the strip above the previews")
+    x, y, w, h = previews["A"]
+    eq(len(overlays_at(sb, x + w // 2, y + h // 2)), 1, "but the preview itself is there to click")
+    sb.input().click(x + w // 2, y + h // 2)
+    time.sleep(0.6)
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "A", "A has the focus at once")
+    eq(sb.geometry("C", s)[:2], (235, 10), "C stays on the stage while the cards fly")
+    eq(sb.geometry("A", s)[0] > 1920, True, "A out of sight until its card lands: %r" % (sb.geometry("A", s),))
+    eq(any(r[2] > 1000 for r in overlays_at(sb, 960, 540)), True, "the transition is over the stage")
+    sb.wait_for(lambda s: sb.geometry("A", s)[:2] == (235, 10), "A on the stage once the cards land", timeout=8)
+    s = sb.state()
+    eq(sb.geometry("C", s)[0] > 1920, True, "and C waits off screen")
+    eq([c for c, _ in stage_previews(sb, s)], ["C", "B"], "at the top of the strip")
+    end = time.time() + 6                       # KWin fades it out, slowly here
+    while time.time() < end and overlays_at(sb, 960, 540):
+        time.sleep(0.3)
+    eq(overlays_at(sb, 960, 540), [], "the transition has gone")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]
