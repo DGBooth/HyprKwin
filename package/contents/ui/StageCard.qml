@@ -31,49 +31,56 @@ Item {
     // perspective needs a newer Qt than Plasma 6.6 has.
     readonly property real angle: tilt * (onLeft ? 30 : -30)
     readonly property real distance: 420
-    transform: Matrix4x4 {
-        matrix: {
-            const a = card.angle * Math.PI / 180;
-            const c = Math.cos(a), k = Math.sin(a) / card.distance;
-            const ox = card.onLeft ? 0 : card.width, oy = card.height / 2;
-            // Translate the outer edge to the origin, rotate and project,
-            // and translate back.
-            return Qt.matrix4x4(c + ox * k, 0, 0, -c * ox + ox * (1 - k * ox),
-                                oy * k,     1, 0, -oy + oy * (1 - k * ox),
-                                0,          0, 1, 0,
-                                k,          0, 0, 1 - k * ox);
-        }
-    }
-
-    // A soft shadow behind it.
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -3
-        radius: 10
-        color: Qt.rgba(0, 0, 0, 0.28 * card.tilt)
-    }
-
-    // The thumbnail keeps the window's own shape, which a card in flight
-    // may not quite have: nothing is drawn around it.
+    // The thumbnail and its frame tilt; the app's icon, below, stays upright.
     Item {
+        id: face
         anchors.fill: parent
-        clip: true
 
-        KWin.WindowThumbnail {
+        transform: Matrix4x4 {
+            matrix: {
+                const a = card.angle * Math.PI / 180;
+                const c = Math.cos(a), k = Math.sin(a) / card.distance;
+                const ox = card.onLeft ? 0 : card.width, oy = card.height / 2;
+                // Translate the outer edge to the origin, rotate and project,
+                // and translate back.
+                return Qt.matrix4x4(c + ox * k, 0, 0, -c * ox + ox * (1 - k * ox),
+                                    oy * k,     1, 0, -oy + oy * (1 - k * ox),
+                                    0,          0, 1, 0,
+                                    k,          0, 0, 1 - k * ox);
+            }
+        }
+
+        // A soft shadow behind it.
+        Rectangle {
             anchors.fill: parent
-            client: card.window
+            anchors.margins: -3
+            radius: 10
+            color: Qt.rgba(0, 0, 0, 0.28 * card.tilt)
+        }
+
+        // The thumbnail keeps the window's own shape, which a card in flight
+        // may not quite have: nothing is drawn around it.
+        Item {
+            anchors.fill: parent
+            clip: true
+
+            KWin.WindowThumbnail {
+                anchors.fill: parent
+                client: card.window
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"
+            border.width: card.highlighted ? 2 : 1
+            border.color: card.highlighted ? card.accent : Qt.rgba(1, 1, 1, 0.22 * card.tilt)
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        radius: 8
-        color: "transparent"
-        border.width: card.highlighted ? 2 : 1
-        border.color: card.highlighted ? card.accent : Qt.rgba(1, 1, 1, 0.22 * card.tilt)
-    }
-
-    // The app's icon on the corner nearest the screen edge.
+    // The app's icon on the corner nearest the screen edge, upright. That
+    // edge is what the card turns about, so it stays on the corner.
     Kirigami.Icon {
         source: card.icon || ""
         fallback: "application-x-executable"
