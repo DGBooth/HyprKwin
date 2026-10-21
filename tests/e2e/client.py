@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--dialog", action="store_true", help="open a transient dialog too")
     ap.add_argument("--color", help="fill colour, e.g. #ff0000 (default: random)")
     ap.add_argument("--menu", action="store_true", help="open a context menu on right-click")
+    ap.add_argument("--blink", help="a second colour to switch to and back every second (a window whose contents change)")
     ap.add_argument("--activate-on", help="ask to be activated when this file appears (like a relaunched single-instance app)")
     ap.add_argument("--tool", action="store_true", help="a frameless tool window, the way launchers such as Albert open")
     ap.add_argument("--move-to", help="X,Y: move itself there a moment after opening, as Steam does (X11 only)")
@@ -61,6 +62,15 @@ def main():
     if args.tool:
         win.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
     win.show()
+    if args.blink:
+        from PySide6.QtCore import QTimer
+        colours = [QColor(args.color or "#888888"), QColor(args.blink)]
+        def swap():
+            win.color = colours[1] if win.color == colours[0] else colours[0]
+            win.update()
+        blink = QTimer()
+        blink.timeout.connect(swap)
+        blink.start(1000)
     if args.dialog:
         d = QDialog(win)
         d.setWindowTitle(args.title + " dialog")

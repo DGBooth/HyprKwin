@@ -56,6 +56,8 @@ function createDriver(env) {
     // way once one of them has, and a border moved before that would jump.
     var slideGrowers = null;
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
+    var stageStrips = {};           // space -> {area, ids} of a stage layout on screen
+    var lastStagePreviews = [];     // [{space, ids}] as drawn
     var zoomKeysOn = false;         // Escape held to zoom back out
     var keysOpen = false;           // the keys guide (Meta+K) is up
     var keysReturnTo = null;        // the window that had the focus before it
@@ -603,7 +605,7 @@ function createDriver(env) {
     // ---- configuration -----------------------------------------------------
 
     // The settings page stores these as the index of a combo box.
-    var LAYOUT_NAMES = ["dwindle", "master", "monocle", "scrolling"];
+    var LAYOUT_NAMES = ["dwindle", "master", "monocle", "scrolling", "stage"];
     var ORIENTATION_NAMES = ["left", "right", "top", "bottom", "center"];
 
     // 0: let Plasma draw title bars (no overlays at all)
@@ -706,6 +708,8 @@ function createDriver(env) {
             autoCreateDesktops: bool(rc("AutoCreateDesktops", true), true),
             defaultLayout: LAYOUT_NAMES[num(rc("DefaultLayout", 0), 0)] || "dwindle",
             columnWidth: Math.max(0.1, Math.min(1, num(rc("ColumnWidth", "0.5"), 0.5))),
+            stageSide: num(rc("StageSide", 0), 0) === 1 ? "right" : "left",
+            stageWidth: Math.max(80, Math.min(600, num(rc("StageWidth", 220), 220))),
             masterFactor: Math.max(0.05, Math.min(0.95, num(rc("MasterFactor", "0.55"), 0.55))),
             masterCount: Math.max(1, num(rc("MasterCount", 1), 1)),
             masterOrientation: ORIENTATION_NAMES[num(rc("MasterOrientation", 0), 0)] || "left",
@@ -1426,9 +1430,11 @@ function createDriver(env) {
         if (!native()) syncWorkspaces();
         engine.setVisibility(visible);
         var bars = [];
+        stageStrips = {};
         layoutSpaces().forEach(function (vs) {
             applyWorkspaceRule(vs);
             var L = engine.layout(vs.space, vs.area);
+            if (vs.visible && L.stripArea && L.strip.length) stageStrips[vs.space] = { area: L.stripArea, ids: L.strip };
             for (var id in L.windows) {
                 var st = tracked[id];
                 if (st) apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
@@ -1677,6 +1683,54 @@ function createDriver(env) {
         var tiles = iconTiles(visible, popups, fullscreenScreens);
         lastIconTiles = tiles.map(function (t) { return t.id; });
         if (env.ui.setIconTiles) env.ui.setIconTiles(tiles);
+        var strips = stagePreviews(fullscreenScreens);
+        lastStagePreviews = strips.map(function (s) {
+            return { space: s.id, ids: s.items.map(function (i) { return i.id; }),
+                     rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }) };
+        });
+        if (env.ui.setStageStrips) env.ui.setStageStrips(strips, cfg);
+    }
+
+    // The stage layout's strip: a live preview of each window waiting off
+    // stage, most recently used at the top, sized to the window's shape and
+    // as many as fit, centred down the strip.
+    var STAGE_PAD = 18, STAGE_SPACING = 22;
+
+    function stagePreviews(fullscreenScreens) {
+        var out = [];
+        for (var space in stageStrips) {
+            var strip = stageStrips[space], a = strip.area;
+            if (specialShown()) continue;          // the scratchpad is over it
+            var mid = { x: a.x + a.width / 2, y: a.y + a.height / 2 };
+            var screen = screens().filter(function (sc) { return contains(sc.geometry, mid); })[0];
+            if (screen && fullscreenScreens[screen.name]) continue;
+            var w = a.width - 2 * STAGE_PAD, items = [], used = 0;
+            for (var i = 0; i < strip.ids.length; i++) {
+                var st = tracked[strip.ids[i]];
+                if (!st) continue;
+                var g = st.w.frameGeometry;
+                var h = Math.round(Math.max(w * 0.45, Math.min(w * 1.3, w * g.height / Math.max(1, g.width))));
+                var next = used + (items.length ? STAGE_SPACING : 0) + h;
+                if (next > a.height - 2 * STAGE_PAD) break;
+                items.push({ id: st.id, window: st.w, caption: String(st.w.caption), icon: st.w.icon,
+                             x: a.x + STAGE_PAD, y: used + (items.length ? STAGE_SPACING : 0), width: w, height: h });
+                used = next;
+            }
+            if (!items.length) continue;
+            var top = a.y + Math.round((a.height - used) / 2);
+            items.forEach(function (it) { it.y += top; });
+            out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height,
+                       side: cfg.stageSide, items: items });
+        }
+        return out;
+    }
+
+    // A preview was clicked: that window takes the stage.
+    function openStage(id) {
+        var st = tracked[id];
+        if (!st) return;
+        activate(st.w);
+        relayout();
     }
 
     // Tiles too small to use, after Trellis: they show as their app's icon
@@ -1984,7 +2038,7 @@ function createDriver(env) {
         return screen ? spaceFor(desktopFor(screen), screen) : null;
     }
 
-    var LAYOUT_LABELS = { dwindle: "Dwindle", master: "Master", monocle: "Monocle", scrolling: "Scrolling" };
+    var LAYOUT_LABELS = { dwindle: "Dwindle", master: "Master", monocle: "Monocle", scrolling: "Scrolling", stage: "Stage" };
 
     // A short message on the monitor in use, the way Plasma announces a
     // volume change. Plasma's own OSD service only takes fixed kinds of
@@ -2865,6 +2919,7 @@ function createDriver(env) {
         layoutMaster: function () { setLayout("master"); },
         layoutMonocle: function () { setLayout("monocle"); },
         layoutScrolling: function () { setLayout("scrolling"); },
+        layoutStage: function () { setLayout("stage"); },
         masterSwap: function () {
             var st = active();
             if (st && engine.swapWithMaster(st.id)) {
@@ -3110,7 +3165,7 @@ function createDriver(env) {
                 // A strip of columns is laid out around the focused one, so
                 // moving the focus scrolls it.
                 var space = engine.spaceOf(st.id);
-                if (space && engine.layoutOf(space) === "scrolling") schedule();
+                if (space && (engine.layoutOf(space) === "scrolling" || engine.layoutOf(space) === "stage")) schedule();
                 // The focused monitor is the one Plasma's current desktop
                 // follows, so focus crossing monitors brings it along. Not
                 // for a focus change our own switch made: KWin focuses a
@@ -3217,6 +3272,7 @@ function createDriver(env) {
         checkKeys: checkKeys,
         checkKeyboard: checkKeyboard,
         openTile: openTile,
+        openStage: openStage,
         onCursorMoved: onCursorMoved,
         actions: actions,
         typeKeys: typeKeys,
@@ -3261,6 +3317,7 @@ function createDriver(env) {
                 // icon tiles, messages. The soak test watches for a leak.
                 overlayWindows: (ws.windows || []).filter(isOverlay).length,
                 iconTiles: lastIconTiles,
+                stagePreviews: lastStagePreviews,
                 zoomEscape: zoomKeysOn,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });

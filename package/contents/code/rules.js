@@ -246,10 +246,10 @@ function plasmaRule(line) {
 //
 // Supported properties: monitor:<n|name> pins the workspace to a monitor,
 // default:true makes it the one that monitor starts on, layout:<name> gives
-// it a layout, and gapsin/gapsout set its gaps. Lines starting with '#' are
+// it a layout (stage too), and gapsin/gapsout set its gaps. Lines starting with '#' are
 // comments; the first rule for a workspace wins on each property.
 
-var WORKSPACE_LAYOUTS = ["dwindle", "master", "monocle", "scrolling"];
+var WORKSPACE_LAYOUTS = ["dwindle", "master", "monocle", "scrolling", "stage"];
 
 function parseWorkspaceRules(text) {
     var rules = {};

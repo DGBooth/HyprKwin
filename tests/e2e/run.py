@@ -142,6 +142,8 @@ def layouts_can_be_switched_per_workspace(sb):
     sb.invoke("cycleLayout")
     eq(layout_of(sb)["layout"], "scrolling", "then the strip")
     sb.invoke("cycleLayout")
+    eq(layout_of(sb)["layout"], "stage", "then the stage")
+    sb.invoke("cycleLayout")
     s = sb.state()
     eq(layout_of(sb, s)["layout"], "dwindle", "round again")
     eq([sb.geometry(t, s) for t in "ABC"], [A3, B3, C3], "laid out as before")
@@ -3577,6 +3579,78 @@ def always_float_this_app_writes_its_rule(sb):
     sb.restart()
     sb.spawn("C")
     eq(sb.window("C")["tiled"], False, "a new window of the app floats after a restart")
+
+
+def stage_previews(sb, s=None):
+    """The stage strip as [(caption, (x, y, width, height))], top first."""
+    s = s or sb.state()
+    out = []
+    for strip in s.get("stagePreviews", []):
+        for wid, r in zip(strip["ids"], strip["rects"]):
+            out.append((s["windows"][wid]["caption"], tuple(r)))
+    return out
+
+
+@test(config={"DefaultLayout": 4, "StageWidth": 220})
+def stage_layout_previews_the_other_windows(sb):
+    """After macOS's Stage Manager: the focused window on the stage, beside a
+    strip of previews of the rest, most recently used first, which has room
+    of its own. The rest wait off screen; clicking a preview brings that
+    window onto the stage."""
+    sb.spawn("A")
+    eq(sb.geometry("A"), FULL, "one window: no strip, the whole area")
+    sb.spawn("B")
+    sb.spawn("C")
+    s = sb.state()
+    # gaps_out 10, the strip 220, gaps_in 5 beside it.
+    eq(sb.geometry("C", s), (235, 10, 1675, 1060), "C, focused, on the stage beside the strip")
+    eq([sb.geometry(t, s)[0] > 1920 for t in "AB"], [True, True], "A and B wait off screen")
+    previews = stage_previews(sb, s)
+    eq([c for c, _ in previews], ["B", "A"], "previews, most recently used first")
+    eq(all(10 <= r[0] and r[0] + r[2] <= 230 for _, r in previews), True, "inside the strip: %r" % (previews,))
+    x, y, w, h = previews[1][1]
+    sb.input().click(x + w // 2, y + h // 2)        # A's preview
+    sb.settle(0.6)
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "A", "clicking A's preview focuses it")
+    eq(sb.geometry("A", s), (235, 10, 1675, 1060), "and brings it onto the stage")
+    eq(sb.geometry("C", s)[0] > 1920, True, "C waits off screen now")
+    eq([c for c, _ in stage_previews(sb, s)], ["C", "B"], "at the top of the strip")
+    sb.invoke("cycleNext")
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "B", "cycling brings the next one on")
+    eq(sb.geometry("B", s), (235, 10, 1675, 1060), "onto the stage")
+    sb.invoke("layoutDwindle")
+    s = sb.state()
+    eq(stage_previews(sb, s), [], "another layout has no strip")
+    eq(all(sb.geometry(t, s)[0] < 1920 for t in "ABC"), True, "and every window back on screen")
+
+
+@test(config={"DefaultLayout": 4, "StageWidth": 260, "StageSide": 1})
+def stage_previews_are_live(sb):
+    """The previews are the windows themselves, live, though they wait off
+    screen; on the right, with StageSide."""
+    sb.spawn("A", color="#ff0000")
+    sb.spawn("B", color="#0000ff", extra=("--blink", "#00ff00"))
+    sb.spawn("C", color="#ffff00")
+    s = sb.state()
+    eq(sb.geometry("C", s), (10, 10, 1635, 1060), "the stage on the left, the strip on the right")
+    previews = dict(stage_previews(sb, s))
+    x, y, w, h = previews["B"]
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    seen = []
+    for i in range(5):
+        path = shots / ("b%d.png" % i)
+        sb.screenshot(path)
+        seen.append(pixel(sb, path, x + w // 2, y + h // 2))
+        time.sleep(0.45)
+    blue = any(c[2] > 150 and c[0] < 80 and c[1] < 80 for c in seen)
+    green = any(c[1] > 150 and c[0] < 80 and c[2] < 80 for c in seen)
+    eq((blue, green), (True, True), "B's preview follows it as it changes: %r" % (seen,))
+    rx, ry, rw, rh = previews["A"]
+    a = pixel(sb, shots / "b0.png", rx + rw // 2, ry + rh // 2)
+    eq(a[0] > 150 and a[1] < 80 and a[2] < 80, True, "A's preview shows A: %r" % (a,))
 
 
 def main():

@@ -32,10 +32,11 @@ Windows arrange themselves as they open, with no dragging or snapping,
 and you move between them from the keyboard. Your panels, widgets,
 Overview, KRunner and System Settings all stay as they are.
 
-**Four layouts**, chosen per workspace and kept between sessions: dwindle
+**Five layouts**, chosen per workspace and kept between sessions: dwindle
 (each new window halves the focused one), master (one big window beside a
 stack, or in the middle with columns either side), monocle (one window at a
-time) and scrolling (a strip of columns you move along). Meta+Z zooms into
+time), scrolling (a strip of columns you move along) and stage (one window,
+with live previews of the rest beside it, as in macOS's Stage Manager). Meta+Z zooms into
 any part of the dwindle layout.
 
 **Workspaces per monitor**: switching workspace changes only the monitor

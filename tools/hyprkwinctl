@@ -232,7 +232,7 @@ def cmd_workspaces(accel, args):
 
 
 def cmd_layout(accel, args):
-    layouts = ["dwindle", "master", "monocle", "scrolling"]
+    layouts = ["dwindle", "master", "monocle", "scrolling", "stage"]
     if args:
         name = args[0].lower()
         if name == "next":

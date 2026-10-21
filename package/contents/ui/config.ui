@@ -22,6 +22,7 @@
          <item><property name="text"><string>Master (a master area beside a stack)</string></property></item>
          <item><property name="text"><string>Monocle (one window at a time, full size)</string></property></item>
          <item><property name="text"><string>Scrolling (a strip of columns you scroll through)</string></property></item>
+         <item><property name="text"><string>Stage (one window, with live previews of the rest beside it)</string></property></item>
         </widget>
        </item>
        <item row="1" column="0">
@@ -166,16 +167,38 @@
          <property name="toolTip"><string>The share of the screen each column takes in the scrolling layout. Only whole columns are shown; the rest wait off-screen, and the resize keys widen or narrow the focused column.</string></property>
         </widget>
        </item>
+       <item row="15" column="0">
+        <widget class="QLabel" name="stageSideLabel"><property name="text"><string>Stage previews:</string></property></widget>
+       </item>
        <item row="15" column="1">
+        <widget class="QComboBox" name="kcfg_StageSide">
+         <property name="toolTip"><string>In the stage layout the focused window takes the stage, and the workspace's other windows wait beside it as live previews, most recently used at the top. Click one to bring it onto the stage. The previews have a strip of their own, so the stage window never covers them.</string></property>
+         <item><property name="text"><string>On the left</string></property></item>
+         <item><property name="text"><string>On the right</string></property></item>
+        </widget>
+       </item>
+       <item row="16" column="0">
+        <widget class="QLabel" name="stageWidthLabel"><property name="text"><string>Stage previews width:</string></property></widget>
+       </item>
+       <item row="16" column="1">
+        <widget class="QSpinBox" name="kcfg_StageWidth">
+         <property name="suffix"><string> px</string></property>
+         <property name="minimum"><number>80</number></property>
+         <property name="maximum"><number>600</number></property>
+         <property name="singleStep"><number>10</number></property>
+         <property name="toolTip"><string>How wide the strip of previews is in the stage layout.</string></property>
+        </widget>
+       </item>
+       <item row="17" column="1">
         <widget class="QCheckBox" name="kcfg_LayoutOsd">
          <property name="text"><string>Show a message when the layout or split changes</string></property>
          <property name="toolTip"><string>A short on-screen message naming the new layout, or which way a window just split, on the monitor you are using.</string></property>
         </widget>
        </item>
-       <item row="16" column="0">
+       <item row="18" column="0">
         <widget class="QLabel" name="iconBelowLabel"><property name="text"><string>Show tiles smaller than:</string></property></widget>
        </item>
-       <item row="16" column="1">
+       <item row="18" column="1">
         <widget class="QSpinBox" name="kcfg_IconBelow">
          <property name="suffix"><string> px as their app's icon</string></property>
          <property name="specialValueText"><string>never as icons</string></property>
@@ -184,7 +207,7 @@
          <property name="toolTip"><string>A tile too narrow or short to use shows its app's icon instead, until you zoom into it. Clicking the icon zooms in until the window is big enough.</string></property>
         </widget>
        </item>
-       <item row="17" column="1">
+       <item row="19" column="1">
         <widget class="QCheckBox" name="kcfg_ZoomEscape">
          <property name="text"><string>While zoomed in (Meta+Z), Escape zooms back out</string></property>
          <property name="toolTip"><string>Escape is taken from your apps for as long as the zoom lasts, and given back the moment you are zoomed all the way out.</string></property>
@@ -483,7 +506,7 @@ Sizes and positions are pixels or a percentage of the monitor; monitors count fr
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
          <property name="text"><string>&lt;p&gt;Rules for the workspaces themselves, each the workspace number, then what it should do, e.g. &lt;tt&gt;3, monitor:DP-2, default:true&lt;/tt&gt; or &lt;tt&gt;2, layout:master, gapsin:0, gapsout:0&lt;/tt&gt;.&lt;/p&gt;
-&lt;p&gt;&lt;b&gt;Properties:&lt;/b&gt; monitor:N|name pins the workspace to a monitor, so switching to it goes there · default:true makes it the workspace that monitor starts on · layout:dwindle|master|monocle|scrolling · gapsin:N and gapsout:N set its gaps&lt;/p&gt;
+&lt;p&gt;&lt;b&gt;Properties:&lt;/b&gt; monitor:N|name pins the workspace to a monitor, so switching to it goes there · default:true makes it the workspace that monitor starts on · layout:dwindle|master|monocle|scrolling|stage · gapsin:N and gapsout:N set its gaps&lt;/p&gt;
 &lt;p&gt;Monitors count from 0, or use a name such as DP-2 (System Settings › Display and Monitor lists them). A layout set here is the one the workspace starts with; Meta+Shift+J still changes it afterwards.&lt;/p&gt;</string></property>
         </widget>
        </item>

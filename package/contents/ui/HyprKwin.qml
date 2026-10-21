@@ -656,6 +656,7 @@ Item {
     }
     Component { id: groupBarComponent; GroupBar {} }
     Component { id: iconTileComponent; IconTile {} }
+    Component { id: stageStripComponent; StageStrip {} }
 
     function dropMissing(map, seen) {
         for (const key in map) {
@@ -744,6 +745,25 @@ Item {
         }
     }
 
+    // The stage layout's strips of previews, one per workspace showing it.
+    property var stageStripObjects: ({})
+    function syncStageStrips(list, cfg) {
+        const seen = {};
+        for (const entry of list) {
+            seen[entry.id] = true;
+            let strip = stageStripObjects[entry.id];
+            if (!strip) {
+                strip = stageStripComponent.createObject(root, {
+                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
+                });
+                strip.opened.connect(id => root.driver.openStage(id));
+                stageStripObjects[entry.id] = strip;
+            }
+            strip.strip = entry;
+        }
+        dropMissing(stageStripObjects, seen);
+    }
+
     function syncGroupBars(list, cfg) {
         style = cfg;
         revision++;
@@ -814,6 +834,7 @@ Item {
                 setBorders: (list, cfg) => root.syncBorders(list, cfg),
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
                 setIconTiles: (list) => root.syncIconTiles(list),
+                setStageStrips: (list, cfg) => root.syncStageStrips(list, cfg),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
                 hideOsd: () => osd.hide(),
                 showKeys: (sections, area) => { if (!root.shuttingDown) keysGuide.open(sections, area); },
@@ -848,6 +869,7 @@ Item {
         for (const key in groupBarObjects) groupBarObjects[key].hide();
         for (const key in iconTileObjects) iconTileObjects[key].hide();
         for (const icon of spareIconTiles) icon.hide();
+        for (const key in stageStripObjects) stageStripObjects[key].hideAll();
     }
 
     // The window menu's HyprKwin entries come from a small JavaScript script

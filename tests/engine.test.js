@@ -393,6 +393,48 @@ Deno.test("monocle layout: every window fills the area", () => {
     assertEquals(e.cycleWindow("a", -1), "c");
 });
 
+Deno.test("stage layout: the focused window beside a strip of the others, most recent first", () => {
+    const e = eng({ defaultLayout: "stage", gapsOut: 10, gapsIn: 5, stageWidth: 200 });
+    three(e);                                   // focus went a, b, c
+    let l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    // The strip takes 200 on the left of the inner area; the stage the rest,
+    // with the inner gap between them.
+    assertEquals(l.windows.c, { x: 215, y: 10, width: 775, height: 880 }, "c, focused, on the stage");
+    assertEquals(l.stripArea, { x: 10, y: 10, width: 200, height: 880 });
+    assertEquals(l.strip, ["b", "a"], "the others, most recently used first");
+    assertEquals(l.offscreen.sort(), ["a", "b"], "and parked");
+    assertEquals([l.windows.a, l.windows.b], [undefined, undefined]);
+    e.focused("a");                             // a preview clicked
+    l = e.layout(S);
+    assert(l.windows.a && !l.windows.c, "a takes the stage");
+    assertEquals(l.strip, ["c", "b"], "and c goes to the top of the strip");
+    assertEquals(e.moveDivider("a", 100, 0), false, "nothing to resize");
+    assertEquals(e.cycleWindow("a", 1), "b", "cycling moves through them in layout order");
+});
+
+Deno.test("stage layout: one window takes it all, and the strip can be on the right", () => {
+    const e = eng({ defaultLayout: "stage", stageSide: "right", stageWidth: 300 });
+    e.add("a", S); e.focused("a");
+    let l = e.layout(S, AREA);
+    assertEquals([l.windows.a, l.strip, l.stripArea], [AREA, [], null], "no strip for one window");
+    e.add("b", S); e.focused("b");
+    l = e.layout(S, AREA);
+    assertEquals(l.windows.b, { x: 0, y: 0, width: 1620, height: 1080 });
+    assertEquals(l.stripArea, { x: 1620, y: 0, width: 300, height: 1080 });
+    assertEquals(l.strip, ["a"]);
+});
+
+Deno.test("stage layout: a group previews its active window, once", () => {
+    const e = eng({ defaultLayout: "stage" });
+    three(e);
+    e.toggleGroup("a");
+    e.joinGroup("b", "a");
+    e.focused("c");
+    const l = e.layout(S, AREA);
+    assertEquals(l.strip.length, 1, "the group is one preview: %r".replace("%r", JSON.stringify(l.strip)));
+    assertEquals(l.offscreen.sort(), ["a", "b"], "both its windows wait off screen");
+});
+
 Deno.test("layouts are per space, and dwindle is untouched", () => {
     const e = eng({ gapsIn: 0, gapsOut: 0 });
     const other = "desk2|screen";
@@ -403,6 +445,7 @@ Deno.test("layouts are per space, and dwindle is untouched", () => {
     assertEquals([e.layoutOf(S), e.layoutOf(other)], ["master", "dwindle"], "only that space changed");
     assertEquals(e.cycleLayout(S, 1), "monocle");
     assertEquals(e.cycleLayout(S, 1), "scrolling");
+    assertEquals(e.cycleLayout(S, 1), "stage");
     assertEquals(e.cycleLayout(S, 1), "dwindle", "and round again");
     const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     assertEquals([l.windows.a.width, l.windows.b.width, l.windows.c.height], [500, 500, 450], "dwindle as before");

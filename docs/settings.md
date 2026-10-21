@@ -125,7 +125,7 @@ focusonactivate off, class:^(discord|vesktop|org\.telegram\.desktop)$
 
 ### Layouts
 
-Four layouts, each workspace with its own:
+Five layouts, each workspace with its own:
 
 - **Dwindle** (the default): every new window splits the focused one in
   two, along its longer side.
@@ -138,6 +138,15 @@ Four layouts, each workspace with its own:
   focus scrolls the strip, and the resize keys widen or narrow the focused
   column. Only whole columns are shown; the ones out of view wait past the
   last monitor, so nothing ever spills onto the screen next door.
+- **Stage**, after macOS's Stage Manager: the focused window takes the
+  stage, and the workspace's other windows wait beside it as live previews,
+  tilted towards it, most recently used at the top. Click one (or cycle with
+  the "next window in the layout" keys) to bring it onto the stage; the one
+  that was there goes to the top of the strip. The previews have a strip of
+  their own, on the left or right ("Stage previews" on the Layout tab, with
+  its width), so the stage window never covers them. The windows waiting
+  there are still running, off screen, which is how their previews stay
+  live. With only one window there is no strip.
 
 In the scrolling layout, `Meta+Left` / `Meta+Right` move along the strip and
 `Meta+Shift+Left` / `Meta+Shift+Right` move the column itself, rather than

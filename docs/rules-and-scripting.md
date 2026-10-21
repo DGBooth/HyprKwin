@@ -98,7 +98,7 @@ workspace = 3, monitor:DP-2, default:true
 |---|---|
 | `monitor:N` or `monitor:DP-2` | keep that workspace on that monitor: switching to it goes there, and a window sent to it follows |
 | `default:true` | the workspace that monitor starts the session on |
-| `layout:dwindle\|master\|monocle\|scrolling` | the layout it starts with; `Meta+Shift+J` still changes it afterwards |
+| `layout:dwindle\|master\|monocle\|scrolling\|stage` | the layout it starts with; `Meta+Shift+J` still changes it afterwards |
 | `gapsin:N`, `gapsout:N` | gaps for that workspace alone |
 
 The `workspace = ` prefix is optional, so lines can be pasted straight out of

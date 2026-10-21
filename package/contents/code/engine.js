@@ -28,9 +28,13 @@ var DEFAULT_CONFIG = {
     masterNewIsMaster: false,
     // Scrolling layout: the share of the screen a column takes by default.
     columnWidth: 0.5,
+    // Stage layout, after macOS's Stage Manager: which side the strip of
+    // window previews sits on, and how wide it is.
+    stageSide: "left",
+    stageWidth: 220,
 };
 
-var LAYOUTS = ["dwindle", "master", "monocle", "scrolling"];
+var LAYOUTS = ["dwindle", "master", "monocle", "scrolling", "stage"];
 var ORIENTATIONS = ["left", "right", "top", "bottom", "center"];
 
 var MIN_SHARE = 0.05;
@@ -281,6 +285,37 @@ function createEngine(userConfig) {
         });
     }
 
+    // After macOS's Stage Manager: the focused window takes the stage, the
+    // area beside a strip of previews of the space's other windows, most
+    // recently used first. Those wait off screen (the driver parks them) and
+    // the driver draws their previews in the strip, which is reserved so the
+    // stage never covers it. With one window there is no strip.
+    function placeStage(space, all, inner, offscreen, out) {
+        var stage = leafOf[api.lastFocused(space)] || all[0];
+        if (all.indexOf(stage) < 0) stage = all[0];
+        if (all.length < 2) {
+            stage.rect = inner;
+            return;
+        }
+        var w = Math.max(60, Math.min(cfg.stageWidth, inner.width / 2));
+        var left = cfg.stageSide !== "right";
+        stage.rect = rect(left ? inner.x + w : inner.x, inner.y, inner.width - w, inner.height);
+        out.stripArea = rect(left ? inner.x : inner.x + inner.width - w, inner.y, w, inner.height);
+        var order = [];
+        focusOrder.forEach(function (id) {
+            var leaf = leafOf[id];
+            if (leaf && all.indexOf(leaf) >= 0 && leaf !== stage && order.indexOf(leaf) < 0) order.push(leaf);
+        });
+        all.forEach(function (leaf) {
+            if (leaf !== stage && order.indexOf(leaf) < 0) order.push(leaf);
+        });
+        order.forEach(function (leaf) {
+            leaf.rect = null;
+            leaf.wins.forEach(function (id) { offscreen.push(id); });
+            out.strip.push(leaf.wins[leaf.active]);
+        });
+    }
+
     // ---- zoom ----------------------------------------------------------------
     //
     // After Trellis's fractal workspaces: any part of the dwindle tree can be
@@ -310,7 +345,7 @@ function createEngine(userConfig) {
     }
 
     // Put every visible leaf of a space where its layout wants it.
-    function arrange(space, inner, offscreen) {
+    function arrange(space, inner, offscreen, out) {
         var root = roots[space];
         if (!root) return [];
         var all = leaves(root).filter(shown);
@@ -319,6 +354,7 @@ function createEngine(userConfig) {
         if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
         else if (mode === "master") placeMaster(space, all, inner);
         else if (mode === "scrolling") placeScrolling(space, all, inner, offscreen || []);
+        else if (mode === "stage") placeStage(space, all, inner, offscreen || [], out || { strip: [] });
         else {
             var z = zoomOf(space);
             if (z) {
@@ -749,10 +785,12 @@ function createEngine(userConfig) {
 
         // Returns {windows: {id: rect}, groups: [{space, rect, wins, active}],
         // hidden: [ids of inactive group members],
-        // offscreen: [ids a scrolling layout has no room for]}.
+        // offscreen: [ids a scrolling or stage layout has no room for],
+        // strip: [ids a stage layout previews, most recently used first],
+        // stripArea: where it previews them}.
         layout: function (space, area) {
             if (area) areas[space] = area;
-            var result = { windows: {}, groups: [], hidden: [], offscreen: [] };
+            var result = { windows: {}, groups: [], hidden: [], offscreen: [], strip: [], stripArea: null };
             var root = roots[space];
             if (!root) return result;
             area = areas[space];
@@ -763,7 +801,7 @@ function createEngine(userConfig) {
             var gIn = only ? 0 : g.inner;
             var gOut = only ? 0 : g.outer;
             var inner = shrink(area, gOut, gOut, gOut, gOut);
-            arrange(space, inner, result.offscreen);
+            arrange(space, inner, result.offscreen, result);
             var eps = 0.5;
             all.forEach(function (leaf) {
                 var r = leaf.rect;
@@ -837,7 +875,7 @@ function createEngine(userConfig) {
             var leaf = leafOf[id];
             if (!leaf) return false;
             var mode = modeOf(spaceOf[id]);
-            if (mode === "monocle") return false;   // one window, no divider
+            if (mode === "monocle" || mode === "stage") return false;   // one window, no divider
             if (mode === "scrolling") {
                 if (!dx) return false;
                 var area = areas[spaceOf[id]] || rect(0, 0, 1920, 1080);
@@ -865,7 +903,7 @@ function createEngine(userConfig) {
             var dL = after.x - before.x, dT = after.y - before.y;
             var dR = rectRight(after) - rectRight(before), dB = rectBottom(after) - rectBottom(before);
             var mode = modeOf(spaceOf[id]);
-            if (mode === "monocle") return false;
+            if (mode === "monocle" || mode === "stage") return false;
             if (mode === "scrolling") return api.moveDivider(id, dL + dR, 0);
             if (mode === "master") {
                 // Whichever edge was dragged, the master boundary moved with it.

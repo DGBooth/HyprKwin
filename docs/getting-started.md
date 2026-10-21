@@ -188,7 +188,7 @@ table below shows the US keys.
 | `Meta+K` | Show every HyprKwin shortcut, on the keys they have now |
 | `Meta+Q` | Close window |
 | `Meta+J` | Turn the split the other way (dwindle) |
-| `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling) |
+| `Meta+Shift+J` | Next layout (dwindle, master, monocle, scrolling, stage) |
 | `Meta+Z` / `Meta+Shift+Z` | Zoom in towards the focused window / back out (dwindle) |
 | `Meta+M` / `Meta+Shift+M` | Swap window with the master / focus the master |
 | `Meta+>` / `Meta+<` | One more / one fewer master window |

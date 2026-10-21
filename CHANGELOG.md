@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **A stage layout**, after macOS's Stage Manager. The focused window takes
+  the stage; the workspace's other windows wait beside it as live previews,
+  tilted towards it, most recently used at the top. Click a preview (or cycle
+  with the "next window in the layout" keys) to bring that window onto the
+  stage. The previews have a strip of their own, so the stage window never
+  covers them; it goes on the left or right, and its width is set on the
+  Layout tab. Choose it like the other layouts: "Next layout", the new "Use
+  the stage layout" shortcut (unbound), the default layout setting,
+  `layout:stage` in a workspace rule, or `hyprkwinctl layout stage`.
+
 ## HyprKwin animations 1.0.1
 
 *The script is unchanged: HyprKwin 1.0.0 is still current.*

@@ -15,13 +15,15 @@ from System Settings' "Get New…".
 *Dwindle on Plasma 6.7 (Breeze Dark, no panel) with a gradient focus border:
 Alacritty, Dolphin, Gwenview and `hyprkwinctl`.*
 
-- **Four layouts**, chosen per workspace and remembered between sessions:
+- **Five layouts**, chosen per workspace and remembered between sessions:
   - **dwindle**: each new window halves the focused one, along its longer
     side;
   - **master**: one big window (or several) beside a stack of the rest, on
     any side or in the middle with a column either side;
   - **monocle**: one window at a time, full size;
-  - **scrolling**: a strip of columns you move along, wider than the screen.
+  - **scrolling**: a strip of columns you move along, wider than the screen;
+  - **stage**, after macOS's Stage Manager: one window on the stage, with
+    live, clickable previews of the rest in a strip beside it.
 - **Workspaces are Plasma's virtual desktops**, created as you need them.
   Every monitor can have its own, so switching workspace only changes the
   monitor you are on. Pager, Overview and the desktop switcher keep working.
