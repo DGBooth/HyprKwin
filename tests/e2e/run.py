@@ -2550,7 +2550,13 @@ def windows_animate_to_their_new_tile(sb):
     sb.spawn("B", color="#0000ff")
     sb.settle(1.0)
     eq(sb.geometry("A"), LEFT, "A starts on the left")
+    # A was still sliding into its first tile when B arrived, and carries on
+    # from where it was drawn: wait for it to get there.
+    end = time.time() + 6
     start = red_x_range(sb, shots / "start.png")
+    while time.time() < end and not (start and start[0] < 100 and start[1] < 1000):
+        time.sleep(0.3)
+        start = red_x_range(sb, shots / "start.png")
     eq(start[0] < 100, True, "A is on the left before the swap: %r" % (start,))
     sb.invoke("swapLeft", settle=False)
     # A few tenths of a second apart: screenshots are quick, and the first one
