@@ -3653,6 +3653,28 @@ def stage_previews_are_live(sb):
     eq(a[0] > 150 and a[1] < 80 and a[2] < 80, True, "A's preview shows A: %r" % (a,))
 
 
+@test(config={"DefaultLayout": 4, "WindowRuleList": ["float, title:^Shot$"]})
+def floating_windows_stay_in_front_of_the_stage(sb):
+    """A floating window would otherwise sink behind the stage window as soon
+    as that has the focus, with nothing on screen leading back to it."""
+    def stacking():
+        return sb.kwin_js("Workspace.stackingOrder.filter(w => w.caption !== 'HyprKwin overlay')"
+                          ".map(w => w.caption).join(',')").split(",")
+    sb.spawn("A")
+    sb.spawn("Shot")
+    order = stacking()
+    eq(order.index("Shot") > order.index("A"), True, "in front of a lone stage window: %r" % (order,))
+    sb.spawn("B")
+    sb.spawn("C")
+    sb.invoke("cyclePrevious")                  # another window takes the stage, focused
+    s = sb.state()
+    stage = s["windows"][s["active"]]["caption"]
+    sb.settle(0.5)
+    order = stacking()
+    eq(order.index("Shot") > order.index(stage), True, "still in front of %s: %r" % (stage, order))
+    eq(sb.state()["windows"][s["active"]]["caption"], stage, "which keeps the focus")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]

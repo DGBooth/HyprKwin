@@ -57,6 +57,7 @@ function createDriver(env) {
     var slideGrowers = null;
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
     var stageStrips = {};           // space -> {area, ids} of a stage layout on screen
+    var stageSpaces = {};           // spaces on screen in the stage layout, strip or not
     var lastStagePreviews = [];     // [{space, ids}] as drawn
     var zoomKeysOn = false;         // Escape held to zoom back out
     var keysOpen = false;           // the keys guide (Meta+K) is up
@@ -1431,9 +1432,11 @@ function createDriver(env) {
         engine.setVisibility(visible);
         var bars = [];
         stageStrips = {};
+        stageSpaces = {};
         layoutSpaces().forEach(function (vs) {
             applyWorkspaceRule(vs);
             var L = engine.layout(vs.space, vs.area);
+            if (vs.visible && engine.layoutOf(vs.space) === "stage") stageSpaces[vs.space] = true;
             if (vs.visible && L.stripArea && L.strip.length) stageStrips[vs.space] = { area: L.stripArea, ids: L.strip };
             for (var id in L.windows) {
                 var st = tracked[id];
@@ -1596,6 +1599,7 @@ function createDriver(env) {
     function updateDecorationsNow() {
         if (stopped) return;
         if (slideGrowers) return;   // see slideGrowers
+        keepFloatingAboveStage();
         var borders = [];
         var active = ws.activeWindow;
         var visible = visibleWindows();
@@ -1689,6 +1693,30 @@ function createDriver(env) {
                      rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }) };
         });
         if (env.ui.setStageStrips) env.ui.setStageStrips(strips, cfg);
+    }
+
+    // In the stage layout a floating window would sink behind the stage
+    // window whenever that has the focus, with nothing on screen leading back
+    // to it, so floating windows on that monitor are kept in front of it (as
+    // tilers do everywhere). Raising does not move the focus. A full-screen
+    // stage window is left in front.
+    function keepFloatingAboveStage() {
+        var order = ws.stackingOrder || [];
+        for (var space in stageSpaces) {
+            var stageId = engine.lastFocused(space, true);
+            var stage = stageId && tracked[stageId] ? tracked[stageId].w : null;
+            if (!stage || stage.fullScreen) continue;
+            var at = order.indexOf(stage);
+            var below = [];
+            for (var i = 0; i < at; i++) {
+                var st = stOf(order[i]);
+                if (!st || isTiled(st) || st.special || st.pinned) continue;
+                var w = st.w;
+                if (w.minimized || w.output !== stage.output || !onCurrentActivity(w) || !onVisibleDesktop(w)) continue;
+                below.push(w);
+            }
+            below.forEach(function (w) { ws.raiseWindow(w); });   // keeping their order
+        }
     }
 
     // The stage layout's strip: a live preview of each window waiting off
