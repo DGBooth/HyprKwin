@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## HyprKwin animations 1.0.1
+
+*The script is unchanged: HyprKwin 1.0.0 is still current.*
 
 ### Changed
 
