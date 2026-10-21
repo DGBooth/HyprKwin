@@ -242,7 +242,7 @@ function plasmaRule(line) {
 // Hyprland's workspace rules, one per line:
 //
 //   workspace = 3, monitor:DP-2, default:true, layout:master
-//   2, monitor:1, gapsin:0, gapsoutleft:0, gapsouttop:0, gapsoutright:0, gapsoutbottom:0
+//   2, monitor:1, gapsin:0, gapsout:0
 //
 // Supported properties: monitor:<n|name> pins the workspace to a monitor,
 // default:true makes it the one that monitor starts on, layout:<name> gives
