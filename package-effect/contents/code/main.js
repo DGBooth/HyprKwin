@@ -20,12 +20,34 @@ const BUILD = "source";
 // one retires the others; we unload explicitly too in case that changes.
 const OPEN_CLOSE_EFFECTS = ["scale", "fade", "glide"];
 
+// The settings page's curves, as KWin names them and as functions (to work
+// out where a window is part way through an animation).
+const CURVES = ["OutCubic", "OutQuad", "OutExpo", "OutBack", "Linear"];
+const EASES = [
+    (t) => 1 - (1 - t) ** 3,
+    (t) => 1 - (1 - t) ** 2,
+    (t) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t)),
+    (t) => 1 + 2.70158 * (t - 1) ** 3 + 1.70158 * (t - 1) ** 2,
+    (t) => t,
+];
+
 function plainRect(r) {
     return { x: r.x, y: r.y, width: r.width, height: r.height };
 }
 
+// With fractional scaling KWin's geometry is in fractions of a pixel, and
+// its rounding varies: anything within a pixel counts as the same.
+function near(a, b) {
+    return Math.abs(a - b) < 1;
+}
+
 function sameRect(a, b) {
-    return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+    return near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
+}
+
+// Exactly, as Plasma's Maximize effect compares them.
+function sameSize(a, b) {
+    return a.width === b.width && a.height === b.height;
 }
 
 class HyprKwinAnimations {
@@ -96,10 +118,10 @@ class HyprKwinAnimations {
         this.slideDuration = animationTime(slide) > 0 ? slide : 0;
         this.openClose = effect.readConfig("OpenCloseEffect", 0);
         this.applyOpenCloseEffect(this.openClose);
-        const curves = [QEasingCurve.OutCubic, QEasingCurve.OutQuad, QEasingCurve.OutExpo,
-                        QEasingCurve.OutBack, QEasingCurve.Linear];
-        const index = effect.readConfig("Curve", 0);
-        this.curve = curves[index] !== undefined ? curves[index] : QEasingCurve.OutCubic;
+        const choice = effect.readConfig("Curve", 0);
+        const index = EASES[choice] !== undefined ? choice : 0;
+        this.curve = QEasingCurve[CURVES[index]];
+        this.ease = EASES[index];
     }
 
     // 0 leaves Plasma's Desktop Effects settings alone; anything else picks
@@ -116,9 +138,10 @@ class HyprKwinAnimations {
     manage(window) {
         if (window.dock) this.notePanel();
         window.windowFrameGeometryChanged.connect(this.onFrameGeometryChanged.bind(this));
-        // Maximize and fullscreen are animated by KWin's own effects; ours
-        // would run on top of them.
-        window.windowMaximizedStateAboutToChange.connect(() => this.suspend(window));
+        // Plasma's Maximize effect animates maximizing (see maximizeRole);
+        // fullscreen is left to KWin, ours would run on top of it.
+        window.windowMaximizedStateAboutToChange.connect(() => this.maximizeAboutToChange(window));
+        window.windowMaximizedStateChanged.connect(() => this.maximizeChanged(window));
         window.windowFullScreenChanged.connect(() => this.suspend(window));
         window.windowStartUserMovedResized.connect(() => {
             if (window.resize) this.userResizing = window;
@@ -150,6 +173,49 @@ class HyprKwinAnimations {
             geometry.y < screen.y + screen.height && screen.y < geometry.y + geometry.height;
     }
 
+    // ---- maximizing ----------------------------------------------------
+    //
+    // Plasma's Maximize effect animates maximizing and restoring while it is
+    // on, so those are left to it. But it does not follow a move made while
+    // it runs, and it gives up if the size changes again (comparing exactly,
+    // so the rounding KWin sends under fractional scaling counts). This fills
+    // in those cases, and animates everything itself when that effect is off.
+
+    maximizeAboutToChange(window) {
+        if (!window.visible || !effects.isEffectLoaded("maximize")) return;
+        window.hkMaximize = { from: plainRect(window.geometry), started: false, until: Date.now() + 1000 };
+    }
+
+    maximizeChanged(window) {
+        const m = window.hkMaximize;
+        if (!m) return;
+        m.started = true;
+        m.until = Date.now() + animationTime(250);       // its duration
+    }
+
+    // "skip" if the Maximize effect has this change (or it was taken over),
+    // "no fade" for a change animated here that cuts its fade short.
+    maximizeRole(window, changedFrom) {
+        const m = window.hkMaximize;
+        if (!m) return "";
+        if (Date.now() > m.until) {
+            delete window.hkMaximize;
+            return "";
+        }
+        const g = window.geometry;
+        if (sameSize(g, changedFrom)) return m.resized ? "no fade" : "skip";   // a move: not followed
+        if (sameSize(m.from, changedFrom)) {
+            m.resized = true;                                                // the maximize itself
+            return "skip";
+        }
+        if (!m.started) return "skip";
+        delete window.hkMaximize;                                            // it gave up
+        if (!sameRect(changedFrom, g)) return "no fade";
+        // Only rounding: carry on from where the maximize started.
+        this.run(window, this.duration, this.moveAndResize(m.from, g), m.from, g, this.ease);
+        return "skip";
+    }
+
     shouldAnimate(window) {
         if (!window.visible || window.minimized || window.deleted) return false;
         // The user is dragging it: it is already following the pointer.
@@ -164,8 +230,8 @@ class HyprKwinAnimations {
     // edges stay put. Stretching and cross-fading the contents for that
     // reads as the window being redrawn, so these snap, like the client does.
     isSplitNudge(o, n) {
-        const edgeKeptX = o.x === n.x || o.x + o.width === n.x + n.width;
-        const edgeKeptY = o.y === n.y || o.y + o.height === n.y + n.height;
+        const edgeKeptX = near(o.x, n.x) || near(o.x + o.width, n.x + n.width);
+        const edgeKeptY = near(o.y, n.y) || near(o.y + o.height, n.y + n.height);
         const dw = Math.abs(n.width - o.width) / Math.max(1, o.width);
         const dh = Math.abs(n.height - o.height) / Math.max(1, o.height);
         return edgeKeptX && edgeKeptY && dw < 0.4 && dh < 0.4;
@@ -191,6 +257,23 @@ class HyprKwinAnimations {
         }
     }
 
+    // One animation per window; `from` and `to` are where it is drawn, which
+    // is what lets visualRect() carry on from there if it is interrupted.
+    run(window, duration, animations, from, to, ease) {
+        this.snap(window);
+        window.hkAnimation = animate({ window: window, duration: duration, animations: animations });
+        window.hkVisual = { from: plainRect(from), to: plainRect(to), start: Date.now(), end: Date.now() + duration, ease: ease };
+    }
+
+    // Where the window is drawn part way through its animation, if it is.
+    visualRect(window) {
+        const v = window.hkVisual;
+        if (!window.hkAnimation || !v || Date.now() >= v.end) return null;
+        const p = v.ease(Math.min(1, (Date.now() - v.start) / Math.max(1, v.end - v.start)));
+        const mix = (k) => v.from[k] + (v.to[k] - v.from[k]) * p;
+        return { x: mix("x"), y: mix("y"), width: mix("width"), height: mix("height") };
+    }
+
     // ---- divider slides ------------------------------------------------
     //
     // When HyprKwin slides a divider from the keyboard, the window that grows
@@ -200,13 +283,13 @@ class HyprKwinAnimations {
 
     // The one edge that moved outwards, if that is all that changed.
     grownEdge(o, n) {
-        if (o.y === n.y && o.height === n.height) {
-            if (o.x === n.x && n.width > o.width) return { axis: "x", end: true, from: o.x + o.width, to: n.x + n.width };
-            if (o.x + o.width === n.x + n.width && n.x < o.x) return { axis: "x", end: false, from: o.x, to: n.x };
+        if (near(o.y, n.y) && near(o.height, n.height)) {
+            if (near(o.x, n.x) && n.width > o.width) return { axis: "x", end: true, from: o.x + o.width, to: n.x + n.width };
+            if (near(o.x + o.width, n.x + n.width) && n.x < o.x) return { axis: "x", end: false, from: o.x, to: n.x };
         }
-        if (o.x === n.x && o.width === n.width) {
-            if (o.y === n.y && n.height > o.height) return { axis: "y", end: true, from: o.y + o.height, to: n.y + n.height };
-            if (o.y + o.height === n.y + n.height && n.y < o.y) return { axis: "y", end: false, from: o.y, to: n.y };
+        if (near(o.x, n.x) && near(o.width, n.width)) {
+            if (near(o.y, n.y) && n.height > o.height) return { axis: "y", end: true, from: o.y + o.height, to: n.y + n.height };
+            if (near(o.y + o.height, n.y + n.height) && n.y < o.y) return { axis: "y", end: false, from: o.y, to: n.y };
         }
         return null;
     }
@@ -266,12 +349,8 @@ class HyprKwinAnimations {
     slide(window, oldGeometry, edge) {
         const n = window.geometry;
         const shift = edge.to - edge.from;
-        this.snap(window);
-        window.hkAnimation = animate({
-            window: window,
-            duration: this.slideDuration,
-            animations: [this.clipAnimation(window, edge.axis, edge.end, edge.from, edge.to)],
-        });
+        this.run(window, this.slideDuration, [this.clipAnimation(window, edge.axis, edge.end, edge.from, edge.to)],
+                 oldGeometry, n, EASES[0]);
         for (const other of this.heldNeighbours(window, n, edge)) {
             const g = other.geometry;
             // Its facing edge travels with the divider, keeping the gap.
@@ -303,18 +382,13 @@ class HyprKwinAnimations {
         const dist = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y),
                               Math.abs(to.width - from.width), Math.abs(to.height - from.height));
         const duration = Math.max(60, Math.min(Math.round(3 * dist), this.duration));
-        this.snap(window);
         this.lastWindowAnimation = Date.now();
         this.glideUntil = Date.now() + duration;
         this.glideDuration = duration;
-        window.hkAnimation = animate({
-            window: window,
-            duration: duration,
-            animations: this.moveAndResize(from, to, this.curve),
-        });
+        this.run(window, duration, this.moveAndResize(from, to), from, to, this.ease);
     }
 
-    moveAndResize(from, to, curve) {
+    moveAndResize(from, to, curve = this.curve) {
         // Translation is measured between the centres, the way KWin's own
         // maximize effect does it, so it composes with the size animation.
         const animations = [{
@@ -326,7 +400,7 @@ class HyprKwinAnimations {
             to: { value1: 0, value2: 0 },
             curve: curve,
         }];
-        if (from.width !== to.width || from.height !== to.height) {
+        if (!sameSize(from, to)) {
             animations.push({
                 type: Effect.Size,
                 from: { value1: from.width, value2: from.height },
@@ -345,8 +419,11 @@ class HyprKwinAnimations {
         }
         // A held window has now been resized: the cover has done its job.
         if (window.hkCover) this.uncover(window);
-        if (!this.shouldAnimate(window)) return;
+        if (this.duration <= 0 || !this.shouldAnimate(window)) return;
+        const maximize = this.maximizeRole(window, changedFrom);
         const newGeometry = window.geometry;
+        // Sub-pixel rounding a moment after a re-tile: leave the animation be.
+        if (maximize === "skip" || sameRect(changedFrom, newGeometry)) return;
         // One re-tile can reach us in two parts a moment apart: a move at the
         // old size (KWin keeping the window inside a work area that just
         // shrank, say), then the real move and resize. Taken apart, the
@@ -360,36 +437,36 @@ class HyprKwinAnimations {
             oldGeometry = last.from;
         }
         window.hkLast = { from: plainRect(oldGeometry), to: plainRect(newGeometry), t: now };
-        if (this.userResizing || Date.now() - this.userResizeEnded < 150) {
-            this.snap(window);
-            return;
-        }
-        if (!this.onScreen(oldGeometry) || !this.onScreen(newGeometry)) {
-            this.snap(window);      // parked out of sight by a scrolling layout
-            return;
-        }
+        // Re-tiled mid-animation: carry on from where it is drawn, not from
+        // where the earlier animation was going. Whatever happens next, that
+        // animation is over.
+        const visual = this.visualRect(window);
+        const from = visual || oldGeometry;
+        this.snap(window);
+        if (this.userResizing || Date.now() - this.userResizeEnded < 150) return;
+        if (!this.onScreen(from) || !this.onScreen(newGeometry)) return;     // parked out of sight by a scrolling layout
         if (window.caption !== OVERLAY_TITLE) {
             if (now < this.panelUntil) {
-                this.glide(window, oldGeometry, newGeometry);
+                this.glide(window, from, newGeometry);
                 return;
             }
             const edge = this.slideDuration > 0 ? this.grownEdge(oldGeometry, newGeometry) : null;
-            if (edge) {
+            // Interrupting an animation, a divider slide is still the way to
+            // go where a window is held back for it to pass over: nothing
+            // else keeps that one covered.
+            if (edge && (!visual || this.heldNeighbours(window, newGeometry, edge).length > 0)) {
                 this.slide(window, oldGeometry, edge);
                 return;
             }
-            if (this.isSplitNudge(oldGeometry, newGeometry)) {
-                this.snap(window);
-                return;
-            }
+            if (!visual && this.isSplitNudge(oldGeometry, newGeometry)) return;
         }
 
-        const moved = oldGeometry.x !== newGeometry.x || oldGeometry.y !== newGeometry.y;
-        const resized = oldGeometry.width !== newGeometry.width || oldGeometry.height !== newGeometry.height;
+        const moved = !near(from.x, newGeometry.x) || !near(from.y, newGeometry.y);
+        const resized = !near(from.width, newGeometry.width) || !near(from.height, newGeometry.height);
         if ((!moved && !resized) || (!this.animateMove && !resized) || (!this.animateResize && !moved)) return;
 
         if (this.maxDistance > 0) {
-            const dx = newGeometry.x - oldGeometry.x, dy = newGeometry.y - oldGeometry.y;
+            const dx = newGeometry.x - from.x, dy = newGeometry.y - from.y;
             if (Math.sqrt(dx * dx + dy * dy) > this.maxDistance) return;
         }
 
@@ -399,25 +476,19 @@ class HyprKwinAnimations {
             this.lastWindowAnimation = Date.now();
         }
 
-        // Restart cleanly if the window is re-tiled mid-animation.
-        if (window.hkAnimation) {
-            cancel(window.hkAnimation);
-            delete window.hkAnimation;
-        }
-
-        const animations = this.moveAndResize(oldGeometry, newGeometry, this.curve);
-        if (resized) {
-            // Fade the old contents into the new ones, otherwise the window
-            // looks stretched while it grows. Borders and tab bars are flat
-            // colour, so they never need it.
-            if (window.caption !== OVERLAY_TITLE && this.allowCrossFade()) {
-                animations.push({
-                    type: Effect.CrossFadePrevious,
-                    from: 0.0,
-                    to: 1.0,
-                    curve: this.curve,
-                });
-            }
+        const animations = this.moveAndResize(from, newGeometry);
+        // Fade the old contents into the new ones, otherwise the window looks
+        // stretched while it grows. Borders and tab bars are flat colour, so
+        // they never need it. Not when interrupting an animation either: KWin
+        // has no earlier picture to fade from for the first frame, and the
+        // window would vanish for it.
+        if (resized && window.caption !== OVERLAY_TITLE && !visual && maximize !== "no fade" && this.allowCrossFade()) {
+            animations.push({
+                type: Effect.CrossFadePrevious,
+                from: 0.0,
+                to: 1.0,
+                curve: this.curve,
+            });
         }
 
         const sliding = window.caption === OVERLAY_TITLE && Date.now() < this.slideUntil;
@@ -426,11 +497,8 @@ class HyprKwinAnimations {
         }
         // A border keeps pace with its window's glide, too.
         const gliding = window.caption === OVERLAY_TITLE && Date.now() < this.glideUntil;
-        window.hkAnimation = animate({
-            window: window,
-            duration: sliding ? this.slideDuration : gliding ? this.glideDuration : this.duration,
-            animations: animations,
-        });
+        this.run(window, sliding ? this.slideDuration : gliding ? this.glideDuration : this.duration,
+                 animations, from, newGeometry, sliding ? EASES[0] : this.ease);
     }
 }
 
