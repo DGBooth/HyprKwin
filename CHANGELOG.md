@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Smoother animations when windows are re-tiled quickly.** A window
+  re-tiled while it is still moving now carries on from where it is drawn,
+  bending towards its new tile, rather than jumping back and starting over
+  (and without the brief cross-fade that came with that). Under fractional
+  scaling, the rounding KWin sends a moment after a re-tile no longer
+  restarts the animation as the window arrives.
+- **Maximizing works with Plasma's Maximize effect.** While that effect is
+  on, maximizing and restoring are left to it, and HyprKwin takes over only
+  where it gives up or does not follow a move; with it off, HyprKwin animates
+  maximizing itself. This replaces a blanket half-second pause in animations
+  after every maximize.
+- Nothing animates when Plasma's animation speed is set to Instant.
+
+Ported back from [KDE Animated Tiling](https://github.com/microsoftruinseverything456/KDE-Animated-Tiling),
+microsoftruinseverything456's fork of these animations focused on tiling
+(GPL-3.0-or-later, like HyprKwin). Thank you!
+
 ## 1.0.0
 
 *HyprKwin animations 1.0.0 (unchanged since 1.0.0-rc2).*
