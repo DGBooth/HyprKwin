@@ -290,54 +290,54 @@ function parseWorkspaceRules(text) {
             }
             var key = m[1].toLowerCase().replace(/_/g, ""), value = m[2].trim();
             switch (key) {
-                case "monitor":
-                    if (!value) { errors.push(where + "monitor: needs a number or a name, e.g. monitor:DP-2"); ok = false; return; }
-                    if (rule.monitor === null) rule.monitor = value;
-                    break;
-                case "default":
-                    if (!/^(1|0|true|false|yes|no)$/i.test(value)) { errors.push(where + "default: takes true or false"); ok = false; return; }
-                    rule.isDefault = rule.isDefault || /^(1|true|yes)$/i.test(value);
-                    break;
-                case "layout":
-                    if (WORKSPACE_LAYOUTS.indexOf(value.toLowerCase()) < 0) {
-                        errors.push(where + "layout: is one of " + WORKSPACE_LAYOUTS.join(", "));
-                        ok = false;
-                        return;
-                    }
-                    if (rule.layout === null) rule.layout = value.toLowerCase();
-                    break;
-                case "gapsin": {
-                    var n = parseInt(value, 10);
-                    if (!(n >= 0)) { errors.push(where + "gapsin: needs a number of pixels"); ok = false; return; }
-                    if (rule.gapsIn === null) rule.gapsIn = n;
-                    break;
-                }
-                case "gapsout": {
-                    var v = value.split(/\s+/);
-                    if (v.length > 4 || !v.every(function (x) { return /^\d+$/.test(x); })) {
-                        errors.push(where + "gapsout: takes 1 to 4 numbers of pixels (top right bottom left)");
-                        ok = false;
-                        return;
-                    }
-                    v = v.map(Number);
-                    var sides = { top: v[0], right: v.length > 1 ? v[1] : v[0],
-                        bottom: v.length > 2 ? v[2] : v[0], left: v.length > 3 ? v[3] : (v.length > 1 ? v[1] : v[0]) };
-                    Object.keys(sides).forEach(function (s) { if (rule.gapsOut[s] === null) rule.gapsOut[s] = sides[s]; });
-                    break;
-                }
-                case "gapsoutleft":
-                case "gapsouttop":
-                case "gapsoutright":
-                case "gapsoutbottom": {
-                    var px = parseInt(value, 10);
-                    if (!(px >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
-                    var side = key.slice(7);
-                    if (rule.gapsOut[side] === null) rule.gapsOut[side] = px;
-                    break;
-                }
-                default:
-                    errors.push(where + "unknown property '" + m[1] + "'");
+            case "monitor":
+                if (!value) { errors.push(where + "monitor: needs a number or a name, e.g. monitor:DP-2"); ok = false; return; }
+                if (rule.monitor === null) rule.monitor = value;
+                break;
+            case "default":
+                if (!/^(1|0|true|false|yes|no)$/i.test(value)) { errors.push(where + "default: takes true or false"); ok = false; return; }
+                rule.isDefault = rule.isDefault || /^(1|true|yes)$/i.test(value);
+                break;
+            case "layout":
+                if (WORKSPACE_LAYOUTS.indexOf(value.toLowerCase()) < 0) {
+                    errors.push(where + "layout: is one of " + WORKSPACE_LAYOUTS.join(", "));
                     ok = false;
+                    return;
+                }
+                if (rule.layout === null) rule.layout = value.toLowerCase();
+                break;
+            case "gapsin": {
+                var n = parseInt(value, 10);
+                if (!(n >= 0)) { errors.push(where + "gapsin: needs a number of pixels"); ok = false; return; }
+                if (rule.gapsIn === null) rule.gapsIn = n;
+                break;
+            }
+            case "gapsout": {
+                var v = value.split(/\s+/);
+                if (v.length > 4 || !v.every(function (x) { return /^\d+$/.test(x); })) {
+                    errors.push(where + "gapsout: takes 1 to 4 numbers of pixels (top right bottom left)");
+                    ok = false;
+                    return;
+                }
+                v = v.map(Number);
+                var sides = { top: v[0], right: v.length > 1 ? v[1] : v[0],
+                    bottom: v.length > 2 ? v[2] : v[0], left: v.length > 3 ? v[3] : (v.length > 1 ? v[1] : v[0]) };
+                Object.keys(sides).forEach(function (s) { if (rule.gapsOut[s] === null) rule.gapsOut[s] = sides[s]; });
+                break;
+            }
+            case "gapsoutleft":
+            case "gapsouttop":
+            case "gapsoutright":
+            case "gapsoutbottom": {
+                var px = parseInt(value, 10);
+                if (!(px >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
+                var side = key.slice(7);
+                if (rule.gapsOut[side] === null) rule.gapsOut[side] = px;
+                break;
+            }
+            default:
+                errors.push(where + "unknown property '" + m[1] + "'");
+                ok = false;
             }
         });
         if (ok) rules[index] = rule;

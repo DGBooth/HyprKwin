@@ -677,13 +677,15 @@ function createDriver(env) {
         // still honoured so existing configs keep their look.
         var activeSource = num(rc("ActiveBorderSource", -1), -1);
         if (activeSource < 0) activeSource = bool(rc("UseAccentColor", true), true) ? 0 : 1;
+        var base = num(rc("GapsOut", 10), 10);
+        function side(k) { var v = num(rc(k, -1), -1); return v < 0 ? base : v; }
         cfg = {
             gapsIn: num(rc("GapsIn", 5), 5),
             gapsOut: {
-                left: num(rc("GapsOutLeft", 10), 10),
-                top: num(rc("GapsOutTop", 10), 10),
-                right: num(rc("GapsOutRight", 10), 10),
-                bottom: num(rc("GapsOutBottom", 10), 10),
+                left: side("GapsOutLeft"),
+                top: side("GapsOutTop"),
+                right: side("GapsOutRight"),
+                bottom: side("GapsOutBottom"),
             },
             splitRatio: num(rc("SplitRatio", "1.0"), 1.0),
             splitWidthMultiplier: num(rc("SplitWidthMultiplier", "1.0"), 1.0),

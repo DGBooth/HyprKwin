@@ -38,6 +38,13 @@
        <item row="2" column="0">
         <widget class="QLabel" name="gapsOutLabel"><property name="text"><string>Gap at the screen edges:</string></property></widget>
        </item>
+       <item row="2" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOut">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+         <property name="toolTip"><string>Default gap for every side. Sides left at "same as edges" follow this value; sides with their own value keep it.</string></property>
+        </widget>
+       </item>
        <item row="3" column="0">
         <widget class="QLabel" name="gapsOutLeftLabel">
          <property name="text"><string>Left:</string></property>
@@ -48,6 +55,8 @@
         <widget class="QSpinBox" name="kcfg_GapsOutLeft">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as edges</string></property>
         </widget>
        </item>
        <item row="4" column="0">
@@ -60,6 +69,8 @@
         <widget class="QSpinBox" name="kcfg_GapsOutTop">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as edges</string></property>
         </widget>
        </item>
        <item row="5" column="0">
@@ -72,6 +83,8 @@
         <widget class="QSpinBox" name="kcfg_GapsOutRight">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as edges</string></property>
         </widget>
        </item>
        <item row="6" column="0">
@@ -84,6 +97,8 @@
         <widget class="QSpinBox" name="kcfg_GapsOutBottom">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as edges</string></property>
         </widget>
        </item>
        <item row="7" column="0">

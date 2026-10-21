@@ -95,7 +95,7 @@ Deno.test("workspace rules pin a workspace to a monitor", () => {
 });
 
 Deno.test("workspace rules carry a layout and gaps", () => {
-    const { rules, errors } = R.parseWorkspaceRules("2, layout:master, gapsin:0, gaps_out:4 4 4 4\n# a comment");
+    const { rules, errors } = R.parseWorkspaceRules("2, layout:master, gapsin:0, gaps_out:4\n# a comment");
     assertEquals(errors, []);
     assertEquals(rules[2].layout, "master");
     assertEquals(rules[2].gapsIn, 0);
