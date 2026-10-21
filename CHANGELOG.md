@@ -8,9 +8,12 @@
   the stage; the workspace's other windows wait beside it as live previews,
   tilted towards it, most recently used at the top. Click a preview (or cycle
   with the "next window in the layout" keys) to bring that window onto the
-  stage. The previews have a strip of their own, so the stage window never
-  covers them; it goes on the left or right, and its width is set on the
-  Layout tab. Choose it like the other layouts: "Next layout", the new "Use
+  stage: it grows out of its preview while the one it replaces shrinks into
+  the strip, at Plasma's animation speed. The previews have a strip of their
+  own, so the stage window never covers them (the strip between them is
+  still the desktop's, to click); it goes on the left or right, and its
+  width is set on the Layout tab. Floating windows stay in front of the
+  stage. Choose it like the other layouts: "Next layout", the new "Use
   the stage layout" shortcut (unbound), the default layout setting,
   `layout:stage` in a workspace rule, or `hyprkwinctl layout stage`.
 
