@@ -8,13 +8,13 @@ const AREA = { x: 0, y: 0, width: 1920, height: 1080 };
 const S = "d1|out1";
 
 function eng(cfg) {
-    const e = E.createEngine(Object.assign({ gapsIn: 0, gapsOut: 0 }, cfg || {}));
+    const e = E.createEngine(Object.assign({ gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } }, cfg || {}));
     e.setArea(S, AREA);
     return e;
 }
 
 Deno.test("single window fills area minus outer gaps", () => {
-    const e = E.createEngine({ gapsIn: 5, gapsOut: 10 });
+    const e = E.createEngine({ gapsIn: 5, gapsOut: { left: 10, top: 10, right: 10, bottom: 10 } });
     e.add("a", S);
     const l = e.layout(S, AREA);
     assertEquals(l.windows.a, { x: 10, y: 10, width: 1900, height: 1060 });
@@ -41,7 +41,7 @@ Deno.test("dwindle: third window splits the focused tile vertically", () => {
 });
 
 Deno.test("gaps: inner gaps doubled between windows, outer gaps at edges", () => {
-    const e = E.createEngine({ gapsIn: 5, gapsOut: 10 });
+    const e = E.createEngine({ gapsIn: 5, gapsOut: { left: 10, top: 10, right: 10, bottom: 10 } });
     e.add("a", S); e.focused("a");
     e.add("b", S);
     const l = e.layout(S, AREA);
@@ -209,7 +209,7 @@ Deno.test("pseudotile centres the preferred size in the tile", () => {
 });
 
 Deno.test("noGapsWhenOnly drops gaps for a lone window", () => {
-    const e = E.createEngine({ gapsIn: 5, gapsOut: 10, noGapsWhenOnly: true });
+    const e = E.createEngine({ gapsIn: 5, gapsOut: { left: 10, top: 10, right: 10, bottom: 10 }, noGapsWhenOnly: true });
     e.add("a", S);
     assertEquals(e.layout(S, AREA).windows.a, AREA);
 });
@@ -333,7 +333,7 @@ function three(e, space = S) {
 }
 
 Deno.test("master layout: one master beside a stack", () => {
-    const e = eng({ defaultLayout: "master", masterFactor: 0.6, gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "master", masterFactor: 0.6, gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     three(e);
     const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     assertEquals(l.windows.a, { x: 0, y: 0, width: 600, height: 900 }, "master takes 60%");
@@ -342,7 +342,7 @@ Deno.test("master layout: one master beside a stack", () => {
 });
 
 Deno.test("master layout: count, orientation and the single-window case", () => {
-    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     e.add("a", S);
     assertEquals(e.layout(S, { x: 0, y: 0, width: 1000, height: 900 }).windows.a,
                  { x: 0, y: 0, width: 1000, height: 900 }, "alone: the whole area");
@@ -360,7 +360,7 @@ Deno.test("master layout: count, orientation and the single-window case", () => 
 });
 
 Deno.test("master layout: centre puts the stack on both sides", () => {
-    const e = eng({ defaultLayout: "master", masterFactor: 0.5, masterOrientation: "center", gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, masterOrientation: "center", gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     three(e);
     e.add("d", S);
     const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 800 });
@@ -370,7 +370,7 @@ Deno.test("master layout: centre puts the stack on both sides", () => {
 });
 
 Deno.test("master layout: the divider moves right on a positive delta", () => {
-    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "master", masterFactor: 0.5, gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     three(e);
     e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     e.moveDivider("c", 100, 0);                    // from a stack window
@@ -383,7 +383,7 @@ Deno.test("master layout: the divider moves right on a positive delta", () => {
 });
 
 Deno.test("monocle layout: every window fills the area", () => {
-    const e = eng({ defaultLayout: "monocle", gapsOut: 10, gapsIn: 5 });
+    const e = eng({ defaultLayout: "monocle", gapsOut: { left: 10, top: 10, right: 10, bottom: 10 }, gapsIn: 5 });
     three(e);
     const l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     const full = { x: 10, y: 10, width: 980, height: 880 };
@@ -394,7 +394,7 @@ Deno.test("monocle layout: every window fills the area", () => {
 });
 
 Deno.test("stage layout: the focused window beside a strip of the others, most recent first", () => {
-    const e = eng({ defaultLayout: "stage", gapsOut: 10, gapsIn: 5, stageWidth: 200 });
+    const e = eng({ defaultLayout: "stage", gapsOut: { left: 10, top: 10, right: 10, bottom: 10 }, gapsIn: 5, stageWidth: 200 });
     three(e);                                   // focus went a, b, c
     let l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     // The strip takes 200 on the left of the inner area; the stage the rest,
@@ -436,7 +436,7 @@ Deno.test("stage layout: a group previews its active window, once", () => {
 });
 
 Deno.test("layouts are per space, and dwindle is untouched", () => {
-    const e = eng({ gapsIn: 0, gapsOut: 0 });
+    const e = eng({ gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 }});
     const other = "desk2|screen";
     three(e);
     e.add("z", other);
@@ -452,7 +452,7 @@ Deno.test("layouts are per space, and dwindle is untouched", () => {
 });
 
 Deno.test("master: swapwithmaster and new windows joining", () => {
-    const e = eng({ defaultLayout: "master", gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "master", gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     three(e);
     assertEquals(e.firstMaster(S), "a");
     assertEquals(e.swapWithMaster("c"), true);
@@ -465,7 +465,7 @@ Deno.test("master: swapwithmaster and new windows joining", () => {
 });
 
 Deno.test("scrolling layout: whole columns, and the rest reported off-view", () => {
-    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 }});
     e.add("a", S); e.focused("a");
     e.add("b", S); e.focused("b");
     e.add("c", S); e.focused("c");
@@ -483,7 +483,7 @@ Deno.test("scrolling layout: whole columns, and the rest reported off-view", () 
 });
 
 Deno.test("scrolling layout: column width, and a wide column taking the view", () => {
-    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: 0 });
+    const e = eng({ defaultLayout: "scrolling", columnWidth: 0.5, gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     e.add("a", S); e.focused("a");
     e.add("b", S); e.focused("b");
     e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
@@ -563,7 +563,7 @@ Deno.test("a space moved to an empty one keeps its layout and master settings", 
 
 // a | (b / c): zooming towards c goes to the right half, then to c alone.
 function threeUp() {
-    const e = eng({ gapsIn: 0, gapsOut: 0 });
+    const e = eng({ gapsIn: 0, gapsOut: { left: 0, top: 0, right: 0, bottom: 0 } });
     e.add("a", S); e.add("b", S); e.add("c", S);
     e.focused("c");
     return e;

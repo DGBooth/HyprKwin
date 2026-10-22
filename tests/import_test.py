@@ -50,7 +50,9 @@ master {
 }
 """)
         self.assertEqual(plan["settings"], {
-            "GapsIn": "4", "GapsOut": "8", "BorderSize": "3", "DefaultLayout": "1",
+            "GapsIn": "4", "GapsOut": "8",
+            "GapsOutLeft": "-1", "GapsOutTop": "-1", "GapsOutRight": "-1", "GapsOutBottom": "-1",
+            "BorderSize": "3", "DefaultLayout": "1",
             "BorderRadius": "10", "ActiveOpacity": "0.95",
             "MasterFactor": "0.6", "MasterOrientation": "4", "MasterNewIsMaster": "true",
         })
@@ -247,7 +249,7 @@ class Files(unittest.TestCase):
             a.write_text("source = b.conf\ngeneral { gaps_in = 1 }")
             b.write_text("source = a.conf\ngeneral { gaps_out = 2 }")
             items, _ = imp.read_config(a)
-            self.assertEqual(imp.translate(items)["settings"], {"GapsIn": "1", "GapsOut": "2"})
+            self.assertEqual(imp.translate(items)["settings"], {"GapsIn": "1", "GapsOut": "2", "GapsOutLeft": "-1", "GapsOutTop": "-1", "GapsOutRight": "-1", "GapsOutBottom": "-1"})
 
 
 if __name__ == "__main__":

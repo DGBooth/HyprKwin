@@ -99,7 +99,8 @@ workspace = 3, monitor:DP-2, default:true
 | `monitor:N` or `monitor:DP-2` | keep that workspace on that monitor: switching to it goes there, and a window sent to it follows |
 | `default:true` | the workspace that monitor starts the session on |
 | `layout:dwindle\|master\|monocle\|scrolling\|stage` | the layout it starts with; `Meta+Shift+J` still changes it afterwards |
-| `gapsin:N`, `gapsout:N` | gaps for that workspace alone |
+| `gapsin:N` | inner gaps for that workspace alone |
+| `gapsout:N` or `gapsout:T R B L` | outer gaps for that workspace alone; takes 1 to 4 values (top, right, bottom, left)|
 
 The `workspace = ` prefix is optional, so lines can be pasted straight out of
 a `hyprland.conf`. The first rule for a workspace wins on each property, and a
@@ -161,7 +162,7 @@ stable across upgrades is in [docs/compatibility.md](compatibility.md).
 equivalent for:
 
 - `general`, `decoration`, `dwindle`, `master`, `misc` and `input` settings,
-  including `col.active_border` gradients
+  including `col.active_border` gradients and a `gaps_out` with a value per side
 - `windowrule` and `windowrulev2` lines (v1's bare regex becomes `class:`).
   Those Plasma's own window rules do just as well — `fullscreen`,
   `maximize`, `minsize`, `maxsize` and `nofocus` — become Plasma window

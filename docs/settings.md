@@ -13,6 +13,7 @@ System Settings › Window Management › KWin Scripts › HyprKwin › configur
 | Master area size, master count, master area position | `master:mfact`, `master:orientation` | 0.55, 1, left |
 | New windows become the master | `master:new_status` | off |
 | Inner / outer gaps | `general:gaps_in` / `gaps_out` | 5 / 10 |
+| Outer gap per-side (top, right, bottom, left) | `gaps_out = 10 20 10 20` | same as outer gap |
 | Default split ratio | `dwindle:default_split_ratio` | 1.0 |
 | Split width multiplier | `dwindle:split_width_multiplier` | 1.0 |
 | New window goes | `dwindle:force_split` | right / bottom |

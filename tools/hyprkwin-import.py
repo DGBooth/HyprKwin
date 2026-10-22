@@ -36,9 +36,32 @@ ORIENTATIONS = ["left", "right", "top", "bottom", "center"]
 
 
 def as_int(v):
-    # Hyprland takes "5" or "5 5 5 5" (per side); HyprKwin has one gap.
+    # Hyprland takes "5" or "5 5 5 5" (per side); HyprKwin has one inner gap.
     first = v.split()[0]
     return str(int(float(first)))
+
+
+def as_gaps_out(v):
+    parts = [str(int(float(x))) for x in v.split()]
+    if not 1 <= len(parts) <= 4:
+        raise ValueError("gaps_out takes 1 to 4 values")
+    if len(parts) == 1:
+        top = right = bottom = left = parts[0]
+    elif len(parts) == 2:
+        top = bottom = parts[0]
+        right = left = parts[1]
+    elif len(parts) == 3:
+        top = parts[0]
+        right = left = parts[1]
+        bottom = parts[2]
+    else:
+        top, right, bottom, left = parts
+    sides = {"Top": top, "Right": right, "Bottom": bottom, "Left": left}
+    base = max(sides.values(), key=list(sides.values()).count)
+    out = {"GapsOut": base}
+    for s, val in sides.items():
+        out["GapsOut" + s] = "-1" if val == base else val
+    return out
 
 
 def as_float(v):
@@ -87,7 +110,7 @@ def as_follow_mouse(v):
 
 SETTINGS = {
     "general:gaps_in": ("GapsIn", as_int),
-    "general:gaps_out": ("GapsOut", as_int),
+    "general:gaps_out": (None, as_gaps_out),
     "general:border_size": ("BorderSize", as_int),
     "general:no_gaps_when_only": ("NoGapsWhenOnly", as_bool),
     "general:layout": ("DefaultLayout", as_layout),
@@ -292,7 +315,11 @@ def translate_settings(items):
             continue
         key, reader = SETTINGS[path]
         try:
-            out[key] = reader(item.value)
+            res = reader(item.value)
+            if isinstance(res, dict):
+                out.update(res)
+            else:
+                out[key] = res
         except (ValueError, IndexError) as e:
             notes.append(("%s = %s: %s" % (path, item.value, e), item.origin))
     return out, notes
@@ -302,7 +329,7 @@ def plasma_rule(action, args, matchers):
     """A Plasma window rule (kwinrulesrc entries) for a Hyprland rule that
     Plasma's own rules do just as well. Raises ValueError when it cannot be
     expressed there."""
-    entries = {"types": "1"}                # normal windows, as HyprKwin's rules
+    entries = {"types": "1"}                 # normal windows, as HyprKwin's rules
     shown = []
     for m in matchers:
         key, _, pattern = m.partition(":")

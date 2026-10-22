@@ -266,7 +266,20 @@ function parseWorkspaceRules(text) {
             errors.push(where + "a workspace rule starts with a workspace number, e.g. workspace = 3, monitor:DP-2");
             return;
         }
-        var rule = rules[index] || { index: index, monitor: null, isDefault: false, layout: null, gapsIn: null, gapsOut: null };
+        var rule = rules[index]
+            || {
+                index: index,
+                monitor: null,
+                isDefault: false,
+                layout: null,
+                gapsIn: null,
+                gapsOut: {
+                    left: null,
+                    top: null,
+                    right: null,
+                    bottom: null
+                }
+            };
         var ok = true;
         parts.forEach(function (p) {
             var m = /^([A-Za-z_]+)\s*:\s*(.*)$/.exec(p);
@@ -293,12 +306,23 @@ function parseWorkspaceRules(text) {
                 }
                 if (rule.layout === null) rule.layout = value.toLowerCase();
                 break;
-            case "gapsin":
-            case "gapsout": {
+            case "gapsin": {
                 var n = parseInt(value, 10);
-                if (!(n >= 0)) { errors.push(where + key + ": needs a number of pixels"); ok = false; return; }
-                var field = key === "gapsin" ? "gapsIn" : "gapsOut";
-                if (rule[field] === null) rule[field] = n;
+                if (!(n >= 0)) { errors.push(where + "gapsin: needs a number of pixels"); ok = false; return; }
+                if (rule.gapsIn === null) rule.gapsIn = n;
+                break;
+            }
+            case "gapsout": {
+                var v = value.split(/\s+/);
+                if (v.length > 4 || !v.every(function (x) { return /^\d+$/.test(x); })) {
+                    errors.push(where + "gapsout: takes 1 to 4 numbers of pixels (top right bottom left)");
+                    ok = false;
+                    return;
+                }
+                v = v.map(Number);
+                var sides = { top: v[0], right: v.length > 1 ? v[1] : v[0],
+                    bottom: v.length > 2 ? v[2] : v[0], left: v.length > 3 ? v[3] : (v.length > 1 ? v[1] : v[0]) };
+                Object.keys(sides).forEach(function (s) { if (rule.gapsOut[s] === null) rule.gapsOut[s] = sides[s]; });
                 break;
             }
             default:

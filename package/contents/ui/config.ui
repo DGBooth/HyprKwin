@@ -42,12 +42,69 @@
         <widget class="QSpinBox" name="kcfg_GapsOut">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
+         <property name="toolTip"><string>Default gap for every side. Sides left at "same as outer gap" follow this value; sides with their own value keep it.</string></property>
         </widget>
        </item>
        <item row="3" column="0">
-        <widget class="QLabel" name="splitRatioLabel"><property name="text"><string>Default split ratio:</string></property></widget>
+        <widget class="QLabel" name="gapsOutTopLabel">
+         <property name="text"><string>Top:</string></property>
+         <property name="buddy"><cstring>kcfg_GapsOutTop</cstring></property>
+        </widget>
        </item>
        <item row="3" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOutTop">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="gapsOutRightLabel">
+         <property name="text"><string>Right:</string></property>
+         <property name="buddy"><cstring>kcfg_GapsOutRight</cstring></property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOutRight">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="gapsOutBottomLabel">
+         <property name="text"><string>Bottom:</string></property>
+         <property name="buddy"><cstring>kcfg_GapsOutBottom</cstring></property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOutBottom">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="gapsOutLeftLabel">
+         <property name="text"><string>Left:</string></property>
+         <property name="buddy"><cstring>kcfg_GapsOutLeft</cstring></property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QSpinBox" name="kcfg_GapsOutLeft">
+         <property name="suffix"><string> px</string></property>
+         <property name="maximum"><number>400</number></property>
+         <property name="minimum"><number>-1</number></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="splitRatioLabel"><property name="text"><string>Default split ratio:</string></property></widget>
+       </item>
+       <item row="7" column="1">
         <widget class="QDoubleSpinBox" name="kcfg_SplitRatio">
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>1.9</double></property>
@@ -56,10 +113,10 @@
          <property name="toolTip"><string>How a new split shares the space. 1.0 is an even split; above 1 the first (left or top) window gets more, below 1 less (it gets ratio ÷ 2 of the space).</string></property>
         </widget>
        </item>
-       <item row="4" column="0">
+       <item row="8" column="0">
         <widget class="QLabel" name="multiplierLabel"><property name="text"><string>Split width multiplier:</string></property></widget>
        </item>
-       <item row="4" column="1">
+       <item row="8" column="1">
         <widget class="QDoubleSpinBox" name="kcfg_SplitWidthMultiplier">
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>4.0</double></property>
@@ -67,10 +124,10 @@
          <property name="toolTip"><string>A window splits along its longer side. Above 1, wide windows count as wider still, so you get more side-by-side splits and fewer stacked ones.</string></property>
         </widget>
        </item>
-       <item row="5" column="0">
+       <item row="9" column="0">
         <widget class="QLabel" name="forceSplitLabel"><property name="text"><string>New window goes:</string></property></widget>
        </item>
-       <item row="5" column="1">
+       <item row="9" column="1">
         <widget class="QComboBox" name="kcfg_ForceSplit">
          <property name="toolTip"><string>Which half of the split a new window takes: the half nearer the mouse pointer, or always the same one.</string></property>
          <item><property name="text"><string>Towards the mouse cursor</string></property></item>
@@ -78,27 +135,27 @@
          <item><property name="text"><string>Right / bottom</string></property></item>
         </widget>
        </item>
-       <item row="6" column="1">
+       <item row="10" column="1">
         <widget class="QCheckBox" name="kcfg_PreserveSplit">
          <property name="text"><string>Keep each split's direction when windows change size</string></property>
         </widget>
        </item>
-       <item row="7" column="1">
+       <item row="11" column="1">
         <widget class="QCheckBox" name="kcfg_NoGapsWhenOnly">
          <property name="text"><string>No gaps or border when a window is alone</string></property>
         </widget>
        </item>
-       <item row="8" column="0">
+       <item row="12" column="0">
         <widget class="QLabel" name="resizeStepLabel"><property name="text"><string>Keyboard resize step:</string></property></widget>
        </item>
-       <item row="8" column="1">
+       <item row="12" column="1">
         <widget class="QSpinBox" name="kcfg_ResizeStep">
          <property name="suffix"><string> px</string></property>
          <property name="minimum"><number>5</number></property>
          <property name="maximum"><number>1000</number></property>
         </widget>
        </item>
-       <item row="9" column="1">
+       <item row="13" column="1">
         <layout class="QHBoxLayout" name="slideLayout">
          <item>
           <widget class="QCheckBox" name="kcfg_SlideDivider">
@@ -122,10 +179,10 @@
          </item>
         </layout>
        </item>
-       <item row="10" column="0">
+       <item row="14" column="0">
         <widget class="QLabel" name="masterFactorLabel"><property name="text"><string>Master area size:</string></property></widget>
        </item>
-       <item row="10" column="1">
+       <item row="14" column="1">
         <widget class="QDoubleSpinBox" name="kcfg_MasterFactor">
          <property name="minimum"><double>0.05</double></property>
          <property name="maximum"><double>0.95</double></property>
@@ -133,20 +190,20 @@
          <property name="toolTip"><string>The share of the screen the master area takes. The resize keys change it for each workspace.</string></property>
         </widget>
        </item>
-       <item row="11" column="0">
+       <item row="15" column="0">
         <widget class="QLabel" name="masterCountLabel"><property name="text"><string>Master windows:</string></property></widget>
        </item>
-       <item row="11" column="1">
+       <item row="15" column="1">
         <widget class="QSpinBox" name="kcfg_MasterCount">
          <property name="minimum"><number>1</number></property>
          <property name="maximum"><number>9</number></property>
          <property name="toolTip"><string>How many windows share the master area (Meta+&gt; and Meta+&lt; change it per workspace).</string></property>
         </widget>
        </item>
-       <item row="12" column="0">
+       <item row="16" column="0">
         <widget class="QLabel" name="masterOrientationLabel"><property name="text"><string>Master area:</string></property></widget>
        </item>
-       <item row="12" column="1">
+       <item row="16" column="1">
         <widget class="QComboBox" name="kcfg_MasterOrientation">
          <property name="toolTip"><string>Which side the master area is on. "Centre" puts it in the middle with the other windows in columns either side.</string></property>
          <item><property name="text"><string>Left</string></property></item>
@@ -156,10 +213,10 @@
          <item><property name="text"><string>Centre</string></property></item>
         </widget>
        </item>
-       <item row="14" column="0">
+       <item row="18" column="0">
         <widget class="QLabel" name="columnWidthLabel"><property name="text"><string>Column width:</string></property></widget>
        </item>
-       <item row="14" column="1">
+       <item row="18" column="1">
         <widget class="QDoubleSpinBox" name="kcfg_ColumnWidth">
          <property name="minimum"><double>0.1</double></property>
          <property name="maximum"><double>1.0</double></property>
@@ -167,20 +224,20 @@
          <property name="toolTip"><string>The share of the screen each column takes in the scrolling layout. Only whole columns are shown; the rest wait off-screen, and the resize keys widen or narrow the focused column.</string></property>
         </widget>
        </item>
-       <item row="15" column="0">
+       <item row="19" column="0">
         <widget class="QLabel" name="stageSideLabel"><property name="text"><string>Stage previews:</string></property></widget>
        </item>
-       <item row="15" column="1">
+       <item row="19" column="1">
         <widget class="QComboBox" name="kcfg_StageSide">
          <property name="toolTip"><string>In the stage layout the focused window takes the stage, and the workspace's other windows wait beside it as live previews, most recently used at the top. Click one to bring it onto the stage. The previews have a strip of their own, so the stage window never covers them.</string></property>
          <item><property name="text"><string>On the left</string></property></item>
          <item><property name="text"><string>On the right</string></property></item>
         </widget>
        </item>
-       <item row="16" column="0">
+       <item row="20" column="0">
         <widget class="QLabel" name="stageWidthLabel"><property name="text"><string>Stage previews width:</string></property></widget>
        </item>
-       <item row="16" column="1">
+       <item row="20" column="1">
         <widget class="QSpinBox" name="kcfg_StageWidth">
          <property name="suffix"><string> px</string></property>
          <property name="minimum"><number>80</number></property>
@@ -189,16 +246,16 @@
          <property name="toolTip"><string>How wide the strip of previews is in the stage layout.</string></property>
         </widget>
        </item>
-       <item row="17" column="1">
+       <item row="21" column="1">
         <widget class="QCheckBox" name="kcfg_LayoutOsd">
          <property name="text"><string>Show a message when the layout or split changes</string></property>
          <property name="toolTip"><string>A short on-screen message naming the new layout, or which way a window just split, on the monitor you are using.</string></property>
         </widget>
        </item>
-       <item row="18" column="0">
+       <item row="22" column="0">
         <widget class="QLabel" name="iconBelowLabel"><property name="text"><string>Show tiles smaller than:</string></property></widget>
        </item>
-       <item row="18" column="1">
+       <item row="22" column="1">
         <widget class="QSpinBox" name="kcfg_IconBelow">
          <property name="suffix"><string> px as their app's icon</string></property>
          <property name="specialValueText"><string>never as icons</string></property>
@@ -207,13 +264,13 @@
          <property name="toolTip"><string>A tile too narrow or short to use shows its app's icon instead, until you zoom into it. Clicking the icon zooms in until the window is big enough.</string></property>
         </widget>
        </item>
-       <item row="19" column="1">
+       <item row="23" column="1">
         <widget class="QCheckBox" name="kcfg_ZoomEscape">
          <property name="text"><string>While zoomed in (Meta+Z), Escape zooms back out</string></property>
          <property name="toolTip"><string>Escape is taken from your apps for as long as the zoom lasts, and given back the moment you are zoomed all the way out.</string></property>
         </widget>
        </item>
-       <item row="13" column="1">
+       <item row="17" column="1">
         <widget class="QCheckBox" name="kcfg_MasterNewIsMaster">
          <property name="text"><string>New windows become the master</string></property>
          <property name="toolTip"><string>On: a new window takes the master area. Off: it joins the end of the stack.</string></property>
