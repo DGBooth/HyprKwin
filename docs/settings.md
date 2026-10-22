@@ -158,7 +158,7 @@ Five layouts, each workspace with its own:
   preview with both their icons, and come back together. To part them,
   drag a window off the stage onto the strip (Meta+drag, as for any tiled
   window): it waits there on its own and the rest keep the stage. Or
-  right-click a set's preview and choose Separate, or use "Take window out
+  right-click a set's preview to separate its windows, or use "Take window out
   of its stage set" (a shortcut, unbound) on the focused window. Closing a
   window, floating it or sending it to another workspace takes it out too.
   Previews step aside for a menu or one of Plasma's popups that reaches

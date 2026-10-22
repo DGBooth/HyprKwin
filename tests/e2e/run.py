@@ -3809,7 +3809,7 @@ def stage_sets_share_the_stage(sb):
 def stage_sets_come_apart(sb):
     """A window sharing the stage, dragged onto the strip, leaves its set and
     waits there; the other keeps the stage. A set's preview, right-clicked,
-    offers to separate its windows."""
+    separates its windows."""
     sb.spawn("A")
     sb.spawn("B")
     sb.spawn("C")
@@ -3834,10 +3834,7 @@ def stage_sets_come_apart(sb):
     sb.settle(1.0)
     eq([len(m) for m in stage_sets(sb)], [2], "B and C wait as one preview")
     x, y, w, h = stage_previews(sb)[0][1]
-    fi = sb.input()
-    fi.click(x + w // 2, y + h // 2, BTN_RIGHT)
-    sb.settle(0.5)
-    fi.click(x + w // 2, y + h // 2)            # "Separate", in the middle of the preview
+    sb.input().click(x + w // 2, y + h // 2, BTN_RIGHT)    # a right-click separates them
     sb.settle(1.0)
     eq(sorted(m for m, in stage_sets(sb)), ["B", "C"], "each waits on its own again")
 

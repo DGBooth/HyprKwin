@@ -21,8 +21,8 @@
   stage. Windows can share the stage too: drag a preview onto it and
   that window joins the one there; they wait in the strip together, as one
   preview with both icons, and come back together. Drag a window off the
-  stage onto the strip (Meta+drag), or right-click a set's preview and
-  choose Separate, to part them again. Choose it like the other layouts: "Next layout", the new "Use
+  stage onto the strip (Meta+drag), or right-click a set's preview, to part
+  them again. Choose it like the other layouts: "Next layout", the new "Use
   the stage layout" shortcut (unbound), the default layout setting,
   `layout:stage` in a workspace rule, or `hyprkwinctl layout stage`.
 
