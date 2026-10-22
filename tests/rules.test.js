@@ -102,6 +102,13 @@ Deno.test("workspace rules carry a layout and gaps", () => {
     assertEquals(rules[2].gapsOut, { left: 4, top: 4, right: 4, bottom: 4 });
 });
 
+Deno.test("a workspace rule's outer gaps take 1 to 4 values, as gaps_out does", () => {
+    const { rules, errors } = R.parseWorkspaceRules("3, gapsout:1 2 3 4\n4, gapsout:1 2\n5, gapsout:1 2 3 4 5");
+    assertEquals(rules[3].gapsOut, { left: 4, top: 1, right: 2, bottom: 3 });
+    assertEquals(rules[4].gapsOut, { left: 2, top: 1, right: 2, bottom: 1 });
+    assertEquals([rules[5], errors.length], [undefined, 1], "five values: an error, not a guess");
+});
+
 Deno.test("several lines for one workspace merge, first wins", () => {
     const { rules } = R.parseWorkspaceRules("1, layout:master\n1, layout:monocle, gapsin:2");
     assertEquals([rules[1].layout, rules[1].gapsIn], ["master", 2]);

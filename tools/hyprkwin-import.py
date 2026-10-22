@@ -329,7 +329,7 @@ def plasma_rule(action, args, matchers):
     """A Plasma window rule (kwinrulesrc entries) for a Hyprland rule that
     Plasma's own rules do just as well. Raises ValueError when it cannot be
     expressed there."""
-    entries = {"types": "1"}                 # normal windows, as HyprKwin's rules
+    entries = {"types": "1"}                # normal windows, as HyprKwin's rules
     shown = []
     for m in matchers:
         key, _, pattern = m.partition(":")

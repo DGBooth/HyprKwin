@@ -393,6 +393,17 @@ Deno.test("monocle layout: every window fills the area", () => {
     assertEquals(e.cycleWindow("a", -1), "c");
 });
 
+Deno.test("outer gaps can differ per side", () => {
+    const e = E.createEngine({ gapsIn: 0, gapsOut: { left: 30, top: 5, right: 10, bottom: 20 } });
+    e.add("a", S);
+    let l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
+    assertEquals(l.windows.a, { x: 30, y: 5, width: 960, height: 875 });
+    // A workspace's own outer gaps override some sides; the rest follow.
+    e.setGaps(S, { inner: null, outer: { left: 0, top: null, right: null, bottom: 0 } });
+    l = e.layout(S);
+    assertEquals(l.windows.a, { x: 0, y: 5, width: 990, height: 895 });
+});
+
 Deno.test("stage layout: the focused window beside a strip of the others, most recent first", () => {
     const e = eng({ defaultLayout: "stage", gapsOut: { left: 10, top: 10, right: 10, bottom: 10 }, gapsIn: 5, stageWidth: 200 });
     three(e);                                   // focus went a, b, c

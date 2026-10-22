@@ -721,6 +721,16 @@ def fullscreen_and_maximize(sb):
     sb.wait_for(lambda s: sb.geometry("B", s) == RIGHT, "B restored")
 
 
+@test(config={"GapsIn": 0, "GapsOut": 10, "GapsOutLeft": 50, "GapsOutBottom": 0})
+def outer_gaps_can_differ_per_side(sb):
+    """A side with a gap of its own keeps it; the rest follow GapsOut."""
+    sb.spawn("A")
+    eq(sb.geometry("A"), (50, 10, 1860, 1070), "left 50, bottom 0, top and right 10")
+    sb.configure(GapsOut=30)
+    sb.settle(1.0)
+    eq(sb.geometry("A"), (50, 30, 1840, 1050), "the sides following GapsOut moved with it")
+
+
 @test(config={"GapsIn": 0, "GapsOut": 0})
 def config_and_reload(sb):
     sb.spawn("A")
@@ -1187,7 +1197,7 @@ def upgrade_keeps_everything(sb, saves_layouts):
     eq("timing" in s, True, "the new version is the one running")
     c = s["config"]
     eq((c["gapsOut"], c["gapsIn"], c["borderSize"], c["activeBorderColor"].lower(), c["scratchpadNames"]),
-       (20, 8, 3, "#ff00ff", ["music"]), "the settings carried over")
+       (gaps_out_state(20), 8, 3, "#ff00ff", ["music"]), "the settings carried over")
     eq(sb.window("Floater", s)["tiled"], False, "the old-style rule still applies")
     eq(accel.keys("moveToDesktop4"), [mine], "the key you chose carried over")
     eq(accel.keys("showKeys"), [META | ord("K")], "a key the old version did not have is there")

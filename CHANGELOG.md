@@ -4,8 +4,11 @@
 
 ### Added
 
-- **Outer gaps can differ per side:** `gaps_out = 10 20 10 20` in the importer, `gapsout:T R B L` in workspace rules, and Top/Right/Bottom/Left overrides in the settings page.  `GapsOut` still sets every side, and a side left at "same as outer
-  gap" follows it.
+- **Outer gaps can differ per side:** Top, Right, Bottom and Left on the
+  settings page, `gapsout:T R B L` in a workspace rule, and a `gaps_out` with
+  a value per side when importing a `hyprland.conf`. The outer gap still sets
+  every side, and a side left at "same as outer gap" follows it, so existing
+  settings carry over. Contributed by Perrelli9338.
 - **A stage layout**, after macOS's Stage Manager. The focused window takes
   the stage; the workspace's other windows wait beside it as live previews,
   tilted towards it, most recently used at the top. Click a preview (or cycle
