@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
+
+*HyprKwin animations 1.1.0 (changed in this release).*
 
 ### Added
 
