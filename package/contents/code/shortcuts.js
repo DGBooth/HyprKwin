@@ -76,6 +76,7 @@ function shortcutList() {
         ["layoutMonocle", "Use the monocle layout", ""],
         ["layoutScrolling", "Use the scrolling layout", ""],
         ["layoutStage", "Use the stage layout", ""],
+        ["stageLeave", "Take window out of its stage set", ""],
         ["masterSwap", "Swap window with the master", "Meta+M"],
         ["masterFocus", "Focus the master window", "Meta+Shift+M"],
         ["masterCountIncrease", "One more master window", "Meta+>"],

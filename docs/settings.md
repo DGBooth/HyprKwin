@@ -152,6 +152,15 @@ Five layouts, each workspace with its own:
   Instant). Floating windows stay in front of the stage. With only one
   window there is no strip.
 
+  Windows can share the stage, as in Stage Manager: drag a preview onto the
+  stage and that window joins the one there, the two splitting it as dwindle
+  splits. Choosing another preview, they wait in the strip together, as one
+  preview with both their icons, and come back together. "Take window out of
+  its stage set" (a shortcut, unbound) parts the focused window from the
+  rest; closing it, floating it or sending it to another workspace does too.
+  Previews step aside for a menu or one of Plasma's popups that reaches
+  over them (the app launcher, in a corner), as borders do.
+
 In the scrolling layout, `Meta+Left` / `Meta+Right` move along the strip and
 `Meta+Shift+Left` / `Meta+Shift+Right` move the column itself, rather than
 going by what is where on screen.

@@ -760,6 +760,7 @@ Item {
                     overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
                 });
                 preview.opened.connect(id => root.driver.openStage(id));
+                preview.dropped.connect((id, dx, dy) => root.driver.dropOnStage(id, dx, dy));
                 stagePreviewObjects[entry.id] = preview;
             }
             preview.preview = entry;
@@ -779,7 +780,7 @@ Item {
             overlay = stageTransitionComponent.createObject(root, {
                 overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
             });
-            overlay.finished.connect(id => root.driver.stageTransitionDone(id));
+            overlay.finished.connect(space => root.driver.stageTransitionDone(space));
             stageTransitionObjects[space] = overlay;
         }
         return overlay;
@@ -789,9 +790,11 @@ Item {
     property var stageTransitionObjects: ({})
     function playStageTransition(t) {
         const overlay = stageTransition(t.id);
-        // The outgoing window's preview waits for its card to land on it.
-        const landing = stagePreviewObjects[t.outgoing.id];
-        if (landing && overlay.duration > 0) landing.holdFor(overlay.duration);
+        // The previews the leaving windows land in wait for their cards.
+        for (const id of t.landing || []) {
+            const landing = stagePreviewObjects[id];
+            if (landing && overlay.duration > 0) landing.holdFor(overlay.duration);
+        }
         overlay.play(t);
     }
 

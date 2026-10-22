@@ -17,6 +17,8 @@ Item {
     property color accent: Kirigami.Theme.highlightColor
     // Animate tilt changes here (a hover); a transition drives it itself.
     property bool animateTilt: true
+    // A set's preview draws one row of icons for all its windows instead.
+    property bool showIcon: true
 
     Behavior on tilt {
         enabled: card.animateTilt
@@ -82,6 +84,7 @@ Item {
     // The app's icon on the corner nearest the screen edge, upright. That
     // edge is what the card turns about, so it stays on the corner.
     Kirigami.Icon {
+        visible: card.showIcon
         source: card.icon || ""
         fallback: "application-x-executable"
         width: 30

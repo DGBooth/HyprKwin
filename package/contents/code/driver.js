@@ -122,6 +122,13 @@ function createDriver(env) {
         try { fn(); } finally { syncing--; }
     }
 
+    // The smallest rect holding both.
+    function unite(a, b) {
+        var x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+        return { x: x, y: y, width: Math.max(a.x + a.width, b.x + b.width) - x,
+                 height: Math.max(a.y + a.height, b.y + b.height) - y };
+    }
+
     function copyRect(r) {
         return { x: r.x, y: r.y, width: r.width, height: r.height };
     }
@@ -1095,7 +1102,10 @@ function createDriver(env) {
         // the strip.
         var where = engine.spaceOf(st.id);
         var strip = where ? stageStrips[where] : null;
-        if (strip && strip.stageId === st.id) {
+        if (strip && strip.stageIds.indexOf(st.id) >= 0) {
+            // Another window sharing the stage, or else the top of the strip.
+            var mate = strip.stageIds.filter(function (i) { return i !== st.id && tracked[i]; })[0];
+            if (mate) return mate;
             var top = strip.ids.filter(function (i) { return i !== st.id && tracked[i]; })[0];
             if (top) return top;
         }
@@ -1476,10 +1486,19 @@ function createDriver(env) {
             var L = engine.layout(vs.space, vs.area);
             if (vs.visible && engine.layoutOf(vs.space) === "stage") stageSpaces[vs.space] = true;
             if (vs.visible && L.stripArea && L.strip.length) {
-                var onStage = engine.lastFocused(vs.space, true);
-                stageStrips[vs.space] = { area: L.stripArea, ids: L.strip, stageId: onStage,
-                                          stageRect: onStage ? L.windows[onStage] : null };
-                stageSwitch(vs.space, onStage);
+                // The windows on the stage, each one's tile, and the box the
+                // stage takes (a window waiting alone has its shape).
+                var stageRects = {}, box = null;
+                L.stage.forEach(function (sid) {
+                    var r = L.windows[sid];
+                    if (!r) return;
+                    stageRects[sid] = r;
+                    box = box ? unite(box, r) : copyRect(r);
+                });
+                stageStrips[vs.space] = { area: L.stripArea, ids: L.strip, sets: L.stripSets,
+                                          stageId: engine.lastFocused(vs.space, true), stageIds: L.stage.slice(),
+                                          stageRects: stageRects, stageRect: box };
+                stageSwitch(vs.space, L.stage);
             } else if (stageHeld[vs.space]) {
                 delete stageHeld[vs.space];          // no strip any more: no transition
             }
@@ -1487,7 +1506,7 @@ function createDriver(env) {
             var stage = engine.layoutOf(vs.space) === "stage";
             for (var id in L.windows) {
                 var st = tracked[id];
-                if (held && (id === held.incoming || id === held.outgoing)) continue;
+                if (isHeld(held, id)) continue;
                 if (!st) continue;
                 // A window opening onto the stage would be animated in from
                 // where KWin first put it, across the strip. Out of sight
@@ -1501,12 +1520,16 @@ function createDriver(env) {
                 st.fresh = false;
                 apply(st, L.windows[id], vs.visible && kwinVisible(st.w));
             }
-            // The window coming onto the stage waits out of sight until its
-            // card lands: KWin pulls a window it focuses part way back on
+            // The windows coming onto the stage wait out of sight until their
+            // cards land: KWin pulls a window it focuses part way back on
             // screen.
-            if (held && tracked[held.incoming]) {
-                var hw = tracked[held.incoming].w, hp = parkingSpot(), hg = hw.frameGeometry;
-                if (hg.x < hp.x) apply(tracked[held.incoming], { x: hp.x, y: hp.y, width: hg.width, height: hg.height }, false);
+            if (held) {
+                held.incoming.forEach(function (hid) {
+                    var hst = tracked[hid];
+                    if (!hst) return;
+                    var hp = parkingSpot(), hg = hst.w.frameGeometry;
+                    if (hg.x < hp.x) apply(hst, { x: hp.x, y: hp.y, width: hg.width, height: hg.height }, false);
+                });
             }
             // A scrolling layout keeps only whole columns on screen. The rest
             // wait past the last monitor, where KWin draws nothing, rather
@@ -1521,7 +1544,7 @@ function createDriver(env) {
                 L.offscreen.forEach(function (id) {
                     var st = tracked[id];
                     if (!st) return;
-                    if (held && (id === held.incoming || id === held.outgoing)) return;
+                    if (isHeld(held, id)) return;
                     st.fresh = false;
                     var g = stageRect || st.w.frameGeometry;
                     apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
@@ -1617,7 +1640,9 @@ function createDriver(env) {
         for (var i = 0; i < all.length; i++) {
             var w = all[i];
             if (!w || w.minimized || w.deleted) continue;
-            if (!(w.popupWindow || w.popupMenu || w.dropdownMenu || w.menu || w.comboBox || w.tooltip)) continue;
+            // Plasma's own popups too: the app launcher, the calendar, the
+            // system tray.
+            if (!(w.popupWindow || w.popupMenu || w.dropdownMenu || w.menu || w.comboBox || w.tooltip || w.appletPopup)) continue;
             if (String(w.caption) === OVERLAY_TITLE) continue;
             out.push(copyRect(w.frameGeometry));
         }
@@ -1760,38 +1785,59 @@ function createDriver(env) {
         var tiles = iconTiles(visible, popups, fullscreenScreens);
         lastIconTiles = tiles.map(function (t) { return t.id; });
         if (env.ui.setIconTiles) env.ui.setIconTiles(tiles);
-        var strips = stagePreviews(fullscreenScreens);
+        var strips = stagePreviews(fullscreenScreens, popups);
         lastStagePreviews = strips.map(function (s) {
             return { space: s.id, ids: s.items.map(function (i) { return i.id; }),
-                     rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }) };
+                     rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }),
+                     sets: s.items.map(function (i) { return i.members.map(function (m) { return m.id; }); }),
+                     shown: s.shown.map(function (i) { return i.id; }) };
         });
         var flat = [];
-        strips.forEach(function (s) { flat = flat.concat(s.items); });
+        strips.forEach(function (s) { flat = flat.concat(s.shown); });
         if (env.ui.setStagePreviews) env.ui.setStagePreviews(flat);
         stageTransitions(strips);
     }
 
-    // A new window on the stage: it grows out of its preview while the one
-    // it replaces shrinks into the strip (see StageTransition.qml), when both
-    // have a place there to fly from and to. Meanwhile both real windows stay
-    // where they were, the new one parked (so its thumbnail keeps drawing) and
-    // the old one on the stage (so the stage is never empty), and swap places
-    // when the cards land.
-    var lastStage = {};             // space -> {id, rect, slots: {id: rect}} as last drawn
-    var stageHeld = {};             // space -> {incoming, outgoing, from, played, until}
+    // New windows on the stage: they grow out of their previews while the
+    // ones they replace shrink into the strip (see StageTransition.qml), a
+    // card per window, when each has a place there to fly from and to. A
+    // dropped preview flies from where it was dropped, and the windows already
+    // on the stage make room as any re-tile does. Meanwhile the windows coming
+    // and going stay where they were, the new ones parked (so their thumbnails
+    // keep drawing) and the old ones on the stage (so it is never empty), and
+    // take their places when the cards land.
+    var lastStage = {};             // space -> {ids, rects, slots: {id: rect}} as last drawn
+    var stageHeld = {};             // space -> {target, incoming, outgoing, from, fromRects, played, until}
+    var pendingDrop = null;         // {ids, rects}: a preview just dropped on the stage
 
-    function stageSwitch(space, onStage) {
+    function isHeld(held, id) {
+        return !!held && (held.incoming.indexOf(id) >= 0 || held.outgoing.indexOf(id) >= 0);
+    }
+
+    function stageSwitch(space, stageIds) {
         var held = stageHeld[space];
         if (held) {
-            if (held.incoming === onStage && Date.now() < held.until) return;
+            if (held.target.join() === stageIds.join() && Date.now() < held.until) return;
             delete stageHeld[space];                 // switched again: no waiting
         }
+        var drop = pendingDrop;
+        pendingDrop = null;
         var before = lastStage[space];
-        if (!before || !before.id || !onStage || before.id === onStage || !before.rect) return;
-        if (!before.slots[onStage] || !tracked[before.id] || !tracked[onStage]) return;
-        if (!env.ui.playStageTransition) return;
-        stageHeld[space] = { incoming: onStage, outgoing: before.id, from: before.slots[onStage],
-                             fromRect: before.rect, played: false, until: Date.now() + 1500 };
+        if (!before || !env.ui.playStageTransition) return;
+        var incoming = stageIds.filter(function (id) { return before.ids.indexOf(id) < 0; });
+        var outgoing = before.ids.filter(function (id) { return stageIds.indexOf(id) < 0; });
+        if (!incoming.length) return;               // nothing new on the stage
+        var from = {};
+        for (var i = 0; i < incoming.length; i++) {
+            var id = incoming[i];
+            from[id] = (drop && drop.rects[id]) || before.slots[id];
+            if (!from[id] || !tracked[id]) return;
+        }
+        for (var j = 0; j < outgoing.length; j++) {
+            if (!tracked[outgoing[j]] || !before.rects[outgoing[j]]) return;
+        }
+        stageHeld[space] = { target: stageIds.slice(), incoming: incoming, outgoing: outgoing, from: from,
+                             fromRects: before.rects, played: false, until: Date.now() + 1500 };
         if (env.after) env.after(1600, function () {
             if (stageHeld[space] && Date.now() >= stageHeld[space].until) {
                 delete stageHeld[space];             // in case it never says it is done
@@ -1803,41 +1849,81 @@ function createDriver(env) {
     function stageTransitions(strips) {
         var now = {};
         strips.forEach(function (s) {
-            var slots = {};
-            s.items.forEach(function (i) { slots[i.id] = { x: i.x, y: i.y, width: i.width, height: i.height }; });
-            now[s.id] = { id: s.stageId, rect: s.stageRect, slots: slots, strip: s };
+            var slots = {}, landing = {};
+            s.items.forEach(function (it) {
+                it.members.forEach(function (m) {
+                    slots[m.id] = { x: it.x + m.dx, y: it.y + m.dy, width: m.width, height: m.height };
+                    landing[m.id] = it.id;
+                });
+            });
+            now[s.id] = { ids: s.stageIds, rects: s.stageRects, slots: slots, landing: landing, strip: s };
         });
         for (var space in now) {
             var cur = now[space], held = stageHeld[space];
             if (!held || held.played) continue;
-            var to = cur.slots[held.outgoing], inc = tracked[held.incoming], out = tracked[held.outgoing];
-            if (!to || !inc || !out || !cur.rect) {
+            var cards = [], landingIds = [], ok = true;
+            held.incoming.forEach(function (id) {
+                var st = tracked[id], to = cur.rects[id];
+                if (!st || !to) { ok = false; return; }
+                cards.push({ id: id, window: st.w, icon: st.w.icon, from: held.from[id], to: to, arriving: true });
+            });
+            held.outgoing.forEach(function (id) {
+                var st = tracked[id], to = cur.slots[id];
+                if (!st || !to) { ok = false; return; }
+                cards.push({ id: id, window: st.w, icon: st.w.icon, from: held.fromRects[id], to: to, arriving: false });
+                if (landingIds.indexOf(cur.landing[id]) < 0) landingIds.push(cur.landing[id]);
+            });
+            if (!ok) {
                 delete stageHeld[space];
                 relayout();
                 continue;
             }
             held.played = true;
-            var a = cur.strip, r = cur.rect;
-            var x0 = Math.min(a.x, r.x), y0 = Math.min(a.y, r.y);
-            var x1 = Math.max(a.x + a.width, r.x + r.width), y1 = Math.max(a.y + a.height, r.y + r.height);
+            var box = copyRect(cur.strip);
+            cards.forEach(function (c) { box = unite(unite(box, c.from), c.to); });
             env.ui.playStageTransition({
-                id: space, side: cfg.stageSide, x: x0, y: y0, width: x1 - x0, height: y1 - y0,
-                incoming: { id: inc.id, window: inc.w, icon: inc.w.icon, from: held.from, to: r },
-                outgoing: { id: out.id, window: out.w, icon: out.w.icon, from: held.fromRect, to: to },
+                id: space, side: cfg.stageSide, x: box.x, y: box.y, width: box.width, height: box.height,
+                cards: cards, landing: landingIds,
             });
         }
         for (var sp in now) lastStage[sp] = now[sp];
         for (var gone in lastStage) if (!now[gone]) delete lastStage[gone];
     }
 
-    // The cards have landed: the windows swap places for real.
-    function stageTransitionDone(id) {
-        for (var space in stageHeld) {
-            if (stageHeld[space].incoming === id) {
-                delete stageHeld[space];
-                relayout();
-            }
-        }
+    // The cards have landed: the windows take their places for real.
+    function stageTransitionDone(space) {
+        if (!stageHeld[space]) return;
+        delete stageHeld[space];
+        relayout();
+    }
+
+    // A preview dragged by (dx, dy) and let go: on the stage, its window (and
+    // any set it is in) joins the windows there, and is focused once it has
+    // arrived. Anywhere else, it goes back to its place (false).
+    function dropOnStage(id, dx, dy) {
+        var space = engine.spaceOf(id), strip = space ? stageStrips[space] : null;
+        var before = space ? lastStage[space] : null;
+        var slot = before ? before.slots[id] : null;
+        if (!strip || !strip.stageRect || !slot || !tracked[id]) return false;
+        var centre = { x: slot.x + dx + slot.width / 2, y: slot.y + dy + slot.height / 2 };
+        if (!contains(strip.stageRect, centre)) return false;
+        if (!engine.joinStage(id, strip.stageIds[0])) return false;
+        var rects = {};
+        engine.stageSet(id).forEach(function (m) {
+            var r = before.slots[m];
+            if (r) rects[m] = { x: r.x + dx, y: r.y + dy, width: r.width, height: r.height };
+        });
+        pendingDrop = { rects: rects };
+        relayout();
+        if (env.after) env.after(60, function () { if (tracked[id]) activate(tracked[id].w); });
+        return true;
+    }
+
+    // A window taken out of the set it shares the stage with: it keeps the
+    // stage, and the rest wait in the strip, together.
+    function leaveStage() {
+        var st = active();
+        if (st && engine.leaveStage(st.id)) relayout();
     }
 
     // In the stage layout a floating window would sink behind the stage
@@ -1869,7 +1955,7 @@ function createDriver(env) {
     // as many as fit, centred down the strip.
     var STAGE_PAD = 18, STAGE_SPACING = 22;
 
-    function stagePreviews(fullscreenScreens) {
+    function stagePreviews(fullscreenScreens, popups) {
         var out = [];
         for (var space in stageStrips) {
             var strip = stageStrips[space], a = strip.area;
@@ -1878,23 +1964,38 @@ function createDriver(env) {
             var screen = screens().filter(function (sc) { return contains(sc.geometry, mid); })[0];
             if (screen && fullscreenScreens[screen.name]) continue;
             var w = a.width - 2 * STAGE_PAD, items = [], used = 0;
-            for (var i = 0; i < strip.ids.length; i++) {
-                var st = tracked[strip.ids[i]];
-                if (!st) continue;
-                var g = st.w.frameGeometry;
+            var sets = strip.sets || strip.ids.map(function (id) { return [id]; });
+            for (var i = 0; i < sets.length; i++) {
+                var members = sets[i].map(function (id) { return tracked[id]; }).filter(function (m) { return !!m; });
+                if (!members.length) continue;
+                var st = members[0], g = st.w.frameGeometry;
                 var h = Math.round(Math.max(w * 0.45, Math.min(w * 1.3, w * g.height / Math.max(1, g.width))));
                 var next = used + (items.length ? STAGE_SPACING : 0) + h;
                 if (next > a.height - 2 * STAGE_PAD) break;
-                items.push({ id: st.id, window: st.w, caption: String(st.w.caption), icon: st.w.icon,
+                // A set's windows are stacked, the most recently used in
+                // front, a little lower and nearer the edge than the rest.
+                var n = Math.min(members.length, 3), off = n > 1 ? 10 : 0;
+                var icons = [];
+                members.forEach(function (m) { if (icons.length < 4) icons.push(m.w.icon); });
+                items.push({ id: st.id, window: st.w, caption: String(st.w.caption), icon: st.w.icon, icons: icons,
+                             members: members.slice(0, n).map(function (m, k) {
+                                 return { id: m.id, window: m.w, icon: m.w.icon, dx: k * off, dy: (n - 1 - k) * off,
+                                          width: w - off * (n - 1), height: h - off * (n - 1) };
+                             }),
                              x: a.x + STAGE_PAD, y: used + (items.length ? STAGE_SPACING : 0), width: w, height: h });
                 used = next;
             }
             if (!items.length) continue;
             var top = a.y + Math.round((a.height - used) / 2);
-            items.forEach(function (it) { it.y += top; });
-            items.forEach(function (it) { it.side = cfg.stageSide; it.space = space; });
-            out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height,
-                       side: cfg.stageSide, items: items, stageId: strip.stageId, stageRect: strip.stageRect });
+            items.forEach(function (it) { it.y += top; it.side = cfg.stageSide; it.space = space; });
+            // Previews step aside for a menu or one of Plasma's popups (the
+            // app launcher, say), as borders do: it is in front of them.
+            var shown = items.filter(function (it) {
+                var r = { x: it.x - 14, y: it.y - 14, width: it.width + 28, height: it.height + 28 };
+                return !popups.some(function (pr) { return overlaps(pr, r); });
+            });
+            out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height, side: cfg.stageSide,
+                       items: items, shown: shown, stageIds: strip.stageIds, stageRects: strip.stageRects });
         }
         return out;
     }
@@ -3094,6 +3195,7 @@ function createDriver(env) {
         layoutMonocle: function () { setLayout("monocle"); },
         layoutScrolling: function () { setLayout("scrolling"); },
         layoutStage: function () { setLayout("stage"); },
+        stageLeave: leaveStage,
         masterSwap: function () {
             var st = active();
             if (st && engine.swapWithMaster(st.id)) {
@@ -3447,6 +3549,7 @@ function createDriver(env) {
         checkKeyboard: checkKeyboard,
         openTile: openTile,
         openStage: openStage,
+        dropOnStage: dropOnStage,
         stageTransitionDone: stageTransitionDone,
         onCursorMoved: onCursorMoved,
         actions: actions,

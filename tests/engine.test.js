@@ -423,6 +423,48 @@ Deno.test("stage layout: the focused window beside a strip of the others, most r
     assertEquals(e.cycleWindow("a", 1), "b", "cycling moves through them in layout order");
 });
 
+Deno.test("stage sets: windows share the stage and go to the strip together", () => {
+    const e = eng({ defaultLayout: "stage", stageWidth: 200 });
+    e.add("a", S); e.focused("a");
+    e.add("b", S); e.focused("b");
+    e.add("c", S); e.focused("c");
+    e.add("d", S); e.focused("d");                // d on stage; strip c, b, a
+    assertEquals(e.joinStage("c", "d"), true, "c dropped on the stage");
+    let l = e.layout(S, AREA);
+    assertEquals(l.stage, ["d", "c"], "d and c share the stage");
+    assertEquals([l.windows.d, l.windows.c],
+                 [{ x: 200, y: 0, width: 860, height: 1080 }, { x: 1060, y: 0, width: 860, height: 1080 }],
+                 "split as dwindle splits");
+    assertEquals(l.stripSets, [["b"], ["a"]]);
+    e.focused("a");                               // a preview clicked
+    l = e.layout(S);
+    assertEquals(l.stage, ["a"]);
+    assertEquals(l.stripSets, [["d", "c"], ["b"]], "the set waits as one preview, d first");
+    assertEquals(l.strip, ["d", "b"]);
+    assertEquals(l.offscreen.sort(), ["b", "c", "d"]);
+    e.focused("c");                               // the set's preview
+    assertEquals(e.layout(S).stage, ["d", "c"], "the set comes back together");
+    assertEquals(e.leaveStage("c"), true, "c leaves the set");
+    assertEquals(e.layout(S).stage, ["c"]);
+    assertEquals(e.leaveStage("c"), false, "and is in none now");
+});
+
+Deno.test("stage sets: a closed or moved window leaves its set; sets join whole", () => {
+    const e = eng({ defaultLayout: "stage" });
+    for (const id of ["a", "b", "c", "d"]) { e.add(id, S); e.focused(id); }
+    e.joinStage("a", "b");
+    e.joinStage("c", "d");
+    assertEquals(e.joinStage("c", "a"), true, "a set dropped on a set: all four");
+    assertEquals(e.stageSet("d").sort(), ["a", "b", "c", "d"]);
+    e.remove("b");
+    assertEquals(e.stageSet("a").sort(), ["a", "c", "d"], "closed: out of the set");
+    e.moveToSpace("d", "elsewhere|out1");
+    assertEquals(e.stageSet("a").sort(), ["a", "c"], "moved away: out of it too");
+    assertEquals(e.joinStage("a", "d"), false, "not across spaces");
+    e.remove("c");
+    assertEquals(e.stageSet("a"), ["a"], "a set of one is no set");
+});
+
 Deno.test("stage layout: one window takes it all, and the strip can be on the right", () => {
     const e = eng({ defaultLayout: "stage", stageSide: "right", stageWidth: 300 });
     e.add("a", S); e.focused("a");

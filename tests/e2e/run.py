@@ -3757,6 +3757,75 @@ def stage_new_windows_open_on_the_stage(sb):
     sb.wait_for(lambda s: sb.geometry("B", s)[:2] == (235, 10), "and on the stage")
 
 
+def stage_sets(sb, s=None):
+    """Each stage preview's windows, by caption, top first."""
+    s = s or sb.state()
+    out = []
+    for strip in s.get("stagePreviews", []):
+        for ids in strip["sets"]:
+            out.append([s["windows"][i]["caption"] for i in ids])
+    return out
+
+
+@test(config={"DefaultLayout": 4})
+def stage_sets_share_the_stage(sb):
+    """A preview dragged onto the stage joins the window there: they share
+    it, split as dwindle splits. Choosing another preview, the set waits in
+    the strip as one preview; clicking it brings both back. A window can be
+    taken out of its set again."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("C")                                  # C on the stage; B, A waiting
+    x, y, w, h = dict(stage_previews(sb))["B"]
+    sb.input().drag((x + w // 2, y + h // 2), (1000, 540))
+    sb.settle(1.0)
+    s = sb.state()
+    eq(sorted(sb.geometry(t, s)[2] for t in "BC"), [830, 835], "B and C share the stage, half each (less the gaps)")
+    eq(sorted(sb.geometry(t, s)[0] for t in "BC"), [235, 1075], "side by side")
+    eq(stage_sets(sb, s), [["A"]], "A waits alone")
+    x, y, w, h = dict(stage_previews(sb, s))["A"]
+    sb.input().click(x + w // 2, y + h // 2)
+    sb.settle(1.0)
+    s = sb.state()
+    eq(sb.geometry("A", s)[:3], (235, 10, 1675), "A takes the whole stage")
+    sets = stage_sets(sb, s)
+    eq((len(sets), sorted(sets[0])), (1, ["B", "C"]), "B and C wait as one preview: %r" % (sets,))
+    x, y, w, h = stage_previews(sb, s)[0][1]
+    sb.input().click(x + w // 2, y + h // 2)
+    sb.settle(1.0)
+    s = sb.state()
+    eq(sorted(sb.geometry(t, s)[0] for t in "BC"), [235, 1075], "and come back together")
+    eq(sb.geometry("A", s)[0] > 1920, True, "A waits")
+    focused = s["windows"][s["active"]]["caption"]
+    sb.invoke("stageLeave")
+    s = sb.state()
+    eq(sb.geometry(focused, s)[:3], (235, 10, 1675), "%s out of the set, alone on the stage" % focused)
+    eq(len(stage_sets(sb, s)), 2, "the other waits by itself")
+
+
+@test(config={"DefaultLayout": 4, "StageSide": 1, "StageWidth": 260})
+def stage_previews_give_way_to_menus(sb):
+    """A menu or Plasma popup in front of the strip (the app launcher, in a
+    corner) is not painted over: the previews it reaches step aside."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("C", extra=["--menu"])
+    s = sb.state()
+    shown = s["stagePreviews"][0]["shown"]
+    eq(len(shown), 2, "both previews up")
+    x, y, w, h = stage_previews(sb, s)[0][1]
+    fi = sb.input()
+    fi.click(1600, y + 10, BTN_RIGHT)            # in C, by the strip: the menu runs on over it
+    sb.settle(1.0)
+    s = sb.state()
+    eq(len(s["popups"]), 1, "menu is open")
+    eq(len(s["stagePreviews"][0]["shown"]) < 2, True, "the preview under it stepped aside")
+    fi.combo("escape")
+    sb.wait_for(lambda s: not s["popups"], "menu closed")
+    sb.settle(0.5)
+    eq(len(sb.state()["stagePreviews"][0]["shown"]), 2, "and is back once it closes")
+
+
 def main():
     words = [w for w in sys.argv[1:] if not w.startswith("-")]
     selected = [t for t in TESTS if not words or any(w in t.__name__ for w in words)]

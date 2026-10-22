@@ -145,6 +145,7 @@ function createEngine(userConfig) {
     var scrollFirst = {};// space -> index of the leftmost column on screen
     var masterOpts = {}; // space -> {factor, count, orientation}
     var zooms = {};      // space -> the node zoomed into (dwindle only)
+    var stageSets = {};  // space -> [[window id, ...]]: windows sharing the stage
     var isVisible = function () { return true; };
     var nextNodeId = 1;
     var api = null;      // the engine's interface, filled in below (declared
@@ -289,31 +290,81 @@ function createEngine(userConfig) {
     // area beside a strip of previews of the space's other windows, most
     // recently used first. Those wait off screen (the driver parks them) and
     // the driver draws their previews in the strip, which is reserved so the
-    // stage never covers it. With one window there is no strip.
+    // stage never covers it. With everything on the stage there is no strip.
+    //
+    // Windows can share the stage, as a set (a preview dropped on the stage
+    // joins it): the set holding the focused window is on the stage, split
+    // between them the way dwindle splits, and every other set is one entry
+    // in the strip, its most recently used window first.
+    function stageSetOf(space, leaf, all) {
+        var sets = stageSets[space] || [];
+        for (var i = 0; i < sets.length; i++) {
+            var members = [];
+            sets[i].forEach(function (id) {
+                var l = leafOf[id];
+                if (l && all.indexOf(l) >= 0 && members.indexOf(l) < 0) members.push(l);
+            });
+            if (members.indexOf(leaf) >= 0) return members;
+        }
+        return [leaf];
+    }
+
+    // A set's windows across `r`: each split in two along its longer side,
+    // the first window taking one half and the rest the other.
+    function tileStage(set, r) {
+        if (set.length === 1) {
+            set[0].rect = r;
+            return;
+        }
+        var dir = autoDir(r);
+        var a = dir === "h" ? rect(r.x, r.y, r.width / 2, r.height) : rect(r.x, r.y, r.width, r.height / 2);
+        var b = dir === "h" ? rect(r.x + r.width / 2, r.y, r.width / 2, r.height) : rect(r.x, r.y + r.height / 2, r.width, r.height / 2);
+        set[0].rect = a;
+        tileStage(set.slice(1), b);
+    }
+
     function placeStage(space, all, inner, offscreen, out) {
-        var stage = leafOf[api.lastFocused(space)] || all[0];
-        if (all.indexOf(stage) < 0) stage = all[0];
-        if (all.length < 2) {
-            stage.rect = inner;
+        var focused = leafOf[api.lastFocused(space)];
+        if (all.indexOf(focused) < 0) focused = all[0];
+        var stage = stageSetOf(space, focused, all);
+        out.stage = stage.map(function (l) { return l.wins[l.active]; });
+        if (stage.length === all.length) {
+            tileStage(stage, inner);
             return;
         }
         var w = Math.max(60, Math.min(cfg.stageWidth, inner.width / 2));
         var left = cfg.stageSide !== "right";
-        stage.rect = rect(left ? inner.x + w : inner.x, inner.y, inner.width - w, inner.height);
+        tileStage(stage, rect(left ? inner.x + w : inner.x, inner.y, inner.width - w, inner.height));
         out.stripArea = rect(left ? inner.x : inner.x + inner.width - w, inner.y, w, inner.height);
         var order = [];
         focusOrder.forEach(function (id) {
             var leaf = leafOf[id];
-            if (leaf && all.indexOf(leaf) >= 0 && leaf !== stage && order.indexOf(leaf) < 0) order.push(leaf);
+            if (leaf && all.indexOf(leaf) >= 0 && order.indexOf(leaf) < 0) order.push(leaf);
         });
         all.forEach(function (leaf) {
-            if (leaf !== stage && order.indexOf(leaf) < 0) order.push(leaf);
+            if (order.indexOf(leaf) < 0) order.push(leaf);
         });
+        var placed = stage.slice();
         order.forEach(function (leaf) {
-            leaf.rect = null;
-            leaf.wins.forEach(function (id) { offscreen.push(id); });
+            if (placed.indexOf(leaf) >= 0) return;
+            // Most recently used first, then the others in the set's order.
+            var set = [leaf].concat(stageSetOf(space, leaf, all).filter(function (l) { return l !== leaf; }));
+            set.forEach(function (l) {
+                placed.push(l);
+                l.rect = null;
+                l.wins.forEach(function (id) { offscreen.push(id); });
+            });
             out.strip.push(leaf.wins[leaf.active]);
+            out.stripSets.push(set.map(function (l) { return l.wins[l.active]; }));
         });
+    }
+
+    function leaveStageSet(id) {
+        for (var space in stageSets) {
+            stageSets[space] = stageSets[space].map(function (set) {
+                return set.filter(function (w) { return w !== id; });
+            }).filter(function (set) { return set.length > 1; });
+        }
     }
 
     // ---- zoom ----------------------------------------------------------------
@@ -354,7 +405,7 @@ function createEngine(userConfig) {
         if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
         else if (mode === "master") placeMaster(space, all, inner);
         else if (mode === "scrolling") placeScrolling(space, all, inner, offscreen || []);
-        else if (mode === "stage") placeStage(space, all, inner, offscreen || [], out || { strip: [] });
+        else if (mode === "stage") placeStage(space, all, inner, offscreen || [], out || { strip: [], stripSets: [], stage: [] });
         else {
             var z = zoomOf(space);
             if (z) {
@@ -507,6 +558,7 @@ function createEngine(userConfig) {
     }
 
     function detach(id) {
+        leaveStageSet(id);              // floated, moved away or closed
         var leaf = leafOf[id];
         var space = spaceOf[id];
         delete leafOf[id];
@@ -792,10 +844,11 @@ function createEngine(userConfig) {
         // hidden: [ids of inactive group members],
         // offscreen: [ids a scrolling or stage layout has no room for],
         // strip: [ids a stage layout previews, most recently used first],
-        // stripArea: where it previews them}.
+        // stripSets: [[ids]] each preview's windows, that one first,
+        // stage: [ids] on the stage, stripArea: where it previews them}.
         layout: function (space, area) {
             if (area) areas[space] = area;
-            var result = { windows: {}, groups: [], hidden: [], offscreen: [], strip: [], stripArea: null };
+            var result = { windows: {}, groups: [], hidden: [], offscreen: [], strip: [], stripSets: [], stage: [], stripArea: null };
             var root = roots[space];
             if (!root) return result;
             area = areas[space];
@@ -1120,6 +1173,39 @@ function createEngine(userConfig) {
             var before = p.count;
             p.count = clamp(Math.round(p.count + delta), 1, Math.max(1, all.length));
             return p.count !== before;
+        },
+
+        // Stage sets: `id`'s window (and any set it is in) shares the stage
+        // with `withId`'s set. False if they are not in the same space.
+        joinStage: function (id, withId) {
+            var space = spaceOf[id];
+            if (!space || space !== spaceOf[withId] || id === withId) return false;
+            var sets = stageSets[space] || [];
+            var find = function (w) {
+                for (var i = 0; i < sets.length; i++) if (sets[i].indexOf(w) >= 0) return sets[i];
+                return null;
+            };
+            var to = find(withId) || [withId], from = find(id) || [id];
+            if (to === from) return false;
+            sets = sets.filter(function (set) { return set !== to && set !== from; });
+            sets.push(to.concat(from.filter(function (w) { return to.indexOf(w) < 0; })));
+            stageSets[space] = sets;
+            return true;
+        },
+
+        // Take a window out of its stage set; false if it is not in one.
+        leaveStage: function (id) {
+            var space = spaceOf[id];
+            var was = (stageSets[space] || []).some(function (set) { return set.indexOf(id) >= 0; });
+            leaveStageSet(id);
+            return was;
+        },
+
+        stageSet: function (id) {
+            var space = spaceOf[id];
+            var sets = stageSets[space] || [];
+            for (var i = 0; i < sets.length; i++) if (sets[i].indexOf(id) >= 0) return sets[i].slice();
+            return [id];
         },
 
         cycleMasterOrientation: function (space, delta) {

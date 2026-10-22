@@ -18,11 +18,17 @@
   own, so the stage window never covers them (the strip between them is
   still the desktop's, to click); it goes on the left or right, and its
   width is set on the Layout tab. Floating windows stay in front of the
-  stage. Choose it like the other layouts: "Next layout", the new "Use
+  stage. Windows can share the stage too: drag a preview onto it and
+  that window joins the one there; they wait in the strip together, as one
+  preview with both icons, and come back together. Choose it like the other layouts: "Next layout", the new "Use
   the stage layout" shortcut (unbound), the default layout setting,
   `layout:stage` in a workspace rule, or `hyprkwinctl layout stage`.
 
 ### Changed
+
+- **Borders and icon tiles step aside for Plasma's own popups** (the app
+  launcher, the calendar, the system tray) as they already did for menus,
+  rather than being painted over them; so do the stage layout's previews.
 
 - **Animations: HyprKwin's own borders, tab bars and stage previews no
   longer fade or scale in and out with Plasma's popup and window effects**

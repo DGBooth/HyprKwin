@@ -1,8 +1,9 @@
-// The stage layout's switch, after macOS's Stage Manager: the window coming
-// onto the stage grows out of its preview, and the one leaving shrinks into
-// its place in the strip. Both are live thumbnails (StageCard) flying across
-// an overlay over the workspace for the length of Plasma's animations; the
-// incoming window itself is held invisible underneath until its card lands.
+// The stage layout's switch, after macOS's Stage Manager: windows coming
+// onto the stage grow out of their previews (or from where a preview was
+// dropped), and those leaving shrink into their places in the strip. Each is
+// a live thumbnail (StageCard) flying across an overlay over the workspace
+// for the length of Plasma's animations; the windows themselves stay where
+// they were underneath until the cards land.
 import QtQuick
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
@@ -10,15 +11,17 @@ import org.kde.kirigami as Kirigami
 Window {
     id: win
 
-    // {id, x, y, width, height, side, incoming: {id, window, icon, from, to},
-    //  outgoing: {id, window, icon, from, to}}, from and to being
+    // {id (the space), x, y, width, height, side, landing: [preview ids],
+    //  cards: [{id, window, icon, from, to, arriving}]}, from and to being
     // {x, y, width, height} on the screen.
     property var transition: null
     property bool overlaysHidden: false
-    signal finished(string incomingId)
+    signal finished(string space)
 
     readonly property int duration: Kirigami.Units.longDuration
     readonly property bool onLeft: !transition || transition.side !== "right"
+    // 0 to 1, eased: where every card is between its from and its to.
+    property real progress: 0
 
     title: "HyprKwin overlay"
     flags: Qt.X11BypassWindowManagerHint | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
@@ -52,6 +55,7 @@ Window {
 
     function play(t) {
         anim.stop();
+        progress = 0;
         transition = t;
         if (!t || overlaysHidden || duration <= 0) {
             done();
@@ -61,58 +65,49 @@ Window {
         y = t.y;
         width = Math.max(1, t.width);
         height = Math.max(1, t.height);
-        place(incoming, t.incoming.from, 1);
-        place(outgoing, t.outgoing.from, 0);
         if (!visible) show();
         anim.restart();
     }
 
-    function place(card, r, tilt) {
-        card.x = r.x - win.x;
-        card.y = r.y - win.y;
-        card.width = Math.max(1, r.width);
-        card.height = Math.max(1, r.height);
-        card.tilt = tilt;
-    }
-
     function done() {
         park();
-        const id = transition && transition.incoming ? transition.incoming.id : "";
+        const space = transition ? transition.id : "";
         transition = null;
-        finished(id);
+        finished(space);
     }
 
-    StageCard {
-        id: outgoing
-        animateTilt: false
-        window: win.transition ? win.transition.outgoing.window : null
-        icon: win.transition ? win.transition.outgoing.icon : ""
-        onLeft: win.onLeft
+    function lerp(a, b) {
+        return a + (b - a) * progress;
     }
-    // Above the one leaving: it is the one being chosen.
-    StageCard {
-        id: incoming
-        animateTilt: false
-        window: win.transition ? win.transition.incoming.window : null
-        icon: win.transition ? win.transition.incoming.icon : ""
-        onLeft: win.onLeft
+
+    Repeater {
+        model: win.transition ? win.transition.cards : []
+
+        delegate: StageCard {
+            required property var modelData
+            // The ones arriving above the ones leaving: they were chosen.
+            z: modelData.arriving ? 1 : 0
+            animateTilt: false
+            x: win.lerp(modelData.from.x, modelData.to.x) - win.x
+            y: win.lerp(modelData.from.y, modelData.to.y) - win.y
+            width: Math.max(1, win.lerp(modelData.from.width, modelData.to.width))
+            height: Math.max(1, win.lerp(modelData.from.height, modelData.to.height))
+            tilt: modelData.arriving ? 1 - win.progress : win.progress
+            window: modelData.window
+            icon: modelData.icon
+            onLeft: win.onLeft
+        }
     }
 
     // The same curve the animations effect uses by default.
-    ParallelAnimation {
+    NumberAnimation {
         id: anim
-        readonly property var inTo: win.transition ? win.transition.incoming.to : ({ x: 0, y: 0, width: 1, height: 1 })
-        readonly property var outTo: win.transition ? win.transition.outgoing.to : ({ x: 0, y: 0, width: 1, height: 1 })
-        NumberAnimation { target: incoming; property: "x"; to: anim.inTo.x - win.x; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: incoming; property: "y"; to: anim.inTo.y - win.y; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: incoming; property: "width"; to: anim.inTo.width; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: incoming; property: "height"; to: anim.inTo.height; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: incoming; property: "tilt"; to: 0; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: outgoing; property: "x"; to: anim.outTo.x - win.x; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: outgoing; property: "y"; to: anim.outTo.y - win.y; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: outgoing; property: "width"; to: anim.outTo.width; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: outgoing; property: "height"; to: anim.outTo.height; duration: win.duration; easing.type: Easing.OutCubic }
-        NumberAnimation { target: outgoing; property: "tilt"; to: 1; duration: win.duration; easing.type: Easing.OutCubic }
+        target: win
+        property: "progress"
+        from: 0
+        to: 1
+        duration: win.duration
+        easing.type: Easing.OutCubic
         onFinished: win.done()
     }
 }
