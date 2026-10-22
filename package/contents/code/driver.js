@@ -1310,6 +1310,14 @@ function createDriver(env) {
         log("drag end", w.caption, d.mode, JSON.stringify(ws.cursorPos));
         if (d.mode === "move" && isTiled(st) && cfg.dragToRetile) {
             var pos = ws.cursorPos;
+            // In the stage layout, a window sharing the stage dragged onto
+            // the strip leaves its set and waits there.
+            var dragSpace = engine.spaceOf(st.id), strip = dragSpace ? stageStrips[dragSpace] : null;
+            if (strip && strip.stageIds.length > 1 && strip.stageIds.indexOf(st.id) >= 0 && contains(strip.area, pos)) {
+                sendToStrip(st, strip);
+                st.placed = null;
+                return;
+            }
             var target = tiledWindowAt(pos, st.id);
             log("drop target", target ? tracked[target].w.caption : "none");
             if (target) {
@@ -1809,7 +1817,8 @@ function createDriver(env) {
     // take their places when the cards land.
     var lastStage = {};             // space -> {ids, rects, slots: {id: rect}} as last drawn
     var stageHeld = {};             // space -> {target, incoming, outgoing, from, fromRects, played, until}
-    var pendingDrop = null;         // {ids, rects}: a preview just dropped on the stage
+    var pendingDrop = null;         // {rects}: a preview just dropped on the stage
+    var pendingLeave = null;        // {id, from}: a window just dragged off it
 
     function isHeld(held, id) {
         return !!held && (held.incoming.indexOf(id) >= 0 || held.outgoing.indexOf(id) >= 0);
@@ -1827,18 +1836,31 @@ function createDriver(env) {
         if (!before || !env.ui.playStageTransition) return;
         var incoming = stageIds.filter(function (id) { return before.ids.indexOf(id) < 0; });
         var outgoing = before.ids.filter(function (id) { return stageIds.indexOf(id) < 0; });
-        if (!incoming.length) return;               // nothing new on the stage
+        var leaving = [];
+        if (!incoming.length) {
+            // Only leaving (dragged to the strip, say): with nothing coming
+            // to cover them, they go at once and only their cards fly.
+            if (!outgoing.length) return;
+            leaving = outgoing;
+            outgoing = [];
+        }
+        var left = pendingLeave;
+        pendingLeave = null;
         var from = {};
         for (var i = 0; i < incoming.length; i++) {
             var id = incoming[i];
             from[id] = (drop && drop.rects[id]) || before.slots[id];
             if (!from[id] || !tracked[id]) return;
         }
-        for (var j = 0; j < outgoing.length; j++) {
-            if (!tracked[outgoing[j]] || !before.rects[outgoing[j]]) return;
+        var fromRects = {};
+        var both = outgoing.concat(leaving);
+        for (var j = 0; j < both.length; j++) {
+            var oid = both[j];
+            fromRects[oid] = (left && left.id === oid && left.from) || before.rects[oid];
+            if (!tracked[oid] || !fromRects[oid]) return;
         }
-        stageHeld[space] = { target: stageIds.slice(), incoming: incoming, outgoing: outgoing, from: from,
-                             fromRects: before.rects, played: false, until: Date.now() + 1500 };
+        stageHeld[space] = { target: stageIds.slice(), incoming: incoming, outgoing: outgoing, leaving: leaving,
+                             from: from, fromRects: fromRects, played: false, until: Date.now() + 1500 };
         if (env.after) env.after(1600, function () {
             if (stageHeld[space] && Date.now() >= stageHeld[space].until) {
                 delete stageHeld[space];             // in case it never says it is done
@@ -1868,7 +1890,7 @@ function createDriver(env) {
                 if (!st || !to) { ok = false; return; }
                 cards.push({ id: id, window: st.w, icon: st.w.icon, from: held.from[id], to: to, arriving: true });
             });
-            held.outgoing.forEach(function (id) {
+            held.outgoing.concat(held.leaving).forEach(function (id) {
                 var st = tracked[id], to = cur.slots[id];
                 if (!st || !to) { ok = false; return; }
                 cards.push({ id: id, window: st.w, icon: st.w.icon, from: held.fromRects[id], to: to, arriving: false });
@@ -1918,6 +1940,24 @@ function createDriver(env) {
         relayout();
         if (env.after) env.after(60, function () { if (tracked[id]) activate(tracked[id].w); });
         return true;
+    }
+
+    // A window sharing the stage dragged onto the strip: it leaves its set
+    // and waits there, flying from where it was let go, and the rest keep
+    // the stage (one of them focused).
+    function sendToStrip(st, strip) {
+        var mate = strip.stageIds.filter(function (i) { return i !== st.id && tracked[i]; })[0];
+        if (!mate || !engine.leaveStage(st.id)) return;
+        pendingLeave = { id: st.id, from: copyRect(st.w.frameGeometry) };
+        engine.focused(mate);
+        relayout();
+        activate(tracked[mate].w);
+    }
+
+    // A set's preview asked to come apart: each window waits on its own.
+    function separateStage(id) {
+        engine.stageSet(id).forEach(function (m) { engine.leaveStage(m); });
+        relayout();
     }
 
     // A window taken out of the set it shares the stage with: it keeps the
@@ -3551,6 +3591,7 @@ function createDriver(env) {
         openTile: openTile,
         openStage: openStage,
         dropOnStage: dropOnStage,
+        separateStage: separateStage,
         stageTransitionDone: stageTransitionDone,
         onCursorMoved: onCursorMoved,
         actions: actions,

@@ -3805,6 +3805,42 @@ def stage_sets_share_the_stage(sb):
     eq(len(stage_sets(sb, s)), 2, "the other waits by itself")
 
 
+@test(config={"DefaultLayout": 4})
+def stage_sets_come_apart(sb):
+    """A window sharing the stage, dragged onto the strip, leaves its set and
+    waits there; the other keeps the stage. A set's preview, right-clicked,
+    offers to separate its windows."""
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("C")
+    x, y, w, h = dict(stage_previews(sb))["B"]
+    sb.input().drag((x + w // 2, y + h // 2), (1000, 540))
+    sb.settle(1.0)
+    s = sb.state()
+    left = min("BC", key=lambda t: sb.geometry(t, s)[0])
+    other = "B" if left == "C" else "C"
+    sb.input().drag((500, 540), (110, 100), modifiers=("meta",))   # the left one, onto the strip
+    sb.settle(1.0)
+    s = sb.state()
+    eq(sb.geometry(other, s)[:3], (235, 10, 1675), "%s keeps the stage, alone" % other)
+    eq(s["windows"][s["active"]]["caption"], other, "and has the focus")
+    eq(sorted(c for c, in stage_sets(sb, s)), sorted([left, "A"]), "%s waits on its own" % left)
+    # Together again, then apart from the preview.
+    x, y, w, h = dict(stage_previews(sb, s))[left]
+    sb.input().drag((x + w // 2, y + h // 2), (1000, 540))
+    sb.settle(1.0)
+    x, y, w, h = dict(stage_previews(sb))["A"]
+    sb.input().click(x + w // 2, y + h // 2)
+    sb.settle(1.0)
+    eq([len(m) for m in stage_sets(sb)], [2], "B and C wait as one preview")
+    x, y, w, h = stage_previews(sb)[0][1]
+    fi = sb.input()
+    fi.click(x + w // 2, y + h // 2, BTN_RIGHT)
+    sb.settle(0.5)
+    fi.click(x + w // 2, y + h // 2)            # "Separate", in the middle of the preview
+    sb.settle(1.0)
+    eq(sorted(m for m, in stage_sets(sb)), ["B", "C"], "each waits on its own again")
+
 @test(config={"DefaultLayout": 4, "StageSide": 1, "StageWidth": 260})
 def stage_previews_give_way_to_menus(sb):
     """A menu or Plasma popup in front of the strip (the app launcher, in a

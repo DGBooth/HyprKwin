@@ -761,6 +761,7 @@ Item {
                 });
                 preview.opened.connect(id => root.driver.openStage(id));
                 preview.dropped.connect((id, dx, dy) => root.driver.dropOnStage(id, dx, dy));
+                preview.separated.connect(id => root.driver.separateStage(id));
                 stagePreviewObjects[entry.id] = preview;
             }
             preview.preview = entry;

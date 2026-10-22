@@ -21,6 +21,9 @@ Window {
     property bool held: false
     signal opened(string id)
     signal dropped(string id, real dx, real dy)
+    signal separated(string id)
+    // A set's preview, right-clicked: offers to separate its windows.
+    property bool offering: false
 
     readonly property int margin: 14
 
@@ -154,6 +157,33 @@ Window {
             }
         }
 
+        Rectangle {
+            visible: win.offering
+            z: 30
+            anchors.centerIn: parent
+            width: label.implicitWidth + 24
+            height: label.implicitHeight + 14
+            radius: 6
+            color: offer.containsMouse ? Kirigami.Theme.highlightColor : Kirigami.Theme.backgroundColor
+            border.color: Kirigami.Theme.highlightColor
+            Text {
+                id: label
+                anchors.centerIn: parent
+                text: "Separate"
+                color: offer.containsMouse ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                font.pixelSize: 13
+            }
+            MouseArea {
+                id: offer
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                    win.offering = false;
+                    if (win.ready) win.separated(win.preview.id);
+                }
+            }
+        }
+
         // A click brings it onto the stage; a drag carries it, and let go
         // on the stage it joins the windows there (or else goes back).
         MouseArea {
@@ -161,15 +191,22 @@ Window {
             anchors.fill: parent
             z: 20
             hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: win.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
             property real pressX: 0
             property real pressY: 0
+            onContainsMouseChanged: if (!containsMouse) win.offering = false
             onPressed: mouse => {
+                if (mouse.button === Qt.RightButton) {
+                    win.offering = win.memberIds.length > 1;
+                    return;
+                }
+                win.offering = false;
                 pressX = mouse.x;
                 pressY = mouse.y;
             }
             onPositionChanged: mouse => {
-                if (!pressed) return;
+                if (!pressed || (pressedButtons & Qt.RightButton)) return;
                 const dx = mouse.x - pressX, dy = mouse.y - pressY;
                 if (!win.dragging && Math.abs(dx) + Math.abs(dy) < 8) return;
                 win.dragging = true;
@@ -178,8 +215,8 @@ Window {
                 win.dragX += dx;
                 win.dragY += dy;
             }
-            onReleased: {
-                if (!win.ready) return;
+            onReleased: mouse => {
+                if (!win.ready || mouse.button === Qt.RightButton) return;
                 if (win.dragging) {
                     const dx = win.dragX, dy = win.dragY;
                     win.dragging = false;
