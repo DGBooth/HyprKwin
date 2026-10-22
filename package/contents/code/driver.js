@@ -1536,8 +1536,9 @@ function createDriver(env) {
             // than half on the neighbouring screen.
             if (L.offscreen.length) {
                 var park = parkingSpot();
-                // In the stage layout they wait at the stage's size, so the
-                // previews have its shape and a switch has nothing to resize
+                // In the stage layout they wait at the size they will have on
+                // the stage (half of it, in a set of two), so the previews
+                // have that shape and a switch has nothing to resize
                 // (a window redrawing at a new size shows half transparent in
                 // its thumbnail until it catches up).
                 var stageRect = stageStrips[vs.space] ? stageStrips[vs.space].stageRect : null;
@@ -1546,7 +1547,7 @@ function createDriver(env) {
                     if (!st) return;
                     if (isHeld(held, id)) return;
                     st.fresh = false;
-                    var g = stageRect || st.w.frameGeometry;
+                    var g = L.waiting[id] || stageRect || st.w.frameGeometry;
                     apply(st, { x: park.x, y: park.y, width: g.width, height: g.height }, false);
                 });
             }

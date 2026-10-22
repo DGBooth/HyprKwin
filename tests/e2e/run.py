@@ -3790,6 +3790,8 @@ def stage_sets_share_the_stage(sb):
     eq(sb.geometry("A", s)[:3], (235, 10, 1675), "A takes the whole stage")
     sets = stage_sets(sb, s)
     eq((len(sets), sorted(sets[0])), (1, ["B", "C"]), "B and C wait as one preview: %r" % (sets,))
+    eq(sorted(sb.geometry(t, s)[2:] for t in "BC"), [(830, 1060), (835, 1060)],
+       "each waiting at its size on the stage, so coming back resizes nothing")
     x, y, w, h = stage_previews(sb, s)[0][1]
     sb.input().click(x + w // 2, y + h // 2)
     sb.settle(1.0)

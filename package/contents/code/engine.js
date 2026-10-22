@@ -334,7 +334,8 @@ function createEngine(userConfig) {
         }
         var w = Math.max(60, Math.min(cfg.stageWidth, inner.width / 2));
         var left = cfg.stageSide !== "right";
-        tileStage(stage, rect(left ? inner.x + w : inner.x, inner.y, inner.width - w, inner.height));
+        var stageArea = rect(left ? inner.x + w : inner.x, inner.y, inner.width - w, inner.height);
+        tileStage(stage, stageArea);
         out.stripArea = rect(left ? inner.x : inner.x + inner.width - w, inner.y, w, inner.height);
         var order = [];
         focusOrder.forEach(function (id) {
@@ -349,8 +350,13 @@ function createEngine(userConfig) {
             if (placed.indexOf(leaf) >= 0) return;
             // Most recently used first, then the others in the set's order.
             var set = [leaf].concat(stageSetOf(space, leaf, all).filter(function (l) { return l !== leaf; }));
+            // Each waits at the size it will have on the stage, so its preview
+            // has that shape and coming back resizes nothing. Its set's order
+            // on the stage, not the strip's.
+            tileStage(stageSetOf(space, leaf, all), stageArea);
             set.forEach(function (l) {
                 placed.push(l);
+                l.waitRect = l.rect;
                 l.rect = null;
                 l.wins.forEach(function (id) { offscreen.push(id); });
             });
@@ -402,6 +408,7 @@ function createEngine(userConfig) {
         var all = leaves(root).filter(shown);
         var mode = modeOf(space);
         if (!all.length) return all;
+        all.forEach(function (leaf) { leaf.waitRect = null; });
         if (mode === "monocle") all.forEach(function (leaf) { leaf.rect = inner; });
         else if (mode === "master") placeMaster(space, all, inner);
         else if (mode === "scrolling") placeScrolling(space, all, inner, offscreen || []);
@@ -845,10 +852,12 @@ function createEngine(userConfig) {
         // offscreen: [ids a scrolling or stage layout has no room for],
         // strip: [ids a stage layout previews, most recently used first],
         // stripSets: [[ids]] each preview's windows, that one first,
-        // stage: [ids] on the stage, stripArea: where it previews them}.
+        // stage: [ids] on the stage, waiting: {id: rect} the tile each one
+        // waiting there will have on it, stripArea: where it previews them}.
         layout: function (space, area) {
             if (area) areas[space] = area;
-            var result = { windows: {}, groups: [], hidden: [], offscreen: [], strip: [], stripSets: [], stage: [], stripArea: null };
+            var result = { windows: {}, groups: [], hidden: [], offscreen: [], strip: [], stripSets: [], stage: [],
+                           waiting: {}, stripArea: null };
             var root = roots[space];
             if (!root) return result;
             area = areas[space];
@@ -861,14 +870,26 @@ function createEngine(userConfig) {
             var inner = shrink(area, gOut.left, gOut.top, gOut.right, gOut.bottom);
             arrange(space, inner, result.offscreen, result);
             var eps = 0.5;
-            all.forEach(function (leaf) {
-                var r = leaf.rect;
-                if (!r) return;    // scrolled out of view; the driver parks it
+            // A rect less the inner gap on every side not at the area's edge.
+            var gapped = function (r) {
                 var l = Math.abs(r.x - inner.x) < eps ? 0 : gIn;
                 var t = Math.abs(r.y - inner.y) < eps ? 0 : gIn;
                 var rr = Math.abs(rectRight(r) - rectRight(inner)) < eps ? 0 : gIn;
                 var b = Math.abs(rectBottom(r) - rectBottom(inner)) < eps ? 0 : gIn;
-                var tile = roundRect(shrink(r, l, t, rr, b));
+                return roundRect(shrink(r, l, t, rr, b));
+            };
+            all.forEach(function (leaf) {
+                var r = leaf.rect;
+                if (!r) {
+                    // Scrolled out of view, or waiting beside the stage: the
+                    // driver parks it, at its size on the stage if it has one.
+                    if (leaf.waitRect) {
+                        var wr = gapped(leaf.waitRect);
+                        leaf.wins.forEach(function (id) { result.waiting[id] = wr; });
+                    }
+                    return;
+                }
+                var tile = gapped(r);
                 var winRect = tile;
                 if (!isVisible(leaf.wins[leaf.active])) {
                     for (var vi = 0; vi < leaf.wins.length; vi++) {

@@ -442,6 +442,10 @@ Deno.test("stage sets: windows share the stage and go to the strip together", ()
     assertEquals(l.stripSets, [["d", "c"], ["b"]], "the set waits as one preview, d first");
     assertEquals(l.strip, ["d", "b"]);
     assertEquals(l.offscreen.sort(), ["b", "c", "d"]);
+    assertEquals([l.waiting.d, l.waiting.c, l.waiting.b],
+                 [{ x: 200, y: 0, width: 860, height: 1080 }, { x: 1060, y: 0, width: 860, height: 1080 },
+                  { x: 200, y: 0, width: 1720, height: 1080 }],
+                 "each waits at the size it will have on the stage");
     e.focused("c");                               // the set's preview
     assertEquals(e.layout(S).stage, ["d", "c"], "the set comes back together");
     assertEquals(e.leaveStage("c"), true, "c leaves the set");
