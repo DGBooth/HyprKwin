@@ -58,10 +58,15 @@ settings, window and workspace rules, and keybindings. See
 
 ## See it
 
-All four layouts on the same windows: dwindle, master (round every side),
-monocle and scrolling.
+All five layouts on the same windows: dwindle, master (round every side),
+monocle, scrolling and stage.
 
-![Switching one workspace through the dwindle, master, monocle and scrolling layouts](docs/media/layouts.gif)
+![Switching one workspace through the dwindle, master, monocle, scrolling and stage layouts](docs/media/layouts.gif)
+
+The stage layout, after macOS's Stage Manager: click a preview to bring it
+onto the stage, or drag one on to share it.
+
+![Choosing a window from the stage strip, dragging a second onto the stage beside it, and the pair waiting in the strip together](docs/media/stage.gif)
 
 | Windows tile as they open | The scratchpad, over any workspace |
 |---|---|

@@ -195,18 +195,19 @@ class Recorder:
     """Grabs frames straight from KWin in the background, with the time of
     each, while the with-block runs."""
 
-    def __init__(self, sb, fps=15):
+    def __init__(self, sb, fps=15, cursor=False):
         import dbus
         bus = dbus.bus.BusConnection(sb.env["DBUS_SESSION_BUS_ADDRESS"])
         self.shot = dbus.Interface(bus.get_object("org.kde.KWin", "/org/kde/KWin/ScreenShot2"),
                                    "org.kde.KWin.ScreenShot2")
         self.fps, self.frames, self.on = fps, [], False
+        self.options = {"include-cursor": True} if cursor else {}
 
     def grab(self):
         import dbus
         read, write = os.pipe()
         try:
-            info = self.shot.CaptureWorkspace(dbus.Dictionary({}, signature="sv"), dbus.types.UnixFd(write),
+            info = self.shot.CaptureWorkspace(dbus.Dictionary(self.options, signature="sv"), dbus.types.UnixFd(write),
                                               timeout=20)
         finally:
             os.close(write)
@@ -257,9 +258,9 @@ class Recorder:
 SCENES = {}
 
 
-def scene(name, clip=False, **config):
+def scene(name, clip=False, cursor=False, **config):
     """A still (fn(sb, stage)) or a clip (fn(sb, stage, recorder)), with
-    HyprKwin settings on top of BORDER."""
+    HyprKwin settings on top of BORDER; cursor shows the pointer in a clip."""
     def wrap(fn):
         def run(out):
             slow = CLIP_SLOW if clip else 1
@@ -269,7 +270,7 @@ def scene(name, clip=False, **config):
                 stage = Stage(sb, slow)
                 stage.shell()
                 if clip:
-                    rec = Recorder(sb)
+                    rec = Recorder(sb, cursor=cursor)
                     fn(sb, stage, rec)
                     rec.save(out, name, slow)
                 else:
@@ -299,6 +300,51 @@ def focus(sb, caption):
     if got != "ok":
         raise RuntimeError("no window %s" % caption)
     sb.settle(0.5)
+
+
+class Pointer:
+    """The pointer, moved the way a hand moves it: gliding, not jumping."""
+
+    def __init__(self, sb):
+        self.fi = sb.input()
+        self.at = (1024, 900)
+        self.fi.move_to(*self.at)
+
+    def glide(self, to, secs=0.5, held=False):
+        steps = max(1, int(secs * CLIP_SLOW * 60))
+        (x0, y0), (x1, y1) = self.at, to
+        for i in range(1, steps + 1):
+            t = i / steps
+            t = t * t * (3 - 2 * t)                 # eased in and out
+            self.fi.move_to(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
+            time.sleep(secs * CLIP_SLOW / steps)
+        self.at = to
+
+    def click(self, at, secs=0.5):
+        self.glide(at, secs)
+        time.sleep(0.1 * CLIP_SLOW)
+        self.fi.button(0x110, True)
+        time.sleep(0.08)
+        self.fi.button(0x110, False)
+
+    def drag(self, start, end, secs=0.8):
+        self.glide(start, 0.5)
+        time.sleep(0.1 * CLIP_SLOW)
+        self.fi.button(0x110, True)
+        time.sleep(0.1)
+        self.glide(end, secs)
+        time.sleep(0.15 * CLIP_SLOW)
+        self.fi.button(0x110, False)
+
+
+def preview(sb, caption):
+    """The middle of the stage strip's preview showing this window."""
+    s = sb.state()
+    for strip in s.get("stagePreviews", []):
+        for wid, sets, (x, y, w, h) in zip(strip["ids"], strip["sets"], strip["rects"]):
+            if any(caption in (s["windows"][m]["caption"] or "") for m in sets):
+                return (x + w // 2, y + h // 2)
+    raise RuntimeError("no preview of %s" % caption)
 
 
 @scene("dwindle")
@@ -351,7 +397,27 @@ def _(sb, st, rec):
                   ("masterOrientationNext", 0.1), ("masterOrientationNext", 1.6),
                   ("layoutMonocle", 1.0), ("cycleNext", 0.8), ("cycleNext", 1.2),
                   ("layoutScrolling", 1.2), ("focusLeft", 0.8), ("focusLeft", 0.8), ("focusLeft", 1.2),
+                  ("layoutStage", 2.4), ("cycleNext", 1.6),
                   ("layoutDwindle", 1.6)])
+
+
+@scene("stage", clip=True, cursor=True, DefaultLayout="4")
+def _(sb, st, rec):
+    st.windows()
+    time.sleep(1.5)
+    hand = Pointer(sb)
+    with rec:
+        time.sleep(1.0 * CLIP_SLOW)
+        hand.click(preview(sb, "Dolphin"))          # a click brings it onto the stage
+        time.sleep(1.4 * CLIP_SLOW)
+        hand.drag(preview(sb, "engine.js"), (1250, 560))   # dragged on, it shares the stage
+        time.sleep(1.6 * CLIP_SLOW)
+        hand.click(preview(sb, "fastfetch"))        # the two wait together, as one preview
+        time.sleep(1.6 * CLIP_SLOW)
+        hand.click(preview(sb, "Dolphin"))          # and come back together
+        time.sleep(1.2 * CLIP_SLOW)
+        hand.glide((1500, 900), 0.6)
+        time.sleep(0.6 * CLIP_SLOW)
 
 
 @scene("scratchpad", clip=True)
