@@ -23,6 +23,9 @@ Window {
     signal dropped(string id, real dx, real dy)
     // A set's preview, right-clicked: its windows wait on their own again.
     signal separated(string id)
+    // The wheel over it, when not every preview fits: the strip scrolls by
+    // whole previews (delta as Qt gives it, 120 to a notch).
+    signal scrolled(string id, real delta)
 
     readonly property int margin: 14
 
@@ -156,6 +159,32 @@ Window {
             }
         }
 
+        // More previews above or below, out of view: the wheel brings them.
+        // On a small backing, so they show over any wallpaper.
+        Repeater {
+            model: [{ up: true }, { up: false }]
+            delegate: Rectangle {
+                required property var modelData
+                visible: win.ready && (modelData.up ? !!win.preview.moreAbove : !!win.preview.moreBelow)
+                z: 25
+                width: 26
+                height: 13
+                radius: 6
+                color: Kirigami.Theme.backgroundColor
+                opacity: 0.9
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: modelData.up ? -win.margin : stack.height + 1
+                Kirigami.Icon {
+                    anchors.centerIn: parent
+                    width: 12
+                    height: 12
+                    source: modelData.up ? "go-up" : "go-down"
+                    isMask: true
+                    color: Kirigami.Theme.textColor
+                }
+            }
+        }
+
         // A click brings it onto the stage; a drag carries it, and let go
         // on the stage it joins the windows there (or else goes back).
         MouseArea {
@@ -171,6 +200,9 @@ Window {
                 if (mouse.button === Qt.RightButton) return;
                 pressX = mouse.x;
                 pressY = mouse.y;
+            }
+            onWheel: event => {
+                if (win.ready && event.angleDelta.y) win.scrolled(win.preview.id, event.angleDelta.y);
             }
             onPositionChanged: mouse => {
                 if (!pressed || (pressedButtons & Qt.RightButton)) return;

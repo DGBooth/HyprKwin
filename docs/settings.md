@@ -150,7 +150,9 @@ Five layouts, each workspace with its own:
   live. Switching, the new window grows out of its preview while the old
   one shrinks into the strip, at Plasma's animation speed (none at
   Instant). Floating windows stay in front of the stage. With only one
-  window there is no strip.
+  window there is no strip. With more windows waiting than the strip has
+  room for, the mouse wheel over a preview scrolls it, a whole preview at
+  a time, and small arrows above and below show there are more.
 
   Windows can share the stage, as in Stage Manager: drag a preview onto the
   stage and that window joins the one there, the two splitting it as dwindle

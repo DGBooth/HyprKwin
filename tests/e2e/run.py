@@ -3838,6 +3838,37 @@ def stage_sets_come_apart(sb):
     sb.settle(1.0)
     eq(sorted(m for m, in stage_sets(sb)), ["B", "C"], "each waits on its own again")
 
+@test(config={"DefaultLayout": 4})
+def stage_strip_scrolls_when_full(sb):
+    """More windows waiting than the strip has room for: the wheel over a
+    preview scrolls it by whole previews, and a new stage takes it back to
+    the top."""
+    for i in range(10):
+        sb.spawn("W%d" % i)
+    s = sb.state()
+    strip = s["stagePreviews"][0]
+    eq((strip["total"], strip["first"]), (9, 0), "nine waiting")
+    shown = [c for c, _ in stage_previews(sb, s)]
+    eq(len(shown) < 9, True, "not all fit: %r" % (shown,))
+    eq(shown[0], "W8", "the most recent at the top")
+    x, y, w, h = stage_previews(sb, s)[0][1]
+    for _ in range(2):                              # two notches, as a hand turns it
+        sb.input().scroll(x + w // 2, y + h // 2, 1, 1 if kwin_version() >= (6, 8) else 8)
+        sb.settle(0.5)
+    s = sb.state()
+    eq(s["stagePreviews"][0]["first"], 2, "two previews down")
+    later = [c for c, _ in stage_previews(sb, s)]
+    eq(later[0], shown[2], "the third now at the top")
+    eq(later[-1], "W0", "and the last one in view")
+    x, y, w, h = stage_previews(sb, s)[-1][1]
+    sb.input().click(x + w // 2, y + h // 2)        # the oldest onto the stage
+    sb.settle(1.0)
+    s = sb.state()
+    eq(s["windows"][s["active"]]["caption"], "W0", "W0 on the stage")
+    eq((s["stagePreviews"][0]["first"], stage_previews(sb, s)[0][0]), (0, "W9"),
+       "the strip back at its top, where the window that left waits")
+
+
 @test(config={"DefaultLayout": 4, "StageSide": 1, "StageWidth": 260})
 def stage_previews_give_way_to_menus(sb):
     """A menu or Plasma popup in front of the strip (the app launcher, in a

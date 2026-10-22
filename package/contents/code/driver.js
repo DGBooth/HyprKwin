@@ -58,6 +58,8 @@ function createDriver(env) {
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
     var stageStrips = {};           // space -> {area, ids} of a stage layout on screen
     var stageSpaces = {};           // spaces on screen in the stage layout, strip or not
+    var stageScroll = {};           // space -> the first set its strip shows, when not all fit
+    var stageWheel = {};            // space -> wheel turned over its strip, short of a notch
     var lastStagePreviews = [];     // [{space, ids}] as drawn
     var zoomKeysOn = false;         // Escape held to zoom back out
     var keysOpen = false;           // the keys guide (Meta+K) is up
@@ -1799,7 +1801,7 @@ function createDriver(env) {
             return { space: s.id, ids: s.items.map(function (i) { return i.id; }),
                      rects: s.items.map(function (i) { return [i.x, i.y, i.width, i.height]; }),
                      sets: s.items.map(function (i) { return i.members.map(function (m) { return m.id; }); }),
-                     shown: s.shown.map(function (i) { return i.id; }) };
+                     shown: s.shown.map(function (i) { return i.id; }), total: s.total, first: s.first };
         });
         var flat = [];
         strips.forEach(function (s) { flat = flat.concat(s.shown); });
@@ -1825,6 +1827,10 @@ function createDriver(env) {
     }
 
     function stageSwitch(space, stageIds) {
+        // A new stage: the strip goes back to its top, where the windows
+        // that just left it wait.
+        var shownBefore = lastStage[space];
+        if (shownBefore && shownBefore.ids.join() !== stageIds.join()) stageScroll[space] = 0;
         var held = stageHeld[space];
         if (held) {
             if (held.target.join() === stageIds.join() && Date.now() < held.until) return;
@@ -1996,6 +2002,23 @@ function createDriver(env) {
     // as many as fit, centred down the strip.
     var STAGE_PAD = 18, STAGE_SPACING = 22;
 
+    // The wheel over a preview (Qt's angle delta, 120 to a notch, upwards
+    // positive): the strip moves by whole previews. A touchpad's little
+    // deltas add up per strip, as the preview under the pointer changes.
+    function scrollStage(id, delta) {
+        var space = engine.spaceOf(id);
+        if (!space) return;
+        var wheel = (stageWheel[space] || 0) - delta, steps = 0;
+        while (Math.abs(wheel) >= 120) {
+            steps += wheel > 0 ? 1 : -1;
+            wheel -= wheel > 0 ? 120 : -120;
+        }
+        stageWheel[space] = wheel;
+        if (!steps) return;
+        stageScroll[space] = Math.max(0, (stageScroll[space] || 0) + steps);
+        updateDecorations();
+    }
+
     function stagePreviews(fullscreenScreens, popups) {
         var out = [];
         for (var space in stageStrips) {
@@ -2004,31 +2027,54 @@ function createDriver(env) {
             var mid = { x: a.x + a.width / 2, y: a.y + a.height / 2 };
             var screen = screens().filter(function (sc) { return contains(sc.geometry, mid); })[0];
             if (screen && fullscreenScreens[screen.name]) continue;
-            var w = a.width - 2 * STAGE_PAD, items = [], used = 0;
+            var w = a.width - 2 * STAGE_PAD, all = [];
             var sets = strip.sets || strip.ids.map(function (id) { return [id]; });
             for (var i = 0; i < sets.length; i++) {
                 var members = sets[i].map(function (id) { return tracked[id]; }).filter(function (m) { return !!m; });
                 if (!members.length) continue;
                 var st = members[0], g = st.w.frameGeometry;
                 var h = Math.round(Math.max(w * 0.45, Math.min(w * 1.3, w * g.height / Math.max(1, g.width))));
-                var next = used + (items.length ? STAGE_SPACING : 0) + h;
-                if (next > a.height - 2 * STAGE_PAD) break;
                 // A set's windows are stacked, the most recently used in
                 // front, a little lower and nearer the edge than the rest.
                 var n = Math.min(members.length, 3), off = n > 1 ? 10 : 0;
                 var icons = [];
                 members.forEach(function (m) { if (icons.length < 4) icons.push(m.w.icon); });
-                items.push({ id: st.id, window: st.w, caption: String(st.w.caption), icon: st.w.icon, icons: icons,
-                             members: members.slice(0, n).map(function (m, k) {
-                                 return { id: m.id, window: m.w, icon: m.w.icon, dx: k * off, dy: (n - 1 - k) * off,
-                                          width: w - off * (n - 1), height: h - off * (n - 1) };
-                             }),
-                             x: a.x + STAGE_PAD, y: used + (items.length ? STAGE_SPACING : 0), width: w, height: h });
+                all.push({ id: st.id, window: st.w, caption: String(st.w.caption), icon: st.w.icon, icons: icons,
+                           members: members.slice(0, n).map(function (m, k) {
+                               return { id: m.id, window: m.w, icon: m.w.icon, dx: k * off, dy: (n - 1 - k) * off,
+                                        width: w - off * (n - 1), height: h - off * (n - 1) };
+                           }),
+                           x: a.x + STAGE_PAD, y: 0, width: w, height: h });
+            }
+            if (!all.length) continue;
+            // More than fit: the strip scrolls (the mouse wheel over a
+            // preview), a whole preview at a time, from the first shown.
+            var room = a.height - 2 * STAGE_PAD;
+            var span = function (from, to) {
+                var t = 0;
+                for (var k = from; k < to; k++) t += all[k].height + (k > from ? STAGE_SPACING : 0);
+                return t;
+            };
+            var first = 0;
+            if (span(0, all.length) > room) {
+                var lastFirst = all.length - 1;
+                while (lastFirst > 0 && span(lastFirst - 1, all.length) <= room) lastFirst--;
+                first = Math.max(0, Math.min(stageScroll[space] || 0, lastFirst));
+            }
+            stageScroll[space] = first;
+            var items = [], used = 0;
+            for (var j = first; j < all.length; j++) {
+                var next = used + (items.length ? STAGE_SPACING : 0) + all[j].height;
+                if (next > room) break;
+                all[j].y = used + (items.length ? STAGE_SPACING : 0);
+                items.push(all[j]);
                 used = next;
             }
             if (!items.length) continue;
-            var top = a.y + Math.round((a.height - used) / 2);
+            var top = first > 0 || items.length < all.length ? a.y + STAGE_PAD : a.y + Math.round((a.height - used) / 2);
             items.forEach(function (it) { it.y += top; it.side = cfg.stageSide; it.space = space; });
+            items[0].moreAbove = first > 0;
+            items[items.length - 1].moreBelow = first + items.length < all.length;
             // Previews step aside for a menu or one of Plasma's popups (the
             // app launcher, say), as borders do: it is in front of them.
             var shown = items.filter(function (it) {
@@ -2036,7 +2082,8 @@ function createDriver(env) {
                 return !popups.some(function (pr) { return overlaps(pr, r); });
             });
             out.push({ id: space, x: a.x, y: a.y, width: a.width, height: a.height, side: cfg.stageSide,
-                       items: items, shown: shown, stageIds: strip.stageIds, stageRects: strip.stageRects });
+                       items: items, shown: shown, total: all.length, first: first,
+                       stageIds: strip.stageIds, stageRects: strip.stageRects });
         }
         return out;
     }
@@ -3592,6 +3639,7 @@ function createDriver(env) {
         openStage: openStage,
         dropOnStage: dropOnStage,
         separateStage: separateStage,
+        scrollStage: scrollStage,
         stageTransitionDone: stageTransitionDone,
         onCursorMoved: onCursorMoved,
         actions: actions,

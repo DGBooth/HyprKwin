@@ -143,6 +143,17 @@ class FakeInput:
         self._send(self.fake, BUTTON, struct.pack("<II", btn, 1 if pressed else 0))
         self.sync()
 
+    def scroll(self, x, y, notches, parts=1):
+        """The mouse wheel at (x, y): positive notches scroll down. A KWin
+        before 6.8 passes fake scrolls on without wheel steps, so apps take
+        each for an eighth of one (a touchpad's): parts=8 makes up a notch."""
+        self.move_to(x, y)
+        time.sleep(0.05)
+        for _ in range(abs(notches) * parts):
+            self._send(self.fake, AXIS, struct.pack("<I", 0) + _fixed(15 if notches > 0 else -15))
+            self.sync()
+            time.sleep(0.1 / parts)
+
     def click(self, x, y, btn=BTN_LEFT):
         self.move_to(x, y)
         time.sleep(0.05)
