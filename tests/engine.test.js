@@ -394,7 +394,7 @@ Deno.test("monocle layout: every window fills the area", () => {
 });
 
 Deno.test("stage layout: the focused window beside a strip of the others, most recent first", () => {
-    const e = eng({ defaultLayout: "stage", gapsOut: { left: 10, top: 10, right: 10, bottom: 10}, gapsIn: 5, stageWidth: 200 });
+    const e = eng({ defaultLayout: "stage", gapsOut: { left: 10, top: 10, right: 10, bottom: 10 }, gapsIn: 5, stageWidth: 200 });
     three(e);                                   // focus went a, b, c
     let l = e.layout(S, { x: 0, y: 0, width: 1000, height: 900 });
     // The strip takes 200 on the left of the inner area; the stage the rest,

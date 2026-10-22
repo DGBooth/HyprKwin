@@ -42,7 +42,7 @@
         <widget class="QSpinBox" name="kcfg_GapsOut">
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
-         <property name="toolTip"><string>Default gap for every side. Sides left at "same as edges" follow this value; sides with their own value keep it.</string></property>
+         <property name="toolTip"><string>Default gap for every side. Sides left at "same as outer gap" follow this value; sides with their own value keep it.</string></property>
         </widget>
        </item>
        <item row="3" column="0">
@@ -56,7 +56,7 @@
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
          <property name="minimum"><number>-1</number></property>
-         <property name="specialValueText"><string>same as edges</string></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
         </widget>
        </item>
        <item row="4" column="0">
@@ -70,7 +70,7 @@
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
          <property name="minimum"><number>-1</number></property>
-         <property name="specialValueText"><string>same as edges</string></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
         </widget>
        </item>
        <item row="5" column="0">
@@ -84,7 +84,7 @@
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
          <property name="minimum"><number>-1</number></property>
-         <property name="specialValueText"><string>same as edges</string></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
         </widget>
        </item>
        <item row="6" column="0">
@@ -98,7 +98,7 @@
          <property name="suffix"><string> px</string></property>
          <property name="maximum"><number>400</number></property>
          <property name="minimum"><number>-1</number></property>
-         <property name="specialValueText"><string>same as edges</string></property>
+         <property name="specialValueText"><string>same as outer gap</string></property>
         </widget>
        </item>
        <item row="7" column="0">

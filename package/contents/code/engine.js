@@ -10,7 +10,7 @@
 // the first child receives ratio / 2 of the space.
 var DEFAULT_CONFIG = {
     gapsIn: 5,
-    gapsOut: { left: 10, top: 10, right: 10, bottom: 10},
+    gapsOut: { left: 10, top: 10, right: 10, bottom: 10 },
     splitRatio: 1.0,
     splitWidthMultiplier: 1.0,
     preserveSplit: true,

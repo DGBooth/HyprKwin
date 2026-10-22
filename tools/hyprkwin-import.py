@@ -36,6 +36,7 @@ ORIENTATIONS = ["left", "right", "top", "bottom", "center"]
 
 
 def as_int(v):
+    # Hyprland takes "5" or "5 5 5 5" (per side); HyprKwin has one inner gap.
     first = v.split()[0]
     return str(int(float(first)))
 
@@ -54,7 +55,7 @@ def as_gaps_out(v):
         right = left = parts[1]
         bottom = parts[2]
     else:
-        top, right, bottom, left = parts[:4]
+        top, right, bottom, left = parts
     sides = {"Top": top, "Right": right, "Bottom": bottom, "Left": left}
     base = max(sides.values(), key=list(sides.values()).count)
     out = {"GapsOut": base}
