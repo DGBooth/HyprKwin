@@ -18,7 +18,7 @@
   own, so the stage window never covers them (the strip between them is
   still the desktop's, to click); it goes on the left or right, and its
   width is set on the Layout tab. Floating windows stay in front of the
-  stage. With more windows than fit, the mouse wheel over the previews
+  stage. Right-click a preview to close its window. With more windows than fit, the mouse wheel over the previews
   scrolls the strip. Windows can share the stage too: drag a preview onto it and
   that window joins the one there; they wait in the strip together, as one
   preview with both icons, and come back together. Drag a window off the

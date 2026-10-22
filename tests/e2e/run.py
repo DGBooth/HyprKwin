@@ -3809,7 +3809,7 @@ def stage_sets_share_the_stage(sb):
 def stage_sets_come_apart(sb):
     """A window sharing the stage, dragged onto the strip, leaves its set and
     waits there; the other keeps the stage. A set's preview, right-clicked,
-    separates its windows."""
+    separates its windows; a single window's closes it."""
     sb.spawn("A")
     sb.spawn("B")
     sb.spawn("C")
@@ -3837,6 +3837,11 @@ def stage_sets_come_apart(sb):
     sb.input().click(x + w // 2, y + h // 2, BTN_RIGHT)    # a right-click separates them
     sb.settle(1.0)
     eq(sorted(m for m, in stage_sets(sb)), ["B", "C"], "each waits on its own again")
+    # A window's own preview, right-clicked: the window closes.
+    x, y, w, h = dict(stage_previews(sb))["B"]
+    sb.input().click(x + w // 2, y + h // 2, BTN_RIGHT)
+    sb.wait_for(lambda s: "B" not in [v["caption"] for v in s["windows"].values()], "B closed")
+    eq(sorted(m for m, in stage_sets(sb)), ["C"], "C still waits")
 
 @test(config={"DefaultLayout": 4})
 def stage_strip_scrolls_when_full(sb):

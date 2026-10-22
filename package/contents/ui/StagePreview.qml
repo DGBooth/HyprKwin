@@ -2,7 +2,7 @@
 // live thumbnail of a window waiting beside the stage, tilted towards it (or
 // of a set of windows that share the stage, stacked, with all their icons).
 // Clicking it brings it onto the stage; dragging it onto the stage adds it to
-// the windows there. Each preview is a small overlay window of its own, so
+// the windows there; right-clicking closes it (or parts a set). Each preview is a small overlay window of its own, so
 // the strip between them is the desktop's.
 import QtQuick
 import QtQuick.Window
@@ -23,6 +23,8 @@ Window {
     signal dropped(string id, real dx, real dy)
     // A set's preview, right-clicked: its windows wait on their own again.
     signal separated(string id)
+    // A single window's preview, right-clicked: that window closes.
+    signal closeRequested(string id)
     // The wheel over it, when not every preview fits: the strip scrolls by
     // whole previews (delta as Qt gives it, 120 to a notch).
     signal scrolled(string id, real delta)
@@ -217,7 +219,9 @@ Window {
             onReleased: mouse => {
                 if (!win.ready) return;
                 if (mouse.button === Qt.RightButton) {
-                    if (win.memberIds.length > 1 && containsMouse) win.separated(win.preview.id);
+                    if (!containsMouse) return;
+                    if (win.memberIds.length > 1) win.separated(win.preview.id);
+                    else win.closeRequested(win.preview.id);
                     return;
                 }
                 if (win.dragging) {

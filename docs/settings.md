@@ -143,7 +143,8 @@ Five layouts, each workspace with its own:
   stage, and the workspace's other windows wait beside it as live previews,
   tilted towards it, most recently used at the top. Click one (or cycle with
   the "next window in the layout" keys) to bring it onto the stage; the one
-  that was there goes to the top of the strip. The previews have a strip of
+  that was there goes to the top of the strip. Right-click one to close
+  that window. The previews have a strip of
   their own, on the left or right ("Stage previews" on the Layout tab, with
   its width), so the stage window never covers them. The windows waiting
   there are still running, off screen, which is how their previews stay

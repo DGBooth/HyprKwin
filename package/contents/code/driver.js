@@ -1966,6 +1966,13 @@ function createDriver(env) {
         relayout();
     }
 
+    // A single window's preview asked to close: the window closes, as from
+    // its title bar (so it can still ask to save first).
+    function closeStagePreview(id) {
+        if (engine.stageSet(id).length > 1 || !tracked[id]) return;
+        tracked[id].w.closeWindow();
+    }
+
     // A window taken out of the set it shares the stage with: it keeps the
     // stage, and the rest wait in the strip, together.
     function leaveStage() {
@@ -3639,6 +3646,7 @@ function createDriver(env) {
         openStage: openStage,
         dropOnStage: dropOnStage,
         separateStage: separateStage,
+        closeStagePreview: closeStagePreview,
         scrollStage: scrollStage,
         stageTransitionDone: stageTransitionDone,
         onCursorMoved: onCursorMoved,
