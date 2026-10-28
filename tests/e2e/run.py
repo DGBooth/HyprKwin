@@ -3428,6 +3428,38 @@ def with_panel(sb):
     return height
 
 
+@test(effect=True, effect_config={"Duration": 100}, config={"SpecialDim": 50})
+def the_scratchpad_dims_what_is_behind_it(sb):
+    """With "Dim behind the scratchpad" set, the animations effect darkens
+    the windows behind an open scratchpad, and not the scratchpad's own;
+    closing it brings them back."""
+    sb.spawn("A", color="#ffffff")
+    sb.spawn("C", color="#00ff00")
+    sb.invoke("moveToSpecial")
+    shots = sb.base / "shots"
+    shots.mkdir(exist_ok=True)
+    sb.settle(0.5)
+    sb.screenshot(shots / "before.png")
+    eq(near(pixel(sb, shots / "before.png", 25, 540), (255, 255, 255), 20), True, "A white to begin with")
+    sb.invoke("toggleSpecial")
+    sb.settle(1.0)
+    s = sb.state()
+    eq((s["dim"]["amount"], s["dim"]["exempt"]),
+       (0.5, [dict(zip("x y width height".split(), sb.geometry("C", s)))]), "the dim asked for, sparing C")
+    sb.screenshot(shots / "open.png")
+    a = pixel(sb, shots / "open.png", 25, 540)
+    eq(near(a, (128, 128, 128), 25), True, "A, beside the scratchpad, at half brightness: %r" % (a,))
+    x, y, w, h = sb.geometry("C", s)
+    c = pixel(sb, shots / "open.png", x + w // 2, y + h // 2)
+    eq(near(c, (0, 255, 0), 20), True, "C, in the scratchpad, not dimmed: %r" % (c,))
+    sb.invoke("toggleSpecial")
+    sb.settle(1.0)
+    eq(sb.state()["dim"], None, "no dim once it is closed")
+    sb.screenshot(shots / "closed.png")
+    a = pixel(sb, shots / "closed.png", 25, 540)
+    eq(near(a, (255, 255, 255), 20), True, "A bright again: %r" % (a,))
+
+
 def panel_rect(sb):
     """Where the panel is, as KWin has it."""
     got = sb.kwin_js("JSON.stringify(Workspace.stackingOrder.filter(w => w.dock)"

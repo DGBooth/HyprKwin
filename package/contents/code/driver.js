@@ -58,6 +58,7 @@ function createDriver(env) {
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
     var stageStrips = {};           // space -> {area, ids} of a stage layout on screen
     var stageSpaces = {};           // spaces on screen in the stage layout, strip or not
+    var lastDim = null;             // what the scratchpad has dimmed (see scratchpadDim)
     var stageScroll = {};           // space -> the first set its strip shows, when not all fit
     var stageWheel = {};            // space -> wheel turned over its strip, short of a notch
     var lastStagePreviews = [];     // [{space, ids}] as drawn
@@ -754,6 +755,10 @@ function createDriver(env) {
             // slide takes 180ms).
             slideHold: Math.max(0, num(rc("SlideHold", 220), 220)),
             specialMargin: num(rc("SpecialMargin", 40), 40),
+            // How much the windows behind an open scratchpad are darkened,
+            // in percent (Hyprland's dim_special); the animations effect
+            // does the darkening.
+            specialDim: Math.max(0, Math.min(100, num(rc("SpecialDim", 0), 0))),
             // Names for the extra scratchpads, in the order their shortcuts
             // are numbered. Unnamed slots still work, as "scratchpad N".
             scratchpadNames: nameList(rc("ScratchpadNames", "")),
@@ -1826,6 +1831,23 @@ function createDriver(env) {
         strips.forEach(function (s) { flat = flat.concat(s.shown); });
         if (env.ui.setStagePreviews) env.ui.setStagePreviews(flat);
         stageTransitions(strips);
+        lastDim = scratchpadDim();
+        if (env.ui.setDim) env.ui.setDim(lastDim);
+    }
+
+    // What the animations effect dims while the scratchpad is open: every
+    // window on its monitor but the scratchpad's own (see DimMarker.qml).
+    function scratchpadDim() {
+        if (!specialShown() || cfg.specialDim <= 0) return null;
+        var screen = screenByName(special.screen) || ws.activeScreen;
+        if (!screen) return null;
+        var exempt = [];
+        for (var id in tracked) {
+            var st = tracked[id];
+            if (st.special !== special.name || st.w.minimized) continue;
+            exempt.push(copyRect(st.w.frameGeometry));
+        }
+        return { amount: cfg.specialDim / 100, output: screen.name, exempt: exempt };
     }
 
     // New windows on the stage: they grow out of their previews while the
@@ -3714,6 +3736,7 @@ function createDriver(env) {
                 overlayWindows: (ws.windows || []).filter(isOverlay).length,
                 iconTiles: lastIconTiles,
                 stagePreviews: lastStagePreviews,
+                dim: lastDim,
                 zoomEscape: zoomKeysOn,
             };
             engine.spaces().forEach(function (s) { out.spaces[s] = engine.dump(s); });

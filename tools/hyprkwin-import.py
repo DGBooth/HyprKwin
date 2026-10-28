@@ -108,6 +108,11 @@ def as_follow_mouse(v):
     return "true" if n == 1 else "false"
 
 
+def as_percent(v):
+    # decoration:dim_special = 0.0 to 1.0
+    return str(max(0, min(90, round(float(v) * 100))))
+
+
 SETTINGS = {
     "general:gaps_in": ("GapsIn", as_int),
     "general:gaps_out": (None, as_gaps_out),
@@ -117,6 +122,7 @@ SETTINGS = {
     "decoration:rounding": ("BorderRadius", as_int),
     "decoration:active_opacity": ("ActiveOpacity", as_float),
     "decoration:inactive_opacity": ("InactiveOpacity", as_float),
+    "decoration:dim_special": ("SpecialDim", as_percent),
     "dwindle:preserve_split": ("PreserveSplit", as_bool),
     "dwindle:force_split": ("ForceSplit", as_int),
     "dwindle:split_width_multiplier": ("SplitWidthMultiplier", as_float),

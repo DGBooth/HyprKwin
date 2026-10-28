@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **Dim behind the scratchpad**: the windows behind an open scratchpad are
+  darkened, so you can tell it is open even when it is empty, as Hyprland's
+  `dim_special` does (and a `hyprland.conf` import brings that setting
+  across). Set the amount on the settings page, beside the scratchpad
+  margin; it is off by default. The HyprKwin animations effect does the
+  darkening, so this needs it, at this release's version. Suggested by
+  335015939hi.
+
 ### Fixed
 
 - **Panels set to let windows go below them are drawn over borders**, as

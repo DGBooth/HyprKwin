@@ -642,6 +642,11 @@ Item {
         spinSpeed: root.style.borderGradientSpin || 0
         thickness: root.style.borderSize || 2
     }
+    DimMarker {
+        id: dimMarker
+        overlaysHidden: root.effectActive || root.shuttingDown
+    }
+
     KeysGuide {
         id: keysGuide
         overlaysHidden: root.effectActive || root.shuttingDown
@@ -872,6 +877,7 @@ Item {
                 setGroupBars: (list, cfg) => root.syncGroupBars(list, cfg),
                 setIconTiles: (list) => root.syncIconTiles(list),
                 setStagePreviews: (list) => root.syncStagePreviews(list),
+                setDim: (dim) => dimMarker.set(dim),
                 playStageTransition: (t) => root.playStageTransition(t),
                 showOsd: (text, area, duration) => root.showOsd(text, area, duration),
                 hideOsd: () => osd.hide(),
@@ -903,6 +909,7 @@ Item {
     function hideOverlays() {
         osd.hide();
         keysGuide.hide();
+        dimMarker.hideAll();
         for (const key in borderObjects) borderObjects[key].hideAll();
         for (const key in groupBarObjects) groupBarObjects[key].hide();
         for (const key in iconTileObjects) iconTileObjects[key].hide();

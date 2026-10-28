@@ -45,6 +45,10 @@ function sameRect(a, b) {
     return near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
 }
 
+function srgbToLinear(v) {
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+
 // Exactly, as Plasma's Maximize effect compares them.
 function sameSize(a, b) {
     return a.width === b.width && a.height === b.height;
@@ -96,6 +100,19 @@ class HyprKwinAnimations {
             if (window.caption === OVERLAY_TITLE) effect.grab(window, Effect.WindowClosedGrabRole, true);
         });
         effects.windowAdded.connect(this.manage.bind(this));
+        // Dimming behind the scratchpad (see dimFrom).
+        this.dim = null;
+        this.dimMarker = null;
+        effects.windowAdded.connect((window) => {
+            if (this.isDimMarker(window)) this.watchDim(window);
+            else if (this.dim) this.dimWindow(window);
+        });
+        effects.windowClosed.connect((window) => {
+            if (window === this.dimMarker) {
+                this.dimMarker = null;
+                this.setDim(null);
+            }
+        });
         // Plasma 6.8 can load its own open/close effect after this one at
         // login, and nothing says when: check again as each window opens,
         // ahead of that effect seeing it.
@@ -104,6 +121,87 @@ class HyprKwinAnimations {
             this.manage(window);
         }
         this.loadConfig();
+        for (const window of effects.stackingOrder) {
+            if (this.isDimMarker(window)) this.watchDim(window);
+        }
+    }
+
+    // HyprKwin cannot put anything between the scratchpad and the windows
+    // behind it, so it asks for them to be dimmed: while the scratchpad is
+    // open it shows an invisible overlay whose hyprkwinDim property says
+    // how much, on which monitor, and where the scratchpad's own windows
+    // are ({amount, output, exempt: [rects]}, as JSON).
+    isDimMarker(window) {
+        return window.caption === OVERLAY_TITLE && !!window.internalWindow &&
+            typeof window.internalWindow.hyprkwinDim === "string";
+    }
+
+    watchDim(window) {
+        this.dimMarker = window;
+        const marker = window.internalWindow;
+        marker.hyprkwinDimChanged.connect(() => {
+            if (this.dimMarker === window) this.dimFrom(marker.hyprkwinDim);
+        });
+        this.dimFrom(marker.hyprkwinDim);
+    }
+
+    dimFrom(json) {
+        let dim = null;
+        try {
+            dim = json ? JSON.parse(json) : null;
+        } catch (e) {
+            dim = null;
+        }
+        this.setDim(dim && dim.amount > 0 ? dim : null);
+    }
+
+    setDim(dim) {
+        this.dim = dim;
+        for (const window of effects.stackingOrder) {
+            if (this.shouldDim(window)) this.dimWindow(window);
+            else this.undimWindow(window);
+        }
+    }
+
+    // The windows and the wallpaper on the scratchpad's monitor; never the
+    // scratchpad's own windows, panels, menus or notifications.
+    shouldDim(window) {
+        const dim = this.dim;
+        if (!dim || window.deleted || window.caption === OVERLAY_TITLE) return false;
+        if (!(window.normalWindow || window.dialog || window.utility || window.desktopWindow)) return false;
+        if (!window.screen || window.screen.name !== dim.output) return false;
+        return !(dim.exempt || []).some((r) => sameRect(window.geometry, r));
+    }
+
+    dimWindow(window) {
+        if (!this.shouldDim(window)) {
+            this.undimWindow(window);
+            return;
+        }
+        // KWin scales brightness in linear light, where half looks like
+        // three quarters: the amount is how dark it looks, as Hyprland's is.
+        const to = srgbToLinear(1 - Math.min(1, this.dim.amount));
+        if (window.hkDim && near(window.hkDimTo * 100, to * 100)) return;
+        const from = window.hkDim ? window.hkDimTo : 1;
+        if (window.hkDim) cancel(window.hkDim);
+        window.hkDimTo = to;
+        window.hkDim = set({
+            window: window,
+            duration: this.duration,
+            animations: [{ type: Effect.Brightness, from: from, to: to }],
+        });
+    }
+
+    undimWindow(window) {
+        if (!window.hkDim) return;
+        cancel(window.hkDim);
+        window.hkDim = null;
+        if (window.deleted) return;
+        animate({
+            window: window,
+            duration: this.duration,
+            animations: [{ type: Effect.Brightness, from: window.hkDimTo, to: 1 }],
+        });
     }
 
     loadConfig() {

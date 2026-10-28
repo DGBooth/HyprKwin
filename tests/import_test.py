@@ -39,6 +39,7 @@ general {
 decoration {
     rounding = 10
     active_opacity = 0.95
+    dim_special = 0.3
     blur {
         enabled = true
     }
@@ -53,7 +54,7 @@ master {
             "GapsIn": "4", "GapsOut": "8",
             "GapsOutLeft": "-1", "GapsOutTop": "-1", "GapsOutRight": "-1", "GapsOutBottom": "-1",
             "BorderSize": "3", "DefaultLayout": "1",
-            "BorderRadius": "10", "ActiveOpacity": "0.95",
+            "BorderRadius": "10", "ActiveOpacity": "0.95", "SpecialDim": "30",
             "MasterFactor": "0.6", "MasterOrientation": "4", "MasterNewIsMaster": "true",
         })
 

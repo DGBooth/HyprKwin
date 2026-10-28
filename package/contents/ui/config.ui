@@ -465,31 +465,43 @@
          <property name="maximum"><number>500</number></property>
         </widget>
        </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="specialDimLabel"><property name="text"><string>Dim behind the scratchpad:</string></property></widget>
+       </item>
        <item row="6" column="1">
+        <widget class="QSpinBox" name="kcfg_SpecialDim">
+         <property name="suffix"><string> %</string></property>
+         <property name="specialValueText"><string>Off</string></property>
+         <property name="maximum"><number>90</number></property>
+         <property name="singleStep"><number>5</number></property>
+         <property name="toolTip"><string>While a scratchpad is open, the windows behind it on its monitor are darkened by this much, so you can tell it is open even when it is empty (Hyprland's dim_special). Needs the HyprKwin animations effect, in System Settings &gt; Desktop Effects.</string></property>
+        </widget>
+       </item>
+       <item row="7" column="1">
         <widget class="QCheckBox" name="kcfg_PerOutputWorkspaces">
          <property name="text"><string>Give every monitor its own workspaces</string></property>
          <property name="toolTip"><string>Switching workspace then only changes the monitor you are on, and the others keep what they are showing. Off: a workspace spans every monitor, the way Plasma's virtual desktops normally work.</string></property>
         </widget>
        </item>
-       <item row="7" column="1">
+       <item row="8" column="1">
         <widget class="QCheckBox" name="kcfg_FocusOnActivate">
          <property name="text"><string>Go to a window that asks to be activated</string></property>
          <property name="toolTip"><string>Launching an app that is already open on another workspace switches to it. Chat apps ask for attention the same way when a message arrives; add a rule such as "focusonactivate off, class:^(discord)$" to stop one pulling you over.</string></property>
         </widget>
        </item>
-       <item row="8" column="1">
+       <item row="9" column="1">
         <widget class="QCheckBox" name="kcfg_FocusNeighbourOnClose">
          <property name="text"><string>Closing a window focuses the neighbour that takes its place</string></property>
          <property name="toolTip"><string>The focus goes to the window that grows into the gap — the other side of the split, or the next tab in a group. Off: Plasma decides, which means the window you used longest ago, wherever it happens to be.</string></property>
         </widget>
        </item>
-       <item row="9" column="1">
+       <item row="10" column="1">
         <widget class="QCheckBox" name="kcfg_PointerFollowsFocus">
          <property name="text"><string>Move the pointer to a window focused from the keyboard</string></property>
          <property name="toolTip"><string>After Meta+arrow, a monitor switch or sending a window to another monitor, the pointer jumps to the focused window. It stays put if it is already over it.</string></property>
         </widget>
        </item>
-       <item row="10" column="1">
+       <item row="11" column="1">
         <layout class="QVBoxLayout" name="noticesLayout">
          <item>
           <widget class="QCheckBox" name="kcfg_WarnKeyConflicts">
@@ -505,7 +517,7 @@
          </item>
         </layout>
        </item>
-       <item row="11" column="1">
+       <item row="12" column="1">
         <widget class="QLabel" name="keysHelp">
          <property name="wordWrap"><bool>true</bool></property>
          <property name="textFormat"><enum>Qt::RichText</enum></property>
@@ -515,17 +527,17 @@
 &lt;p&gt;&lt;tt&gt;check&lt;/tt&gt; instead of &lt;tt&gt;apply&lt;/tt&gt; lists what clashes without changing anything; &lt;tt&gt;restore&lt;/tt&gt; gives the keys back.&lt;/p&gt;</string></property>
         </widget>
        </item>
-       <item row="12" column="0">
+       <item row="13" column="0">
         <widget class="QLabel" name="scratchpadNamesLabel"><property name="text"><string>Extra scratchpads:</string></property></widget>
        </item>
-       <item row="12" column="1">
+       <item row="13" column="1">
         <widget class="KEditListWidget" name="kcfg_ScratchpadNames">
          <property name="kcfg_property" stdset="0"><string>items</string></property>
          <property name="kcfg_propertyNotify" stdset="0"><string>2changed()</string></property>
          <property name="toolTip"><string>A scratchpad is a workspace of its own that slides over whichever one you are on, for a terminal or music player you call up and dismiss. The first name here is scratchpad 1, the second scratchpad 2, and so on; give them keys in System Settings &gt; Keyboard &gt; Shortcuts &gt; KWin (HyprKwin: Toggle scratchpad 1...). A window goes into one with the matching "Move window to/from scratchpad" key, or a rule such as "workspace special:music, class:^(spotify)$". Only one scratchpad is on screen at a time.</string></property>
         </widget>
        </item>
-       <item row="13" column="1">
+       <item row="14" column="1">
         <widget class="QCheckBox" name="kcfg_Debug">
          <property name="text"><string>Debug logging (journalctl --user -f)</string></property>
         </widget>
