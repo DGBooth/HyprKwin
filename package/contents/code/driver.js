@@ -1705,7 +1705,9 @@ function createDriver(env) {
     // Panels stacked above `w` that reach over its border. Overlays are drawn
     // above panels, and KWin gives scripts no way to put them lower, so the
     // border is cut away where a panel set to let windows go below it covers
-    // it, as if the panel were drawn on top.
+    // it, as if the panel were drawn on top. A panel that keeps windows clear
+    // of it, reserving its space, never covers them: it is passed over, as a
+    // floating one's window runs on past what it draws, into the border.
     function panelsAbove(w, outer) {
         var order = ws.stackingOrder || [];
         var i = 0;
@@ -1715,9 +1717,18 @@ function createDriver(env) {
             var o = order[j];
             if (!o || !o.dock || o.deleted || o.minimized || o.hidden) continue;
             var r = copyRect(o.frameGeometry);
-            if (usableRect(r) && overlaps(r, outer)) out.push(r);
+            if (!usableRect(r) || !overlaps(r, outer) || reservesSpace(o, r)) continue;
+            out.push(r);
         }
         return out;
+    }
+
+    // Whether a panel keeps windows out of its space: it lies partly outside
+    // the work area of its monitor.
+    function reservesSpace(panel, r) {
+        if (!panel.output) return false;
+        var a = workArea(panel.output, desktopFor(panel.output));
+        return r.x < a.x || r.y < a.y || r.x + r.width > a.x + a.width || r.y + r.height > a.y + a.height;
     }
 
     // A rect KWin can actually render an overlay for.

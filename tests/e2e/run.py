@@ -3501,6 +3501,15 @@ def panels_are_drawn_over_borders(sb):
     sb.settle(1.0)
     x, y, w, h = sb.geometry("B")
     eq(len(overlays_at(sb, x + w // 2, y + h + 2)), 1, "the bottom edge back")
+    # Floating, the panel's window runs on past what it draws, into the gap
+    # beside the windows; that margin does not cut their borders.
+    height.shell("panels()[0].floating = true")
+    sb.wait_for(lambda s: panel_rect(sb)[3] > ph, "the floating panel's window grown")
+    sb.settle(1.0)
+    x, y, w, h = sb.geometry("B")
+    py = panel_rect(sb)[1]
+    assert py < y + h + 2, "the panel's window reaching into the gap"
+    eq(len(overlays_at(sb, x + w // 2, y + h + 2)), 1, "the bottom edge whole beside a floating panel")
 
 
 def y_range(sb, path, rgb, tol=40):
