@@ -1697,6 +1697,24 @@ function createDriver(env) {
         return false;
     }
 
+    // Panels stacked above `w` that reach over its border. Overlays are drawn
+    // above panels, and KWin gives scripts no way to put them lower, so the
+    // border is cut away where a panel set to let windows go below it covers
+    // it, as if the panel were drawn on top.
+    function panelsAbove(w, outer) {
+        var order = ws.stackingOrder || [];
+        var i = 0;
+        while (i < order.length && order[i] !== w) i++;
+        var out = [];
+        for (var j = i + 1; j < order.length; j++) {
+            var o = order[j];
+            if (!o || !o.dock || o.deleted || o.minimized || o.hidden) continue;
+            var r = copyRect(o.frameGeometry);
+            if (usableRect(r) && overlaps(r, outer)) out.push(r);
+        }
+        return out;
+    }
+
     // A rect KWin can actually render an overlay for.
     function usableRect(r) {
         return !!r && isFinite(r.x) && isFinite(r.y) && isFinite(r.width) && isFinite(r.height) &&
@@ -1771,6 +1789,7 @@ function createDriver(env) {
                     log("border hidden behind a window above", w.caption);
                     return;
                 }
+                outer.cuts = panelsAbove(w, outer);
                 borders.push(outer);
             });
         }
@@ -2169,6 +2188,7 @@ function createDriver(env) {
 
     function panelChanged() {
         if (env.areaSoon) env.areaSoon();
+        scheduleDecorations();      // a border it covers is cut to it
     }
 
     function checkAreas() {

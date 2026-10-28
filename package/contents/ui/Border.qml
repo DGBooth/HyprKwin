@@ -36,6 +36,27 @@ Item {
     // Corners can never take more than half the window.
     readonly property int r: Math.max(0, Math.min(radius, Math.floor(Math.min(outer.width, outer.height) / 2)))
 
+    // Panels drawn over this border (see panelsAbove in the driver): each
+    // piece keeps only its largest part outside them. A piece draws its slice
+    // of the whole ring, so a smaller piece is simply clipped.
+    readonly property var cuts: frame && frame.cuts ? frame.cuts : []
+    function cut(x, y, w, h) {
+        for (const c of cuts) {
+            const cx2 = c.x + c.width, cy2 = c.y + c.height;
+            if (x >= cx2 || y >= cy2 || c.x >= x + w || c.y >= y + h) continue;
+            const parts = [
+                [x, y, w, c.y - y],                       // above it
+                [x, cy2, w, y + h - cy2],                 // below it
+                [x, y, c.x - x, h],                       // left of it
+                [cx2, y, x + w - cx2, h],                 // right of it
+            ].filter(p => p[2] > 0 && p[3] > 0);
+            if (!parts.length) return Qt.rect(x, y, 0, 0);
+            parts.sort((a, b) => b[2] * b[3] - a[2] * a[3]);
+            [x, y, w, h] = parts[0];
+        }
+        return Qt.rect(x, y, w, h);
+    }
+
     readonly property bool spinning: shown && active && activeGradient && spinSpeed > 0
 
     NumberAnimation on spin {
@@ -69,7 +90,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x + border.r, border.outer.y, border.outer.width - 2 * border.r, border.b)
+        area: border.cut(border.outer.x + border.r, border.outer.y, border.outer.width - 2 * border.r, border.b)
     }
     BorderStrip {
         id: bottom
@@ -83,7 +104,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x + border.r, border.outer.y + border.outer.height - border.b, border.outer.width - 2 * border.r, border.b)
+        area: border.cut(border.outer.x + border.r, border.outer.y + border.outer.height - border.b, border.outer.width - 2 * border.r, border.b)
     }
     BorderStrip {
         id: left
@@ -97,7 +118,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
+        area: border.cut(border.outer.x, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
     }
     BorderStrip {
         id: right
@@ -111,7 +132,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x + border.outer.width - border.b, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
+        area: border.cut(border.outer.x + border.outer.width - border.b, border.outer.y + Math.max(border.b, border.r), border.b, border.outer.height - 2 * Math.max(border.b, border.r))
     }
 
     // One window per corner, for the rounded part of the ring.
@@ -127,7 +148,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x, border.outer.y, border.r, border.r)
+        area: border.cut(border.outer.x, border.outer.y, border.r, border.r)
     }
     BorderStrip {
         id: topRight
@@ -141,7 +162,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x + border.outer.width - border.r, border.outer.y, border.r, border.r)
+        area: border.cut(border.outer.x + border.outer.width - border.r, border.outer.y, border.r, border.r)
     }
     BorderStrip {
         id: bottomLeft
@@ -155,7 +176,7 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x, border.outer.y + border.outer.height - border.r, border.r, border.r)
+        area: border.cut(border.outer.x, border.outer.y + border.outer.height - border.r, border.r, border.r)
     }
     BorderStrip {
         id: bottomRight
@@ -169,6 +190,6 @@ Item {
         offset: Qt.point(area.x - border.outer.x, area.y - border.outer.y)
         radius: border.r
         thickness: border.b
-        area: Qt.rect(border.outer.x + border.outer.width - border.r, border.outer.y + border.outer.height - border.r, border.r, border.r)
+        area: border.cut(border.outer.x + border.outer.width - border.r, border.outer.y + border.outer.height - border.r, border.r, border.r)
     }
 }

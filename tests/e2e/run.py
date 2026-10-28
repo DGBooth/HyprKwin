@@ -3375,26 +3375,100 @@ def with_panel(sb):
         return None
     sb.activity_manager()
     env = shell_env(sb)
-    sb.clients.append(subprocess.Popen(["plasmashell", "--no-respawn"], env=env,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+    running = []
 
     def shell(js):
         return subprocess.run(["qdbus6", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", js],
                               env=env, capture_output=True, text=True).stdout.strip()
-    # Until its panel is up: a script sent before then changes nothing.
-    for _ in range(60):
-        if shell("print(panels().length)") == "1":
-            break
-        time.sleep(0.5)
-    else:
-        raise AssertionError("plasmashell's panel never came up")
-    time.sleep(2)
+
+    def start():
+        p = subprocess.Popen(["plasmashell", "--no-respawn"], env=env,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        sb.clients.append(p)
+        running.append(p)
+        # Until its panel is up: a script sent before then changes nothing.
+        for _ in range(60):
+            if shell("print(panels().length)") == "1":
+                break
+            time.sleep(0.5)
+        else:
+            raise AssertionError("plasmashell's panel never came up")
+        time.sleep(2)
+
+    def restart(settings):
+        """plasmashell again, with these plasmashellrc settings
+        ({group: {key: value}}), for what its scripting cannot set."""
+        import configparser
+        shell("")                                    # its config written out
+        p = running.pop()
+        p.terminate()
+        p.wait(10)
+        path = sb.base / "config" / "plasmashellrc"
+        cfg = configparser.RawConfigParser(strict=False, interpolation=None)
+        cfg.optionxform = str
+        if path.exists():
+            cfg.read(path)
+        for group, keys in settings.items():
+            if not cfg.has_section(group):
+                cfg.add_section(group)
+            for k, v in keys.items():
+                cfg.set(group, k, v)
+        with open(path, "w") as f:
+            cfg.write(f, space_around_delimiters=False)
+        start()
+
+    start()
 
     def height(px):
         shell("panels().forEach(p => p.height = %d)" % px)
         if shell("print(panels()[0].height)") != str(px):
             raise AssertionError("the panel did not take %dpx" % px)
+    height.shell = shell
+    height.restart = restart
     return height
+
+
+def panel_rect(sb):
+    """Where the panel is, as KWin has it."""
+    got = sb.kwin_js("JSON.stringify(Workspace.stackingOrder.filter(w => w.dock)"
+                     ".map(w => [w.frameGeometry.x, w.frameGeometry.y, w.frameGeometry.width, w.frameGeometry.height]))")
+    rects = json.loads(got)
+    if not rects:
+        raise AssertionError("no panel window")
+    return tuple(rects[0])
+
+
+@test(config={"FocusIndicator": 1, "BorderSize": 4})
+def panels_are_drawn_over_borders(sb):
+    """A panel that lets windows go below it covers their border, as it does
+    the windows: the border stops where the panel starts. Set back to an
+    ordinary panel, the windows tile above it with their borders whole."""
+    height = with_panel(sb)
+    if not height:
+        raise Skip("needs plasmashell")
+    # Plasma's scripting cannot set this mode; its config can, read at start.
+    pid = height.shell("print(panels()[0].id)")
+    height.shell("panels()[0].floating = false")
+    height.restart({"PlasmaViews][Panel %s" % pid: {"panelVisibility": "3"}})
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.wait_for(lambda s: sb.geometry("B", s)[1] + sb.geometry("B", s)[3] > panel_rect(sb)[1],
+                "B reaching under the panel")
+    sb.settle(1.0)
+    px, py, pw, ph = panel_rect(sb)
+    x, y, w, h = sb.geometry("B")
+    left = x - 2                                     # in B's border, beside it
+    eq(overlays_at(sb, left, py + ph // 2), [], "no border over the panel")
+    above = overlays_at(sb, left, py - 20)
+    eq(len(above), 1, "the border is there above the panel: %r" % (above,))
+    eq(above[0][1] + above[0][3], py, "and stops where the panel starts")
+    eq(overlays_at(sb, x + w // 2, y + h + 2), [], "no bottom edge over the panel")
+    # An ordinary panel again: the windows above it, their borders whole.
+    height.restart({"PlasmaViews][Panel %s" % pid: {"panelVisibility": "0"}})
+    sb.wait_for(lambda s: sb.geometry("B", s)[1] + sb.geometry("B", s)[3] <= py, "B above the panel")
+    sb.settle(1.0)
+    x, y, w, h = sb.geometry("B")
+    eq(len(overlays_at(sb, x + w // 2, y + h + 2)), 1, "the bottom edge back")
 
 
 def y_range(sb, path, rgb, tol=40):

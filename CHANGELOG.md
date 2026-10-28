@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Panels set to let windows go below them are drawn over borders**, as
+  they are over the windows: the border stops where the panel starts,
+  rather than being painted across it. Reported by 335015939hi.
+
 ## 1.1.0
 
 *HyprKwin animations 1.1.0 (changed in this release).*
