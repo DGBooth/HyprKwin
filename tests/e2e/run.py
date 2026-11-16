@@ -621,6 +621,23 @@ def a_rule_can_name_a_scratchpad(sb):
     eq((s["scratchpad"], sb.window("B", s)["minimized"]), ("music", False), "the key for slot 1 opens it")
 
 
+@test(config={"Debug": "true"})
+def plasma_can_take_a_window_out_of_the_scratchpad(sb):
+    """Taking a scratchpad window off all desktops from Plasma's window menu
+    takes it out of the scratchpad, onto the current workspace, and the debug
+    log says so (issue #10 needs to see when that happens)."""
+    three(sb)
+    sb.invoke("moveToSpecial")              # C, hidden
+    sb.kwin_js("Workspace.stackingOrder.filter(w => w.caption === 'C')[0].onAllDesktops = false")
+    sb.settle()
+    s = sb.state()
+    c = sb.window("C", s)
+    eq((c["special"], c["onAllDesktops"], c["minimized"]), (False, False, False), "C out of the scratchpad")
+    eq(c["desktops"], [s["currentDesktop"]], "on the current workspace")
+    log = sb.log_path.read_text(errors="replace")
+    eq("HyprKwin: scratchpad special lost C - Plasma put it on" in log, True, "logged")
+
+
 @test(config={"BorderSize": 4})
 def scratchpad_hides_what_is_underneath(sb):
     """Overlays are drawn above ordinary windows, so the tiles below must not

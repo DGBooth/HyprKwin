@@ -1161,7 +1161,14 @@ function createDriver(env) {
         if (syncing) return;
         var w = st.w;
         if (st.special) {
-            if (!w.onAllDesktops) leaveSpecial(st, false);
+            // Plasma took it off all desktops (its window menu, or something
+            // else entirely: see issue #10), so it leaves the scratchpad.
+            if (!w.onAllDesktops) {
+                log("scratchpad", st.special, "lost", w.caption, "- Plasma put it on",
+                    w.desktops.map(function (d) { return d.name; }).join(", ") || "no desktop",
+                    w.minimized ? "(minimized)" : "(not minimized)");
+                leaveSpecial(st, false);
+            }
             schedule();
             return;
         }
@@ -1253,6 +1260,7 @@ function createDriver(env) {
     function onMinimizedChanged(st) {
         if (syncing) return;
         if (st.special && !st.w.minimized && st.special !== special.name) {
+            log("scratchpad", st.special, "opened: Plasma restored", st.w.caption);
             toggleSpecial(st.special);
             return;
         }
