@@ -153,8 +153,17 @@ function createDriver(env) {
     function screens() {
         var list = ws.screenOrder && ws.screenOrder.length ? ws.screenOrder : ws.screens;
         var out = [];
-        for (var i = 0; i < list.length; i++) out.push(list[i]);
+        for (var i = 0; i < list.length; i++) if (!isPlaceholder(list[i])) out.push(list[i]);
         return out;
+    }
+
+    // With no monitor at all (the only one switched off, or asleep and
+    // disconnected behind the lock screen), KWin puts every window on a
+    // stand-in output until one comes back. It is not a monitor: it gets no
+    // workspace and windows keep their places in the layout of the monitor
+    // they came from, ready for its return.
+    function isPlaceholder(output) {
+        return !!output && /^Placeholder-\d+$/.test(String(output.name));
     }
 
     // Hyprland gives every monitor its own workspaces. KWin's virtual desktops
@@ -213,9 +222,10 @@ function createDriver(env) {
             var space = engine.spaceOf(act.id);
             var p = (space && !isSpecialSpace(space)) ? parseSpace(space) : null;
             if (p && p.screen) return p.screen;
-            if (act.w.output) return act.w.output;
+            if (act.w.output && !isPlaceholder(act.w.output)) return act.w.output;
         }
-        return ws.activeScreen || screens()[0] || null;
+        if (ws.activeScreen && !isPlaceholder(ws.activeScreen)) return ws.activeScreen;
+        return screens()[0] || null;
     }
 
     // ---- workspace rules ---------------------------------------------------
@@ -321,6 +331,7 @@ function createDriver(env) {
             if (s === focused || !cfg.perOutputWorkspaces || ss.length < 2) d = used[cur.id] ? null : cur;
             if (!d) d = defaultDesktopFor(s, used);
             if (!d) d = freeDesktop(used, s) || cur;
+            log("monitor", s.name, "shows workspace", d.name || d.id);
             shown[s.name] = d.id;
             used[d.id] = true;
         });
@@ -833,7 +844,7 @@ function createDriver(env) {
     function spaceOfWindow(st) {
         if (st.special) return specialSpace(st.special);
         var w = st.w;
-        if (!w.output) return null;
+        if (!w.output || isPlaceholder(w.output)) return null;
         if (perOutput() && !st.pinned) {
             var d = desktopById(st.desktop);
             return d ? spaceFor(d, w.output) : null;
@@ -948,7 +959,9 @@ function createDriver(env) {
             guarded(function () { w.onAllDesktops = true; if (st.special !== special.name) w.minimized = true; });
         }
         if (rule.pin) pin(st, true);
-        if (shouldTile(st)) tile(st, initial ? { target: null } : {});
+        if (shouldTile(st) && !tile(st, initial ? { target: null } : {}) && isPlaceholder(w.output)) {
+            st.tileOnReturn = true;     // opened with no monitor: tiled once one is back
+        }
         if (rule.pseudo) engine.setPseudo(id, st.natural);
         if (rule.group) {
             var act = stOf(ws.activeWindow);
@@ -1173,6 +1186,7 @@ function createDriver(env) {
         }
         if (st.pinned && !w.onAllDesktops) st.pinned = false;
         if (!w.onAllDesktops && w.desktops.length === 1) st.desktop = w.desktops[0].id;
+        if (isPlaceholder(w.output)) { schedule(); return; }   // keeps its place for now
         var space = spaceOfWindow(st);
         if (isTiled(st)) {
             if (!space) untile(st);
@@ -1185,7 +1199,19 @@ function createDriver(env) {
 
     function onOutputChanged(st) {
         var w = st.w;
+        log("output changed", w.caption, st.output, "->", w.output ? w.output.name : null, syncing ? "(syncing)" : "");
         if (syncing || w.move || w.resize || st.special) return;
+        // Parked with no monitor: it stays in its layout, and st.output
+        // still names the monitor it is waiting for.
+        if (isPlaceholder(w.output)) return;
+        if (st.tileOnReturn) {
+            st.tileOnReturn = false;
+            st.output = w.output ? w.output.name : null;
+            st.desktop = desktopIdFor(w);
+            if (!isTiled(st) && shouldTile(st)) tile(st);
+            schedule();
+            return;
+        }
         // A window dragged (or sent) to another monitor joins that monitor's
         // workspace — but one whose monitor was unplugged keeps its own, so
         // plugging the monitor back in puts everything where it was.
@@ -3640,7 +3666,17 @@ function createDriver(env) {
         });
         listen(ws.desktopsChanged, schedule);
         if (ws.stackingOrderChanged) listen(ws.stackingOrderChanged, scheduleDecorations);
-        listen(ws.screensChanged, schedule);
+        listen(ws.screensChanged, function () {
+            log("monitors now", screens().map(function (s) {
+                var g = s.geometry;
+                return s.name + " " + g.width + "x" + g.height + "+" + g.x + "+" + g.y;
+            }).join(", ") || "none");
+            // KWin resizes windows itself when monitors come and go (onto
+            // its stand-in output and back, say), and a tile we already gave
+            // a window is otherwise never sent again: send every one afresh.
+            for (var id in tracked) tracked[id].placed = null;
+            schedule();
+        });
         listen(ws.currentActivityChanged, function () {
             activityChanged();
             focusAfterActivity();

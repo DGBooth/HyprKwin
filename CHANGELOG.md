@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- **Windows keep their tiles when the only monitor goes away**, as when it
+  sleeps and disconnects behind the lock screen. KWin then moves every
+  window to a stand-in screen until the monitor is back; HyprKwin took it
+  for a monitor, so some windows came back out of the layout, or the size
+  KWin had squeezed them to.
 - **Floating windows stay in front of tiled ones** in every layout, as in
   Hyprland, not only in the stage layout: a small floating dialog no longer
   sinks behind a tiled window when that takes the focus. The focus stays

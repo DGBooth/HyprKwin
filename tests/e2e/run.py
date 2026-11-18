@@ -3280,6 +3280,31 @@ def a_monitor_can_come_and_go(sb):
     eq(sb.window("B", s)["workspace"], s["desktops"][0], "B still belongs to workspace 1")
 
 
+@test(outputs=2)
+def a_monitor_that_comes_back_gets_its_layout_back(sb):
+    """A monitor that goes away comes back with its windows where they
+    were, not re-tiled in whatever order they return."""
+    if not shutil.which("kscreen-doctor"):
+        raise Skip("needs kscreen-doctor")
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("C")                          # A | B over C
+    sb.invoke("resizeRight")               # an uneven split
+    sb.invoke("swapLeft")                  # and C where a new window never goes
+    sb.settle(0.5)
+    s = sb.state()
+    home = sb.window("A", s)["output"]
+    before = {t: sb.geometry(t, s) for t in "ABC"}
+    sb.output(home, "disable")
+    sb.wait_for(lambda s: all(sb.window(t, s)["output"] != home for t in "ABC"), "windows moved off")
+    sb.settle(1.0)
+    sb.output(home, "enable")
+    sb.wait_for(lambda s: all(sb.window(t, s)["output"] == home for t in "ABC"), "windows back home")
+    sb.settle(1.5)
+    s = sb.state()
+    eq({t: sb.geometry(t, s) for t in "ABC"}, before, "same layout as before")
+
+
 @test(outputs=2, config={"PerOutputWorkspaces": False})
 def workspaces_can_span_both_monitors(sb):
     """Turned off, a workspace covers every monitor as Plasma's own do."""
