@@ -57,7 +57,6 @@ function createDriver(env) {
     var slideGrowers = null;
     var lastIconTiles = [];         // ids of the windows drawn as icon tiles
     var stageStrips = {};           // space -> {area, ids} of a stage layout on screen
-    var stageSpaces = {};           // spaces on screen in the stage layout, strip or not
     var lastDim = null;             // what the scratchpad has dimmed (see scratchpadDim)
     var stageScroll = {};           // space -> the first set its strip shows, when not all fit
     var stageWheel = {};            // space -> wheel turned over its strip, short of a notch
@@ -1503,11 +1502,9 @@ function createDriver(env) {
         engine.setVisibility(visible);
         var bars = [];
         stageStrips = {};
-        stageSpaces = {};
         layoutSpaces().forEach(function (vs) {
             applyWorkspaceRule(vs);
             var L = engine.layout(vs.space, vs.area);
-            if (vs.visible && engine.layoutOf(vs.space) === "stage") stageSpaces[vs.space] = true;
             if (vs.visible && L.stripArea && L.strip.length) {
                 // The windows on the stage, each one's tile, and the box the
                 // stage takes (a window waiting alone has its shape).
@@ -1694,20 +1691,22 @@ function createDriver(env) {
         return !insideInner;
     }
 
-    // Whether a window stacked above `w` crosses the ring its border occupies.
-    function coveredAbove(w, outer, thickness) {
+    // The windows stacked above `w` that cross the ring its border occupies.
+    function windowsAbove(w, outer, thickness) {
         var order = ws.stackingOrder || [];
         var i = 0;
         while (i < order.length && order[i] !== w) i++;
+        var out = [];
         for (var j = i + 1; j < order.length; j++) {
             var o = order[j];
             if (!o || o.deleted || o.minimized || String(o.caption) === OVERLAY_TITLE) continue;
             if (o.desktopWindow || o.dock || o.popupWindow) continue;
             if (!(o.normalWindow || o.dialog || o.utility || o.notification || o.criticalNotification)) continue;
             if (!kwinVisible(o) || !onCurrentActivity(o)) continue;
-            if (crossesBand(copyRect(o.frameGeometry), outer, thickness)) return true;
+            var r = copyRect(o.frameGeometry);
+            if (crossesBand(r, outer, thickness)) out.push({ w: o, rect: r });
         }
-        return false;
+        return out;
     }
 
     // Panels stacked above `w` that reach over its border. Overlays are drawn
@@ -1750,7 +1749,7 @@ function createDriver(env) {
     function updateDecorationsNow() {
         if (stopped) return;
         if (slideGrowers) return;   // see slideGrowers
-        keepFloatingAboveStage();
+        keepFloatingInFront();
         var borders = [];
         var active = ws.activeWindow;
         var visible = visibleWindows();
@@ -1809,11 +1808,23 @@ function createDriver(env) {
                 }
                 // Overlays are drawn above everything, so a window stacked
                 // over this one must not have the border painted across it.
-                if (coveredAbove(w, outer, band)) {
+                // Floating windows are kept in front of tiled ones (see
+                // keepFloatingInFront): a tiled window's border stops where
+                // one covers it, as a panel's does, rather than vanishing
+                // whenever a dialog reaches its edge. Anything else above
+                // hides the border.
+                var above = windowsAbove(w, outer, band);
+                var cuts = panelsAbove(w, outer);
+                for (var a = 0; a < above.length; a++) {
+                    var ost = stOf(above[a].w);
+                    if (isTiled(st) && ost && !isTiled(ost) && !above[a].w.fullScreen) {
+                        cuts.push(above[a].rect);
+                        continue;
+                    }
                     log("border hidden behind a window above", w.caption);
                     return;
                 }
-                outer.cuts = panelsAbove(w, outer);
+                outer.cuts = cuts;
                 borders.push(outer);
             });
         }
@@ -2040,28 +2051,23 @@ function createDriver(env) {
         if (st && engine.leaveStage(st.id)) relayout();
     }
 
-    // In the stage layout a floating window would sink behind the stage
-    // window whenever that has the focus, with nothing on screen leading back
-    // to it, so floating windows on that monitor are kept in front of it (as
-    // tilers do everywhere). Raising does not move the focus. A full-screen
-    // stage window is left in front.
-    function keepFloatingAboveStage() {
+    // A floating window (a small dialog, say) would sink behind a tiled
+    // window whenever that has the focus, hidden with nothing on screen
+    // leading back to it, so floating windows are kept in front of the tiled
+    // ones on their monitor, as Hyprland does. Raising does not move the
+    // focus. A full-screen window is left in front.
+    function keepFloatingInFront() {
         var order = ws.stackingOrder || [];
-        for (var space in stageSpaces) {
-            var stageId = engine.lastFocused(space, true);
-            var stage = stageId && tracked[stageId] ? tracked[stageId].w : null;
-            if (!stage || stage.fullScreen) continue;
-            var at = order.indexOf(stage);
-            var below = [];
-            for (var i = 0; i < at; i++) {
-                var st = stOf(order[i]);
-                if (!st || isTiled(st) || st.special || st.pinned) continue;
-                var w = st.w;
-                if (w.minimized || w.output !== stage.output || !onCurrentActivity(w) || !onVisibleDesktop(w)) continue;
-                below.push(w);
-            }
-            below.forEach(function (w) { ws.raiseWindow(w); });   // keeping their order
+        var tiledAbove = {}, fullScreenAbove = {}, below = [];
+        for (var i = order.length - 1; i >= 0; i--) {     // from the top down
+            var w = order[i], st = stOf(w);
+            if (!st || w.minimized || !onCurrentActivity(w) || !onVisibleDesktop(w)) continue;
+            var out = w.output ? w.output.name : "";
+            if (w.fullScreen) fullScreenAbove[out] = true;
+            else if (isTiled(st)) tiledAbove[out] = true;
+            else if (!st.special && !st.pinned && tiledAbove[out] && !fullScreenAbove[out]) below.push(w);
         }
+        for (var j = below.length - 1; j >= 0; j--) ws.raiseWindow(below[j]);   // keeping their order
     }
 
     // The stage layout's strip: a live preview of each window waiting off
