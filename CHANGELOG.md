@@ -9,6 +9,13 @@
   window to a stand-in screen until the monitor is back; HyprKwin took it
   for a monitor, so some windows came back out of the layout, or the size
   KWin had squeezed them to.
+- **Floating windows stay in front of tiled ones** in every layout, as in
+  Hyprland, not only in the stage layout: a small floating dialog no longer
+  sinks behind a tiled window when that takes the focus. The focus stays
+  where it is, and a full-screen window is still left in front.
+- **A tiled window's border stops where a floating window covers it**, as it
+  does for a panel, instead of disappearing whenever a floating window
+  reaches its edge.
 
 ## 1.2.0
 

@@ -2949,17 +2949,23 @@ def launchers_do_not_get_a_border(sb):
 
 @test(config={"BorderSize": 4, "WindowRules": "float, title:^F$\nmove 900 300, title:^F$\nsize 200 200, title:^F$"})
 def the_border_hides_under_a_window_above(sb):
-    """A window kept above a tile's edge must not get the tile's border
-    painted across it."""
+    """A floating window, kept in front of the tiles, must not get a tile's
+    border painted across it: the border stops where the window starts."""
     sb.spawn("A")
     sb.spawn("B")
     sb.spawn("F")                            # floats over B's left edge
-    sb.invoke("Window Above Other Windows")  # and stays above
     sb.input().click(1500, 600)              # focus B
     sb.settle(0.6)
     s = sb.state()
     eq(s["active"], sb.window("B", s)["id"], "B focused")
-    eq(sb.overlays(), [], "B's border would cross F: hidden")
+    overlays = sb.overlays()
+    eq(len(overlays), 4, "B's border is drawn: %r" % (overlays,))
+    for geom in overlays:
+        pos, size = geom.split(" ")
+        x, y = (int(v) for v in pos.split(","))
+        w, h = (int(v) for v in size.split("x"))
+        crosses = x < 1100 and x + w > 900 and y < 500 and y + h > 300
+        eq(crosses, False, "no strip crosses F: %s in %r" % (geom, overlays))
     sb.clients[-1].kill()
     sb.wait_for(lambda s: all(w["caption"] != "F" for w in s["windows"].values()), "F closed")
     sb.settle(0.6)
@@ -3821,6 +3827,27 @@ def stage_previews_are_live(sb):
     rx, ry, rw, rh = previews["A"]
     a = pixel(sb, shots / "b0.png", rx + rw // 2, ry + rh // 2)
     eq(a[0] > 150 and a[1] < 80 and a[2] < 80, True, "A's preview shows A: %r" % (a,))
+
+
+@test(config={"WindowRuleList": ["float, title:^Shot$"]})
+def floating_windows_stay_in_front_of_tiled_ones(sb):
+    """A floating window (a small dialog, say) would otherwise sink behind a
+    tiled window as soon as that has the focus, hidden behind it."""
+    def stacking():
+        return sb.kwin_js("Workspace.stackingOrder.filter(w => w.caption !== 'HyprKwin overlay')"
+                          ".map(w => w.caption).join(',')").split(",")
+    sb.spawn("A")
+    sb.spawn("B")
+    sb.spawn("Shot")
+    sb.invoke("focusLeft")                      # a tiled window takes the focus
+    s = sb.state()
+    focused = s["windows"][s["active"]]["caption"]
+    eq(focused in ("A", "B"), True, "a tiled window is focused: %r" % (focused,))
+    sb.settle(0.5)
+    order = stacking()
+    eq(order.index("Shot") > order.index("A") and order.index("Shot") > order.index("B"), True,
+       "in front of the tiled windows: %r" % (order,))
+    eq(sb.state()["windows"][s["active"]]["caption"], focused, "which keep the focus")
 
 
 @test(config={"DefaultLayout": 4, "WindowRuleList": ["float, title:^Shot$"]})
