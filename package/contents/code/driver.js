@@ -322,6 +322,7 @@ function createDriver(env) {
             if (s === focused || !cfg.perOutputWorkspaces || ss.length < 2) d = used[cur.id] ? null : cur;
             if (!d) d = defaultDesktopFor(s, used);
             if (!d) d = freeDesktop(used, s) || cur;
+            log("monitor", s.name, "shows workspace", d.name || d.id);
             shown[s.name] = d.id;
             used[d.id] = true;
         });
@@ -1186,6 +1187,7 @@ function createDriver(env) {
 
     function onOutputChanged(st) {
         var w = st.w;
+        log("output changed", w.caption, st.output, "->", w.output ? w.output.name : null, syncing ? "(syncing)" : "");
         if (syncing || w.move || w.resize || st.special) return;
         // A window dragged (or sent) to another monitor joins that monitor's
         // workspace — but one whose monitor was unplugged keeps its own, so
@@ -3634,7 +3636,13 @@ function createDriver(env) {
         });
         listen(ws.desktopsChanged, schedule);
         if (ws.stackingOrderChanged) listen(ws.stackingOrderChanged, scheduleDecorations);
-        listen(ws.screensChanged, schedule);
+        listen(ws.screensChanged, function () {
+            log("monitors now", screens().map(function (s) {
+                var g = s.geometry;
+                return s.name + " " + g.width + "x" + g.height + "+" + g.x + "+" + g.y;
+            }).join(", ") || "none");
+            schedule();
+        });
         listen(ws.currentActivityChanged, function () {
             activityChanged();
             focusAfterActivity();
